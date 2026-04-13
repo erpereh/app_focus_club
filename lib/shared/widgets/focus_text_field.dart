@@ -13,6 +13,8 @@ class FocusTextField extends StatefulWidget {
     this.validator,
     this.textInputAction,
     this.obscureText = false,
+    this.minLines,
+    this.maxLines = 1,
   });
 
   final String label;
@@ -23,6 +25,8 @@ class FocusTextField extends StatefulWidget {
   final FormFieldValidator<String>? validator;
   final TextInputAction? textInputAction;
   final bool obscureText;
+  final int? minLines;
+  final int maxLines;
 
   @override
   State<FocusTextField> createState() => _FocusTextFieldState();
@@ -39,6 +43,8 @@ class _FocusTextFieldState extends State<FocusTextField> {
       validator: widget.validator,
       textInputAction: widget.textInputAction,
       obscureText: _isObscured,
+      minLines: widget.obscureText ? 1 : widget.minLines,
+      maxLines: widget.obscureText ? 1 : widget.maxLines,
       style: const TextStyle(color: AppTheme.textPrimary),
       decoration: InputDecoration(
         labelText: widget.label,

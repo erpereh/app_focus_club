@@ -4,7 +4,7 @@ import '../features/auth/presentation/auth_screen.dart';
 import '../features/auth/presentation/complete_google_profile_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/splash_screen.dart';
-import '../features/home/presentation/home_placeholder_screen.dart';
+import '../features/client/presentation/client_shell_screen.dart';
 
 class AppRouter {
   const AppRouter._();
@@ -23,8 +23,8 @@ class AppRouter {
         auth => const AuthScreen(),
         resetPassword => const ResetPasswordScreen(),
         completeGoogleProfile => const CompleteGoogleProfileScreen(),
-        dashboard => const HomePlaceholderScreen(),
-        _ => const HomePlaceholderScreen(),
+        dashboard => const ClientShellScreen(),
+        _ => const ClientShellScreen(),
       },
     );
   }

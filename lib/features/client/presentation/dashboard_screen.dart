@@ -1,0 +1,244 @@
+import 'package:flutter/material.dart';
+
+import '../../../shared/widgets/focus_buttons.dart';
+import '../../../shared/widgets/focus_empty_state.dart';
+import '../../../shared/widgets/focus_glass_card.dart';
+import '../../../shared/widgets/focus_section_header.dart';
+import '../../../shared/widgets/focus_status_message.dart';
+import '../../../theme/app_theme.dart';
+import '../data/mock_client_data.dart';
+import '../widgets/client_cards.dart';
+import 'appointment_detail_screen.dart';
+import 'booking_screen.dart';
+
+class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({
+    required this.onOpenAppointments,
+    required this.onOpenProfile,
+    super.key,
+  });
+
+  final VoidCallback onOpenAppointments;
+  final VoidCallback onOpenProfile;
+
+  void _openBooking(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const BookingScreen()));
+  }
+
+  void _openDetail(BuildContext context, Appointment appointment) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AppointmentDetailScreen(appointment: appointment),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = MockClientData.profile;
+    final pass = MockClientData.activePass;
+    final appointments = MockClientData.upcomingAppointments;
+    final nextAppointment = appointments.firstOrNull;
+
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        children: [
+          _DashboardHeader(profile: profile, onOpenProfile: onOpenProfile),
+          const SizedBox(height: 22),
+          FocusPrimaryButton(
+            label: 'Reservar Sesion',
+            onPressed: pass.canBook ? () => _openBooking(context) : null,
+          ),
+          if (!pass.canBook) ...[
+            const SizedBox(height: 14),
+            const FocusStatusMessage(
+              message: 'No tienes minutos disponibles para reservar ahora.',
+              type: FocusStatusType.warning,
+            ),
+          ],
+          const SizedBox(height: 20),
+          ClientPassCard(pass: pass),
+          const SizedBox(height: 16),
+          _NextAppointmentCard(
+            appointment: nextAppointment,
+            onTap: nextAppointment == null
+                ? null
+                : () => _openDetail(context, nextAppointment),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: const [
+              Expanded(
+                child: ClientMetricCard(
+                  icon: Icons.fitness_center_rounded,
+                  value: '5',
+                  label: 'Sesiones realizadas',
+                  detail: 'Este bono activo',
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: ClientMetricCard(
+                  icon: Icons.pending_actions_rounded,
+                  value: '2',
+                  label: 'Citas activas',
+                  detail: '1 aprobada - 1 pendiente',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          FocusSectionHeader(
+            title: 'Mis Citas',
+            actionLabel: 'Ver todas',
+            onAction: onOpenAppointments,
+          ),
+          const SizedBox(height: 10),
+          if (appointments.isEmpty)
+            const FocusEmptyState(
+              title: 'Sin citas activas',
+              description: 'Tus citas pendientes o aprobadas apareceran aqui.',
+              icon: Icons.event_busy_rounded,
+            )
+          else
+            ...appointments.map(
+              (appointment) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ClientAppointmentCard(
+                  appointment: appointment,
+                  onTap: () => _openDetail(context, appointment),
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          FocusSectionHeader(
+            title: 'Historial',
+            actionLabel: 'Abrir citas',
+            onAction: onOpenAppointments,
+          ),
+          const SizedBox(height: 10),
+          ...MockClientData.historyAppointments
+              .take(1)
+              .map(
+                (appointment) => ClientAppointmentCard(
+                  appointment: appointment,
+                  onTap: () => _openDetail(context, appointment),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardHeader extends StatelessWidget {
+  const _DashboardHeader({required this.profile, required this.onOpenProfile});
+
+  final ClientProfile profile;
+  final VoidCallback onOpenProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onOpenProfile,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppTheme.emerald.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.emerald.withValues(alpha: 0.45),
+              ),
+            ),
+            child: SizedBox(
+              width: 58,
+              height: 58,
+              child: Center(
+                child: Text(
+                  profile.initials,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppTheme.emerald,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const FocusKicker('Focus Club Vallecas'),
+              const SizedBox(height: 5),
+              Text(
+                profile.name,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                profile.email,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: 'Salir',
+          onPressed: () => Navigator.of(context).pushReplacementNamed('/auth'),
+          icon: const Icon(Icons.logout_rounded),
+        ),
+      ],
+    );
+  }
+}
+
+class _NextAppointmentCard extends StatelessWidget {
+  const _NextAppointmentCard({required this.appointment, required this.onTap});
+
+  final Appointment? appointment;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (appointment == null) {
+      return const FocusEmptyState(
+        title: 'Sin citas proximas',
+        description:
+            'Cuando tengas una cita aprobada o pendiente, la veras aqui.',
+        icon: Icons.event_available_rounded,
+      );
+    }
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: FocusGlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const FocusKicker('Proxima cita'),
+            const SizedBox(height: 8),
+            Text(
+              appointment!.dateLabel,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${appointment!.timeLabel} - ${appointment!.durationMinutes} min',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: AppTheme.textPrimary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

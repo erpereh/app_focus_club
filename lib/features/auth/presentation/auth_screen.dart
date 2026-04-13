@@ -260,11 +260,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _submitLogin() {
     if (!_loginFormKey.currentState!.validate()) return;
-    setState(() {
-      _statusType = FocusStatusType.warning;
-      _statusMessage =
-          'Email pendiente de verificacion. Revisa tu bandeja antes de entrar.';
-    });
+    Navigator.of(context).pushReplacementNamed(AppRouter.dashboard);
   }
 
   void _submitRegister() {
