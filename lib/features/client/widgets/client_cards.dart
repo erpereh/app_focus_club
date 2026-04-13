@@ -20,7 +20,7 @@ class ClientAppointmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
       child: FocusGlassCard(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -142,7 +142,7 @@ class ClientPassCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             child: LinearProgressIndicator(
               value: pass.progress,
               minHeight: 9,

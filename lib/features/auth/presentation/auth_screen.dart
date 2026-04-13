@@ -336,8 +336,8 @@ class _AuthModeTabs extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.input,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.78)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(4),
@@ -381,7 +381,9 @@ class _AuthModeButton extends StatelessWidget {
           foregroundColor: isSelected
               ? AppTheme.background
               : AppTheme.textPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          ),
         ),
         child: Text(label),
       ),

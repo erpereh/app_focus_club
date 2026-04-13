@@ -17,13 +17,13 @@ class FocusGlassCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.surfaceGlass,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.86)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 32,
-            offset: const Offset(0, 18),
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 28,
+            offset: const Offset(0, 16),
           ),
         ],
       ),

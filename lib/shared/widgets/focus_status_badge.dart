@@ -29,11 +29,11 @@ class FocusStatusBadge extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
+        border: Border.all(color: color.withValues(alpha: 0.34)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(

@@ -153,16 +153,16 @@ class _DashboardHeader extends StatelessWidget {
     return Row(
       children: [
         InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(22),
           onTap: onOpenProfile,
           child: Tooltip(
             message: 'Abrir perfil',
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppTheme.emerald.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.emerald.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: AppTheme.emerald.withValues(alpha: 0.45),
+                  color: AppTheme.emerald.withValues(alpha: 0.32),
                 ),
               ),
               child: SizedBox(
@@ -296,7 +296,7 @@ class _NextAppointmentCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
       child: FocusGlassCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

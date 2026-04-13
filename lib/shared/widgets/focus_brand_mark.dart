@@ -13,7 +13,7 @@ class FocusBrandMark extends StatelessWidget {
       width: 58,
       height: 58,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -21,9 +21,9 @@ class FocusBrandMark extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.emerald.withValues(alpha: 0.24),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppTheme.emerald.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),

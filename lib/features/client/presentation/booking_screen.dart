@@ -207,20 +207,19 @@ class _SlotChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppTheme.radiusInput),
       child: Opacity(
         opacity: slot.isEnabled ? 1 : 0.52,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.emerald.withValues(alpha: 0.18)
+                ? AppTheme.emerald.withValues(alpha: 0.13)
                 : AppTheme.input,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTheme.radiusInput),
             border: Border.all(
               color: isSelected
                   ? AppTheme.emerald
-                  : color.withValues(alpha: 0.5),
-              width: isSelected ? 1.5 : 1,
+                  : color.withValues(alpha: 0.36),
             ),
           ),
           child: Padding(
@@ -293,16 +292,15 @@ class _BookingCalendar extends StatelessWidget {
 
             return InkWell(
               onTap: () => onSelected(date),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppTheme.emerald.withValues(alpha: 0.18)
+                      ? AppTheme.emerald.withValues(alpha: 0.13)
                       : AppTheme.input,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusInput),
                   border: Border.all(
                     color: isSelected ? AppTheme.emerald : AppTheme.border,
-                    width: isSelected ? 1.5 : 1,
                   ),
                 ),
                 child: Padding(

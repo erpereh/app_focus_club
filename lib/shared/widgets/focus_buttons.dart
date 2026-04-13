@@ -22,10 +22,17 @@ class FocusPrimaryButton extends StatelessWidget {
       opacity: isDisabled ? 0.58 : 1,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
           gradient: const LinearGradient(
             colors: [AppTheme.emerald, AppTheme.emeraldDark],
           ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.emerald.withValues(alpha: 0.18),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: SizedBox(
           width: double.infinity,
@@ -76,8 +83,13 @@ class FocusGhostButton extends StatelessWidget {
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
-          side: const BorderSide(color: AppTheme.borderStrong),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: AppTheme.input.withValues(alpha: 0.46),
+          side: BorderSide(
+            color: AppTheme.borderStrong.withValues(alpha: 0.72),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          ),
         ),
       ),
     );
@@ -98,8 +110,13 @@ class FocusGoogleButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
-          side: const BorderSide(color: AppTheme.borderStrong),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: AppTheme.input.withValues(alpha: 0.42),
+          side: BorderSide(
+            color: AppTheme.borderStrong.withValues(alpha: 0.72),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          ),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -122,7 +139,7 @@ class _GoogleGlyph extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.textPrimary,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
       ),
       child: const SizedBox(
         width: 22,

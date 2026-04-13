@@ -34,11 +34,11 @@ class FocusStatusMessage extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

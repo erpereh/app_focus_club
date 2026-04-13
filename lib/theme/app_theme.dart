@@ -3,19 +3,24 @@ import 'package:flutter/material.dart';
 class AppTheme {
   const AppTheme._();
 
-  static const Color background = Color(0xFF050807);
-  static const Color surface = Color(0xFF101614);
-  static const Color surfaceElevated = Color(0xFF17211E);
-  static const Color surfaceGlass = Color(0xCC121A17);
-  static const Color input = Color(0xFF0B100E);
-  static const Color emerald = Color(0xFF24D18F);
-  static const Color emeraldDark = Color(0xFF0D8F63);
-  static const Color amber = Color(0xFFF2B84B);
-  static const Color danger = Color(0xFFFF6B6B);
-  static const Color textPrimary = Color(0xFFF4FBF7);
-  static const Color textSecondary = Color(0xFF9AA8A2);
-  static const Color border = Color(0xFF26332F);
-  static const Color borderStrong = Color(0xFF375247);
+  static const double radiusCard = 24;
+  static const double radiusControl = 999;
+  static const double radiusInput = 22;
+  static const double radiusBadge = 999;
+
+  static const Color background = Color(0xFF030605);
+  static const Color surface = Color(0xFF0A0F0D);
+  static const Color surfaceElevated = Color(0xFF111816);
+  static const Color surfaceGlass = Color(0xE60C1311);
+  static const Color input = Color(0xFF0E1512);
+  static const Color emerald = Color(0xFF4ADE80);
+  static const Color emeraldDark = Color(0xFF22A769);
+  static const Color amber = Color(0xFFEAB85F);
+  static const Color danger = Color(0xFFF87171);
+  static const Color textPrimary = Color(0xFFF2F8F4);
+  static const Color textSecondary = Color(0xFFA4B0AA);
+  static const Color border = Color(0xFF1F2A26);
+  static const Color borderStrong = Color(0xFF2F4039);
 
   static ThemeData get dark {
     final colorScheme = ColorScheme.fromSeed(
@@ -36,15 +41,15 @@ class AppTheme {
         error: danger,
       ),
       appBarTheme: const AppBarThemeData(
-        backgroundColor: background,
+        backgroundColor: Colors.transparent,
         foregroundColor: textPrimary,
         elevation: 0,
         centerTitle: false,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        indicatorColor: emerald.withValues(alpha: 0.16),
+        indicatorColor: emerald.withValues(alpha: 0.14),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final isSelected = states.contains(WidgetState.selected);
           return TextStyle(
@@ -65,7 +70,9 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: textPrimary,
           side: const BorderSide(color: borderStrong),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusControl),
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -75,22 +82,26 @@ class AppTheme {
           fontWeight: FontWeight.w700,
         ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusInput),
+        ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: input,
-        selectedColor: emerald.withValues(alpha: 0.18),
+        selectedColor: emerald.withValues(alpha: 0.14),
         disabledColor: surface,
         labelStyle: const TextStyle(color: textPrimary),
         secondaryLabelStyle: const TextStyle(color: emerald),
         side: const BorderSide(color: border),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusControl),
+        ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return emerald.withValues(alpha: 0.18);
+              return emerald.withValues(alpha: 0.12);
             }
             return input;
           }),
@@ -108,7 +119,9 @@ class AppTheme {
             const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
           ),
           shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(radiusControl),
+            ),
           ),
         ),
       ),
@@ -117,7 +130,7 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(radiusCard),
           side: const BorderSide(color: border),
         ),
       ),
@@ -126,7 +139,9 @@ class AppTheme {
           backgroundColor: emerald,
           foregroundColor: background,
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusControl),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
@@ -143,28 +158,28 @@ class AppTheme {
         hintStyle: const TextStyle(color: textSecondary),
         errorStyle: const TextStyle(color: danger),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
+          horizontal: 18,
           vertical: 16,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(radiusInput),
           borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(radiusInput),
           borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: emerald, width: 1.4),
+          borderRadius: BorderRadius.circular(radiusInput),
+          borderSide: BorderSide(color: emerald.withValues(alpha: 0.82)),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(radiusInput),
           borderSide: const BorderSide(color: danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: danger, width: 1.4),
+          borderRadius: BorderRadius.circular(radiusInput),
+          borderSide: const BorderSide(color: danger),
         ),
       ),
       textTheme: const TextTheme(
