@@ -78,16 +78,16 @@ class _FloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surface.withValues(alpha: 0.94),
+        color: AppTheme.background.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
-          color: AppTheme.borderStrong.withValues(alpha: 0.48),
+          color: AppTheme.borderStrong.withValues(alpha: 0.42),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
+            color: Colors.black.withValues(alpha: 0.46),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -150,12 +150,12 @@ class _FloatingNavItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.emerald.withValues(alpha: 0.15)
+                ? AppTheme.emerald.withValues(alpha: 0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.emerald.withValues(alpha: 0.38)
+                  ? AppTheme.emerald.withValues(alpha: 0.3)
                   : Colors.transparent,
             ),
           ),
@@ -165,14 +165,14 @@ class _FloatingNavItem extends StatelessWidget {
               Icon(
                 isSelected ? selectedIcon : icon,
                 color: isSelected ? AppTheme.emerald : AppTheme.textSecondary,
-                size: 21,
+                size: isSelected ? 21 : 20,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: isSelected ? AppTheme.emerald : AppTheme.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ],

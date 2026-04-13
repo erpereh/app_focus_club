@@ -13,12 +13,12 @@ class AppTheme {
   static const Color surfaceElevated = Color(0xFF121A17);
   static const Color surfaceGlass = Color(0xEB0D1512);
   static const Color input = Color(0xFF0B110F);
-  static const Color emerald = Color(0xFF42D37C);
-  static const Color emeraldDark = Color(0xFF1F9E62);
+  static const Color emerald = Color(0xFF3CC877);
+  static const Color emeraldDark = Color(0xFF1C8E59);
   static const Color amber = Color(0xFFEAB85F);
   static const Color danger = Color(0xFFF87171);
   static const Color textPrimary = Color(0xFFF5FAF6);
-  static const Color textSecondary = Color(0xFF9EAAA4);
+  static const Color textSecondary = Color(0xFFA8B4AE);
   static const Color border = Color(0xFF18221E);
   static const Color borderStrong = Color(0xFF30443B);
 
@@ -90,7 +90,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: input,
-        selectedColor: emerald.withValues(alpha: 0.16),
+        selectedColor: emerald.withValues(alpha: 0.13),
         disabledColor: surface,
         labelStyle: const TextStyle(color: textPrimary),
         secondaryLabelStyle: const TextStyle(color: emerald),
@@ -103,7 +103,7 @@ class AppTheme {
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return emerald.withValues(alpha: 0.15);
+              return emerald.withValues(alpha: 0.13);
             }
             return input;
           }),
@@ -116,7 +116,9 @@ class AppTheme {
                 ? emerald
                 : border;
             return BorderSide(
-              color: color,
+              color: states.contains(WidgetState.selected)
+                  ? color.withValues(alpha: 0.68)
+                  : color,
               width: states.contains(WidgetState.selected) ? 1.2 : 1,
             );
           }),
@@ -161,6 +163,8 @@ class AppTheme {
         fillColor: input,
         labelStyle: const TextStyle(color: textSecondary),
         hintStyle: const TextStyle(color: textSecondary),
+        prefixIconColor: textSecondary,
+        suffixIconColor: textSecondary,
         errorStyle: const TextStyle(color: danger),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,

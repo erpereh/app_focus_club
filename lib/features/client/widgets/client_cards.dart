@@ -83,16 +83,20 @@ class ClientMetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated.withValues(alpha: 0.7),
+        color: AppTheme.surfaceElevated.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border.withValues(alpha: 0.82)),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.64)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: AppTheme.emerald, size: 22),
+            Icon(
+              icon,
+              color: AppTheme.textSecondary.withValues(alpha: 0.92),
+              size: 22,
+            ),
             const SizedBox(height: 12),
             const FocusKicker('Resumen'),
             const SizedBox(height: 6),

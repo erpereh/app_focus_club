@@ -42,12 +42,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
         children: [
           Text('Mi Perfil', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             'Actualiza tus datos de cliente.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 26),
           FocusGlassCard(
             child: Form(
               key: _formKey,

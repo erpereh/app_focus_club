@@ -28,9 +28,9 @@ class FocusPrimaryButton extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.emerald.withValues(alpha: 0.22),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: AppTheme.emerald.withValues(alpha: 0.15),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.2),
