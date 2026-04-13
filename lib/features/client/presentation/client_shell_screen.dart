@@ -32,7 +32,7 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 104),
+                padding: const EdgeInsets.only(bottom: 112),
                 child: IndexedStack(
                   index: _selectedIndex,
                   children: [
@@ -48,9 +48,9 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
             ),
           ),
           Positioned(
-            left: 20,
-            right: 20,
-            bottom: 18,
+            left: 22,
+            right: 22,
+            bottom: 20,
             child: SafeArea(
               top: false,
               child: _FloatingNavBar(
@@ -78,21 +78,21 @@ class _FloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.96),
+        color: AppTheme.background.withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
-          color: AppTheme.borderStrong.withValues(alpha: 0.42),
+          color: AppTheme.borderStrong.withValues(alpha: 0.34),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.46),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: 0.42),
+            blurRadius: 22,
+            offset: const Offset(0, 11),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
         child: Row(
           children: [
             _FloatingNavItem(
@@ -147,15 +147,15 @@ class _FloatingNavItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.emerald.withValues(alpha: 0.1)
+                ? AppTheme.surfaceElevated.withValues(alpha: 0.78)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.emerald.withValues(alpha: 0.3)
+                  ? AppTheme.emerald.withValues(alpha: 0.22)
                   : Colors.transparent,
             ),
           ),
@@ -165,7 +165,7 @@ class _FloatingNavItem extends StatelessWidget {
               Icon(
                 isSelected ? selectedIcon : icon,
                 color: isSelected ? AppTheme.emerald : AppTheme.textSecondary,
-                size: isSelected ? 21 : 20,
+                size: 20,
               ),
               const SizedBox(height: 4),
               Text(

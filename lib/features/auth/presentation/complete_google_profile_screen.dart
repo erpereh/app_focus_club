@@ -41,19 +41,19 @@ class _CompleteGoogleProfileScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Align(child: FocusBrandMark(icon: Icons.person_rounded)),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               Text(
                 'Completa tu Perfil',
                 textAlign: TextAlign.center,
                 style: textTheme.headlineMedium,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 'Necesitamos algunos datos mas',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 26),
               FocusTextField(
                 label: 'Nombre',
                 icon: Icons.person_outline_rounded,
@@ -63,7 +63,7 @@ class _CompleteGoogleProfileScreenState
                     ? 'Introduce tu nombre.'
                     : null,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               FocusTextField(
                 label: 'Telefono',
                 icon: Icons.phone_outlined,
@@ -72,12 +72,12 @@ class _CompleteGoogleProfileScreenState
                 textInputAction: TextInputAction.done,
                 validator: _validateSpanishPhone,
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
               FocusPrimaryButton(
                 label: 'Guardar y Continuar',
                 onPressed: _submit,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               FocusGhostButton(
                 label: 'Volver',
                 onPressed: () => Navigator.of(context).pop(),

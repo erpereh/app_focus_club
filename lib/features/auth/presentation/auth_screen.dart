@@ -5,6 +5,7 @@ import '../../../shared/widgets/focus_auth_scaffold.dart';
 import '../../../shared/widgets/focus_brand_mark.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
+import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
@@ -70,7 +71,7 @@ class _AuthScreenState extends State<AuthScreen> {
               textAlign: TextAlign.center,
               style: textTheme.bodyMedium,
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             _AuthModeTabs(
               mode: _mode,
               onChanged: (mode) {
@@ -87,7 +88,7 @@ class _AuthScreenState extends State<AuthScreen> {
               child: isLogin ? _buildLoginForm() : _buildRegisterForm(),
             ),
             if (_statusMessage != null && _statusType != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               FocusStatusMessage(
                 message: _statusMessage!,
                 type: _statusType!,
@@ -99,7 +100,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     : null,
               ),
             ],
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
             _DividerLabel(label: 'o'),
             const SizedBox(height: 18),
             FocusGoogleButton(
@@ -108,12 +109,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   context,
                 ).pushNamed(AppRouter.completeGoogleProfile);
               },
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(context).pushReplacementNamed(AppRouter.splash),
-              child: const Text('Volver al inicio'),
             ),
           ],
         ),
@@ -136,7 +131,7 @@ class _AuthScreenState extends State<AuthScreen> {
             textInputAction: TextInputAction.next,
             validator: _validateEmail,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           FocusTextField(
             label: 'Contrasena',
             icon: Icons.lock_outline_rounded,
@@ -154,7 +149,7 @@ class _AuthScreenState extends State<AuthScreen> {
               child: const Text('Has olvidado tu contrasena?'),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           FocusPrimaryButton(label: 'Entrar', onPressed: _submitLogin),
         ],
       ),
@@ -176,7 +171,7 @@ class _AuthScreenState extends State<AuthScreen> {
             validator: (value) =>
                 _required(value, 'Introduce tu nombre completo.'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           FocusTextField(
             label: 'Email',
             icon: Icons.mail_outline_rounded,
@@ -185,7 +180,7 @@ class _AuthScreenState extends State<AuthScreen> {
             textInputAction: TextInputAction.next,
             validator: _validateEmail,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           FocusTextField(
             label: 'Telefono',
             icon: Icons.phone_outlined,
@@ -194,7 +189,7 @@ class _AuthScreenState extends State<AuthScreen> {
             textInputAction: TextInputAction.next,
             validator: _validateSpanishPhone,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           FocusTextField(
             label: 'Contrasena',
             icon: Icons.lock_outline_rounded,
@@ -203,7 +198,7 @@ class _AuthScreenState extends State<AuthScreen> {
             textInputAction: TextInputAction.next,
             validator: _validateStrongPassword,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           FocusTextField(
             label: 'Confirmar contrasena',
             icon: Icons.lock_reset_rounded,
@@ -212,7 +207,7 @@ class _AuthScreenState extends State<AuthScreen> {
             textInputAction: TextInputAction.done,
             validator: _validatePasswordConfirmation,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           FormField<bool>(
             validator: (_) => _privacyAccepted
                 ? null
@@ -251,7 +246,7 @@ class _AuthScreenState extends State<AuthScreen> {
               );
             },
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           FocusPrimaryButton(label: 'Crear Cuenta', onPressed: _submitRegister),
         ],
       ),
@@ -333,60 +328,13 @@ class _AuthModeTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.input,
-        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-        border: Border.all(color: AppTheme.border.withValues(alpha: 0.78)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: [
-            _AuthModeButton(
-              label: 'Iniciar Sesion',
-              isSelected: mode == _AuthMode.login,
-              onPressed: () => onChanged(_AuthMode.login),
-            ),
-            _AuthModeButton(
-              label: 'Registrarse',
-              isSelected: mode == _AuthMode.register,
-              onPressed: () => onChanged(_AuthMode.register),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthModeButton extends StatelessWidget {
-  const _AuthModeButton({
-    required this.label,
-    required this.isSelected,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          backgroundColor: isSelected ? AppTheme.emerald : Colors.transparent,
-          foregroundColor: isSelected
-              ? AppTheme.background
-              : AppTheme.textPrimary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          ),
-        ),
-        child: Text(label),
-      ),
+    return FocusSegmentedControl<_AuthMode>(
+      options: const [
+        FocusSegmentOption(value: _AuthMode.login, label: 'Iniciar Sesion'),
+        FocusSegmentOption(value: _AuthMode.register, label: 'Registrarse'),
+      ],
+      selectedValue: mode,
+      onChanged: onChanged,
     );
   }
 }

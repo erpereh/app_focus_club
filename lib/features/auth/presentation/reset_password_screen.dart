@@ -39,19 +39,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Align(child: FocusBrandMark(icon: Icons.key_rounded)),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               Text(
                 'Recuperar Contrasena',
                 textAlign: TextAlign.center,
                 style: textTheme.headlineMedium,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 'Introduce tu email y te enviaremos un enlace de recuperacion.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 26),
               FocusTextField(
                 label: 'Email',
                 icon: Icons.mail_outline_rounded,
@@ -61,15 +61,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 validator: _validateEmail,
               ),
               if (_successMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 FocusStatusMessage(
                   message: _successMessage!,
                   type: FocusStatusType.success,
                 ),
               ],
-              const SizedBox(height: 18),
+              const SizedBox(height: 22),
               FocusPrimaryButton(label: 'Enviar enlace', onPressed: _submit),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               FocusGhostButton(
                 label: 'Volver al inicio de sesion',
                 onPressed: () {

@@ -39,15 +39,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 36),
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 42),
         children: [
           Text('Mi Perfil', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             'Actualiza tus datos de cliente.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 30),
           FocusGlassCard(
             child: Form(
               key: _formKey,
@@ -72,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           }
                         : null,
                   ),
-                  const SizedBox(height: 26),
+                  const SizedBox(height: 28),
                   FocusTextField(
                     label: 'Nombre visible',
                     icon: Icons.person_outline_rounded,
@@ -82,7 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : null,
                     textInputAction: TextInputAction.next,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   FocusTextField(
                     label: 'Telefono',
                     icon: Icons.phone_outlined,
@@ -92,7 +92,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     textInputAction: TextInputAction.next,
                   ),
                   if (MockClientData.profile.usesPasswordProvider) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
                     FocusTextField(
                       label: 'Nueva contrasena',
                       icon: Icons.lock_outline_rounded,
@@ -103,13 +103,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                   if (_statusMessage != null) ...[
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 20),
                     FocusStatusMessage(
                       message: _statusMessage!,
                       type: FocusStatusType.success,
                     ),
                   ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
                   FocusPrimaryButton(
                     label: 'Guardar cambios',
                     onPressed: _saveProfile,
@@ -208,9 +208,9 @@ class _AvatarEditor extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         FocusSectionHeader(title: 'Avatar'),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         FocusGhostButton(
           label: hasAvatar ? 'Cambiar foto' : 'Subir foto',
           icon: Icons.photo_camera_outlined,

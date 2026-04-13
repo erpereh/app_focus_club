@@ -11,16 +11,16 @@ class AppTheme {
   static const Color background = Color(0xFF020403);
   static const Color surface = Color(0xFF080D0B);
   static const Color surfaceElevated = Color(0xFF121A17);
-  static const Color surfaceGlass = Color(0xEB0D1512);
-  static const Color input = Color(0xFF0B110F);
-  static const Color emerald = Color(0xFF3CC877);
-  static const Color emeraldDark = Color(0xFF1C8E59);
+  static const Color surfaceGlass = Color(0xED0C1411);
+  static const Color input = Color(0xFF0D1411);
+  static const Color emerald = Color(0xFF35BD70);
+  static const Color emeraldDark = Color(0xFF1C8353);
   static const Color amber = Color(0xFFEAB85F);
   static const Color danger = Color(0xFFF87171);
   static const Color textPrimary = Color(0xFFF5FAF6);
-  static const Color textSecondary = Color(0xFFA8B4AE);
-  static const Color border = Color(0xFF18221E);
-  static const Color borderStrong = Color(0xFF30443B);
+  static const Color textSecondary = Color(0xFFB1BBB6);
+  static const Color border = Color(0xFF17211D);
+  static const Color borderStrong = Color(0xFF2A3B34);
 
   static ThemeData get dark {
     final colorScheme = ColorScheme.fromSeed(
@@ -168,7 +168,7 @@ class AppTheme {
         errorStyle: const TextStyle(color: danger),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
-          vertical: 16,
+          vertical: 17,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),

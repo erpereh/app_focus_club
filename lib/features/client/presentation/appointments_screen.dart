@@ -43,7 +43,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -51,17 +51,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   'Citas',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   'Consulta tus solicitudes activas e historial.',
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 26),
                 FocusPrimaryButton(
                   label: 'Reservar Sesion',
                   onPressed: _openBooking,
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
                 FocusSegmentedControl(
                   options: const [
                     FocusSegmentOption(value: 0, label: 'Proximas'),
@@ -75,12 +75,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 42),
               children: [
                 FocusSectionHeader(
                   title: _tabIndex == 0 ? 'Proximas' : 'Historial de citas',
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 if (appointments.isEmpty)
                   FocusEmptyState(
                     title: _tabIndex == 0
@@ -94,7 +94,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 else
                   ...appointments.map(
                     (appointment) => Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.only(bottom: 16),
                       child: ClientAppointmentCard(
                         appointment: appointment,
                         onTap: () => _openDetail(appointment),
@@ -102,9 +102,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     ),
                   ),
                 if (_tabIndex == 1) ...[
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
                   const FocusSectionHeader(title: 'Historial de bonos'),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   if (MockClientData.passHistory.isEmpty)
                     const FocusEmptyState(
                       title: 'Sin historial de bonos',
@@ -114,7 +114,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   else
                     ...MockClientData.passHistory.map(
                       (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.only(bottom: 16),
                         child: PassHistoryCard(item: item),
                       ),
                     ),

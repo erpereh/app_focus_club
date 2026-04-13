@@ -16,6 +16,7 @@ class AppointmentDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalle de la Cita'),
+        titleSpacing: 0,
         leading: IconButton(
           tooltip: 'Volver a mis citas',
           onPressed: () => Navigator.of(context).pop(),
@@ -24,7 +25,7 @@ class AppointmentDetailScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
           children: [
             FocusGlassCard(
               child: Column(
@@ -42,7 +43,7 @@ class AppointmentDetailScreen extends StatelessWidget {
                       FocusStatusBadge.appointment(appointment.status),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Text(
                     _statusDescription(appointment.status),
                     style: Theme.of(context).textTheme.bodyLarge,
@@ -50,17 +51,17 @@ class AppointmentDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _DetailGrid(appointment: appointment),
             if (appointment.status == AppointmentStatus.approved &&
                 appointment.assignedTrainer != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               FocusGlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const FocusKicker('Cita confirmada'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     _DetailLine(
                       label: 'Fecha',
                       value:
@@ -87,13 +88,13 @@ class AppointmentDetailScreen extends StatelessWidget {
               ),
             ],
             if (appointment.reason != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               FocusGlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const FocusKicker('Tu comentario'),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Text(
                       appointment.reason!,
                       style: Theme.of(context).textTheme.bodyLarge,
@@ -102,7 +103,7 @@ class AppointmentDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             FocusGlassCard(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -146,7 +147,7 @@ class _DetailGrid extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const FocusKicker('Franja propuesta'),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _DetailLine(label: 'Servicio', value: appointment.serviceType),
           _DetailLine(
             label: 'Duracion',
@@ -169,7 +170,7 @@ class _DetailLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -182,7 +183,7 @@ class _DetailLine extends StatelessWidget {
               value,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),

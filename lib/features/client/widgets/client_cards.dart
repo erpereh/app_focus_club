@@ -83,23 +83,19 @@ class ClientMetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated.withValues(alpha: 0.58),
+        color: AppTheme.surfaceElevated.withValues(alpha: 0.46),
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border.withValues(alpha: 0.64)),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              color: AppTheme.textSecondary.withValues(alpha: 0.92),
-              size: 22,
-            ),
-            const SizedBox(height: 12),
+            Icon(icon, color: AppTheme.textSecondary, size: 21),
+            const SizedBox(height: 14),
             const FocusKicker('Resumen'),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(value, style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 4),
             Text(label, style: Theme.of(context).textTheme.titleSmall),
@@ -144,14 +140,14 @@ class ClientPassCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Text(pass.name, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           Text(
             '${pass.remainingMinutes} min disponibles',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             child: LinearProgressIndicator(

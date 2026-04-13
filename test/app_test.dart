@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('renders splash and moves to auth', (tester) async {
+    _setTestViewport(tester);
     await tester.pumpWidget(const FocusClubApp());
 
     expect(find.text('Focus Club'), findsOneWidget);
@@ -66,6 +67,7 @@ void main() {
   ) async {
     await _pumpAuth(tester);
 
+    await tester.ensureVisible(find.text('Continuar con Google'));
     await tester.tap(find.text('Continuar con Google'));
     await tester.pumpAndSettle();
 
@@ -104,6 +106,9 @@ void main() {
 
     await tester.tap(find.text('Citas').last);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.text('Lunes, 20 abr - 09:30 - 10:15 - 45 min'),
+    );
     await tester.tap(find.text('Lunes, 20 abr - 09:30 - 10:15 - 45 min'));
     await tester.pumpAndSettle();
 
@@ -121,9 +126,13 @@ void main() {
 
     expect(find.text('Reservar Sesion'), findsOneWidget);
     expect(find.text('Abril 2026'), findsOneWidget);
+    await tester.ensureVisible(find.text('18:00'));
     await tester.tap(find.text('18:00'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Enviar Solicitud'));
     await tester.tap(find.text('Enviar Solicitud'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, 600));
     await tester.pumpAndSettle();
 
     expect(
@@ -137,6 +146,7 @@ void main() {
   ) async {
     await _pumpDashboard(tester);
 
+    await tester.scrollUntilVisible(find.text('Historial Citas'), 400);
     expect(find.text('Historial Citas'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Historial Bonos'), 400);
@@ -161,9 +171,17 @@ void main() {
 }
 
 Future<void> _pumpAuth(WidgetTester tester) async {
+  _setTestViewport(tester);
   await tester.pumpWidget(const FocusClubApp());
   await tester.pump(const Duration(milliseconds: 950));
   await tester.pumpAndSettle();
+}
+
+void _setTestViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 1000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
 }
 
 Future<void> _pumpDashboard(WidgetTester tester) async {

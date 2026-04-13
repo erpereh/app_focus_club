@@ -45,7 +45,7 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
           children: [
             if (_sent) ...[
               const FocusStatusMessage(
@@ -53,7 +53,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     'Solicitud Enviada. Revisaremos la franja y te avisaremos.',
                 type: FocusStatusType.success,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
             ],
             _StepCard(
               title: 'Duracion',
@@ -64,7 +64,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     '${MockClientData.activePass.remainingMinutes} minutos disponibles en tu bono.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -85,7 +85,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _StepCard(
               title: 'Fecha',
               child: _BookingCalendar(
@@ -96,14 +96,14 @@ class _BookingScreenState extends State<BookingScreen> {
                 }),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _StepCard(
               title: 'Franja horaria',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _SlotLegend(),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -119,7 +119,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     }).toList(),
                   ),
                   if (_selectedSlot != null) ...[
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     Text(
                       'Elegida: $_selectedDate a las ${_selectedSlot!.timeLabel}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -131,7 +131,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _StepCard(
               title: 'Comentario opcional',
               child: FocusTextField(
@@ -143,14 +143,14 @@ class _BookingScreenState extends State<BookingScreen> {
                 maxLines: 5,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
             FocusPrimaryButton(
               label: 'Enviar Solicitud',
               onPressed: _selectedSlot == null
                   ? null
                   : () => setState(() => _sent = true),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             FocusGhostButton(
               label: 'Cancelar',
               onPressed: () => Navigator.of(context).pop(),
@@ -176,7 +176,7 @@ class _StepCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           FocusSectionHeader(title: title),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           child,
         ],
       ),
@@ -213,27 +213,27 @@ class _SlotChip extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.emerald.withValues(alpha: 0.16)
+                ? AppTheme.surfaceElevated.withValues(alpha: 0.94)
                 : AppTheme.input,
             borderRadius: BorderRadius.circular(AppTheme.radiusInput),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.emerald
-                  : color.withValues(alpha: 0.36),
+                  ? AppTheme.emerald.withValues(alpha: 0.34)
+                  : color.withValues(alpha: 0.32),
               width: isSelected ? 1.2 : 1,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppTheme.emerald.withValues(alpha: 0.14),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
                     ),
                   ]
                 : null,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -247,7 +247,7 @@ class _SlotChip extends StatelessWidget {
                 Text(
                   isSelected ? 'Elegida' : slot.stateLabel,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isSelected ? AppTheme.emerald : color,
+                    color: isSelected ? AppTheme.textPrimary : color,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -278,14 +278,14 @@ class _BookingCalendar extends StatelessWidget {
           children: [
             const Icon(
               Icons.calendar_month_outlined,
-              color: AppTheme.emerald,
+              color: AppTheme.textSecondary,
               size: 20,
             ),
             const SizedBox(width: 8),
             Text('Abril 2026', style: Theme.of(context).textTheme.titleSmall),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         GridView.count(
           crossAxisCount: 3,
           shrinkWrap: true,
@@ -306,17 +306,19 @@ class _BookingCalendar extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppTheme.emerald.withValues(alpha: 0.16)
+                      ? AppTheme.surfaceElevated.withValues(alpha: 0.94)
                       : AppTheme.input,
                   borderRadius: BorderRadius.circular(AppTheme.radiusInput),
                   border: Border.all(
-                    color: isSelected ? AppTheme.emerald : AppTheme.border,
+                    color: isSelected
+                        ? AppTheme.emerald.withValues(alpha: 0.34)
+                        : AppTheme.border,
                     width: isSelected ? 1.2 : 1,
                   ),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: AppTheme.emerald.withValues(alpha: 0.12),
+                            color: Colors.black.withValues(alpha: 0.22),
                             blurRadius: 12,
                             offset: const Offset(0, 5),
                           ),
@@ -336,7 +338,7 @@ class _BookingCalendar extends StatelessWidget {
                         weekday,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: isSelected
-                              ? AppTheme.emerald
+                              ? AppTheme.textPrimary
                               : AppTheme.textSecondary,
                           fontWeight: FontWeight.w800,
                         ),

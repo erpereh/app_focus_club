@@ -28,14 +28,14 @@ class FocusPrimaryButton extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.emerald.withValues(alpha: 0.15),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+              color: AppTheme.emerald.withValues(alpha: 0.1),
+              blurRadius: 14,
+              offset: const Offset(0, 7),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -115,10 +115,8 @@ class FocusGoogleButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.54),
-          side: BorderSide(
-            color: AppTheme.borderStrong.withValues(alpha: 0.58),
-          ),
+          backgroundColor: AppTheme.input.withValues(alpha: 0.72),
+          side: BorderSide(color: AppTheme.borderStrong.withValues(alpha: 0.5)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
           ),

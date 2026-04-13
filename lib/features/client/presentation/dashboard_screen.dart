@@ -52,34 +52,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 42),
         children: [
           _DashboardHeader(
             profile: profile,
             onOpenProfile: widget.onOpenProfile,
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: 28),
           FocusPrimaryButton(
             label: 'Reservar Sesion',
             onPressed: pass.canBook ? () => _openBooking(context) : null,
           ),
           if (!pass.canBook) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             const FocusStatusMessage(
               message: 'No tienes minutos disponibles para reservar ahora.',
               type: FocusStatusType.warning,
             ),
           ],
-          const SizedBox(height: 28),
+          const SizedBox(height: 30),
           ClientPassCard(pass: pass),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           _NextAppointmentCard(
             appointment: nextAppointment,
             onTap: nextAppointment == null
                 ? null
                 : () => _openDetail(context, nextAppointment),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           Row(
             children: const [
               Expanded(
@@ -101,13 +101,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 32),
           FocusSectionHeader(
             title: 'Mis Citas',
             actionLabel: 'Ver todas',
             onAction: widget.onOpenAppointments,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           if (appointments.isEmpty)
             const FocusEmptyState(
               title: 'Sin citas activas',
@@ -117,20 +117,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           else
             ...appointments.map(
               (appointment) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: ClientAppointmentCard(
                   appointment: appointment,
                   onTap: () => _openDetail(context, appointment),
                 ),
               ),
             ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           FocusSectionHeader(
             title: 'Historial',
             actionLabel: 'Abrir citas',
             onAction: widget.onOpenAppointments,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _HistoryPreview(
             tabIndex: _historyTabIndex,
             onTabChanged: (index) => setState(() => _historyTabIndex = index),
@@ -245,7 +245,7 @@ class _HistoryPreview extends StatelessWidget {
           selectedValue: tabIndex,
           onChanged: onTabChanged,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         if (tabIndex == 0)
           if (appointments.isEmpty)
             const FocusEmptyState(
@@ -258,7 +258,7 @@ class _HistoryPreview extends StatelessWidget {
                 .take(2)
                 .map(
                   (appointment) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.only(bottom: 16),
                     child: ClientAppointmentCard(
                       appointment: appointment,
                       onTap: () => onOpenAppointment(appointment),
@@ -276,7 +276,7 @@ class _HistoryPreview extends StatelessWidget {
               .take(2)
               .map(
                 (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: PassHistoryCard(item: item),
                 ),
               ),
@@ -310,12 +310,12 @@ class _NextAppointmentCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const FocusKicker('Proxima cita'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 9),
             Text(
               appointment!.dateLabel,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               '${appointment!.timeLabel} - ${appointment!.durationMinutes} min',
               style: Theme.of(
