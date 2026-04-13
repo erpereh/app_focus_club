@@ -172,15 +172,20 @@ class _AvatarEditor extends StatelessWidget {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            color: hasAvatar
-                ? AppTheme.emerald.withValues(alpha: 0.12)
-                : AppTheme.input,
+            color: hasAvatar ? AppTheme.surfaceElevated : AppTheme.input,
             borderRadius: BorderRadius.circular(AppTheme.radiusCard),
             border: Border.all(
               color: hasAvatar
-                  ? AppTheme.emerald.withValues(alpha: 0.32)
+                  ? AppTheme.emerald.withValues(alpha: 0.34)
                   : AppTheme.border,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.24),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: SizedBox(
             width: 92,

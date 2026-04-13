@@ -213,14 +213,24 @@ class _SlotChip extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.emerald.withValues(alpha: 0.13)
+                ? AppTheme.emerald.withValues(alpha: 0.16)
                 : AppTheme.input,
             borderRadius: BorderRadius.circular(AppTheme.radiusInput),
             border: Border.all(
               color: isSelected
                   ? AppTheme.emerald
                   : color.withValues(alpha: 0.36),
+              width: isSelected ? 1.2 : 1,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.emerald.withValues(alpha: 0.14),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -296,12 +306,22 @@ class _BookingCalendar extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppTheme.emerald.withValues(alpha: 0.13)
+                      ? AppTheme.emerald.withValues(alpha: 0.16)
                       : AppTheme.input,
                   borderRadius: BorderRadius.circular(AppTheme.radiusInput),
                   border: Border.all(
                     color: isSelected ? AppTheme.emerald : AppTheme.border,
+                    width: isSelected ? 1.2 : 1,
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.emerald.withValues(alpha: 0.12),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(

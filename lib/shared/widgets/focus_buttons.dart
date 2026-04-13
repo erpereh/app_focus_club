@@ -28,9 +28,14 @@ class FocusPrimaryButton extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.emerald.withValues(alpha: 0.18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+              color: AppTheme.emerald.withValues(alpha: 0.22),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -83,9 +88,9 @@ class FocusGhostButton extends StatelessWidget {
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.input.withValues(alpha: 0.46),
+          backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.58),
           side: BorderSide(
-            color: AppTheme.borderStrong.withValues(alpha: 0.72),
+            color: AppTheme.borderStrong.withValues(alpha: 0.58),
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
@@ -110,9 +115,9 @@ class FocusGoogleButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.input.withValues(alpha: 0.42),
+          backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.54),
           side: BorderSide(
-            color: AppTheme.borderStrong.withValues(alpha: 0.72),
+            color: AppTheme.borderStrong.withValues(alpha: 0.58),
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),

@@ -8,19 +8,19 @@ class AppTheme {
   static const double radiusInput = 22;
   static const double radiusBadge = 999;
 
-  static const Color background = Color(0xFF030605);
-  static const Color surface = Color(0xFF0A0F0D);
-  static const Color surfaceElevated = Color(0xFF111816);
-  static const Color surfaceGlass = Color(0xE60C1311);
-  static const Color input = Color(0xFF0E1512);
-  static const Color emerald = Color(0xFF4ADE80);
-  static const Color emeraldDark = Color(0xFF22A769);
+  static const Color background = Color(0xFF020403);
+  static const Color surface = Color(0xFF080D0B);
+  static const Color surfaceElevated = Color(0xFF121A17);
+  static const Color surfaceGlass = Color(0xEB0D1512);
+  static const Color input = Color(0xFF0B110F);
+  static const Color emerald = Color(0xFF42D37C);
+  static const Color emeraldDark = Color(0xFF1F9E62);
   static const Color amber = Color(0xFFEAB85F);
   static const Color danger = Color(0xFFF87171);
-  static const Color textPrimary = Color(0xFFF2F8F4);
-  static const Color textSecondary = Color(0xFFA4B0AA);
-  static const Color border = Color(0xFF1F2A26);
-  static const Color borderStrong = Color(0xFF2F4039);
+  static const Color textPrimary = Color(0xFFF5FAF6);
+  static const Color textSecondary = Color(0xFF9EAAA4);
+  static const Color border = Color(0xFF18221E);
+  static const Color borderStrong = Color(0xFF30443B);
 
   static ThemeData get dark {
     final colorScheme = ColorScheme.fromSeed(
@@ -37,6 +37,8 @@ class AppTheme {
         primary: emerald,
         secondary: emerald,
         surface: surface,
+        surfaceContainer: surfaceElevated,
+        surfaceContainerHigh: surfaceGlass,
         onSurface: textPrimary,
         error: danger,
       ),
@@ -88,7 +90,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: input,
-        selectedColor: emerald.withValues(alpha: 0.14),
+        selectedColor: emerald.withValues(alpha: 0.16),
         disabledColor: surface,
         labelStyle: const TextStyle(color: textPrimary),
         secondaryLabelStyle: const TextStyle(color: emerald),
@@ -101,7 +103,7 @@ class AppTheme {
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return emerald.withValues(alpha: 0.12);
+              return emerald.withValues(alpha: 0.15);
             }
             return input;
           }),
@@ -113,7 +115,10 @@ class AppTheme {
             final color = states.contains(WidgetState.selected)
                 ? emerald
                 : border;
-            return BorderSide(color: color);
+            return BorderSide(
+              color: color,
+              width: states.contains(WidgetState.selected) ? 1.2 : 1,
+            );
           }),
           textStyle: WidgetStateProperty.all(
             const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),

@@ -159,11 +159,18 @@ class _DashboardHeader extends StatelessWidget {
             message: 'Abrir perfil',
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppTheme.emerald.withValues(alpha: 0.12),
+                color: AppTheme.surfaceElevated,
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: AppTheme.emerald.withValues(alpha: 0.32),
+                  color: AppTheme.emerald.withValues(alpha: 0.34),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.emerald.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: SizedBox(
                 width: 58,

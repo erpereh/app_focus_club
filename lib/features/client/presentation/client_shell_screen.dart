@@ -78,14 +78,16 @@ class _FloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceGlass,
+        color: AppTheme.surface.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppTheme.border.withValues(alpha: 0.74)),
+        border: Border.all(
+          color: AppTheme.borderStrong.withValues(alpha: 0.48),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.42),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -148,9 +150,14 @@ class _FloatingNavItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.emerald.withValues(alpha: 0.14)
+                ? AppTheme.emerald.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+            border: Border.all(
+              color: isSelected
+                  ? AppTheme.emerald.withValues(alpha: 0.38)
+                  : Colors.transparent,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

@@ -81,21 +81,28 @@ class ClientMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FocusGlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppTheme.emerald, size: 22),
-          const SizedBox(height: 12),
-          const FocusKicker('Resumen'),
-          const SizedBox(height: 6),
-          Text(value, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 4),
-          Text(label, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(detail, style: Theme.of(context).textTheme.bodyMedium),
-        ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.82)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppTheme.emerald, size: 22),
+            const SizedBox(height: 12),
+            const FocusKicker('Resumen'),
+            const SizedBox(height: 6),
+            Text(value, style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 4),
+            Text(label, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(detail, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
       ),
     );
   }
