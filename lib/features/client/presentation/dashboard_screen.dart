@@ -4,6 +4,7 @@ import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
+import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
 import '../data/mock_client_data.dart';
@@ -51,34 +52,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
         children: [
           _DashboardHeader(
             profile: profile,
             onOpenProfile: widget.onOpenProfile,
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 26),
           FocusPrimaryButton(
             label: 'Reservar Sesion',
             onPressed: pass.canBook ? () => _openBooking(context) : null,
           ),
           if (!pass.canBook) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             const FocusStatusMessage(
               message: 'No tienes minutos disponibles para reservar ahora.',
               type: FocusStatusType.warning,
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
           ClientPassCard(pass: pass),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _NextAppointmentCard(
             appointment: nextAppointment,
             onTap: nextAppointment == null
                 ? null
                 : () => _openDetail(context, nextAppointment),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Row(
             children: const [
               Expanded(
@@ -100,13 +101,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           FocusSectionHeader(
             title: 'Mis Citas',
             actionLabel: 'Ver todas',
             onAction: widget.onOpenAppointments,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           if (appointments.isEmpty)
             const FocusEmptyState(
               title: 'Sin citas activas',
@@ -116,20 +117,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           else
             ...appointments.map(
               (appointment) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 14),
                 child: ClientAppointmentCard(
                   appointment: appointment,
                   onTap: () => _openDetail(context, appointment),
                 ),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           FocusSectionHeader(
             title: 'Historial',
             actionLabel: 'Abrir citas',
             onAction: widget.onOpenAppointments,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           _HistoryPreview(
             tabIndex: _historyTabIndex,
             onTabChanged: (index) => setState(() => _historyTabIndex = index),
@@ -236,15 +237,15 @@ class _HistoryPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SegmentedButton<int>(
-          segments: const [
-            ButtonSegment(value: 0, label: Text('Historial Citas')),
-            ButtonSegment(value: 1, label: Text('Historial Bonos')),
+        FocusSegmentedControl(
+          options: const [
+            FocusSegmentOption(value: 0, label: 'Historial Citas'),
+            FocusSegmentOption(value: 1, label: 'Historial Bonos'),
           ],
-          selected: {tabIndex},
-          onSelectionChanged: (value) => onTabChanged(value.first),
+          selectedValue: tabIndex,
+          onChanged: onTabChanged,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (tabIndex == 0)
           if (appointments.isEmpty)
             const FocusEmptyState(
@@ -257,7 +258,7 @@ class _HistoryPreview extends StatelessWidget {
                 .take(2)
                 .map(
                   (appointment) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 14),
                     child: ClientAppointmentCard(
                       appointment: appointment,
                       onTap: () => onOpenAppointment(appointment),
@@ -275,7 +276,7 @@ class _HistoryPreview extends StatelessWidget {
               .take(2)
               .map(
                 (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 14),
                   child: PassHistoryCard(item: item),
                 ),
               ),

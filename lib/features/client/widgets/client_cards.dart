@@ -88,7 +88,7 @@ class ClientMetricCard extends StatelessWidget {
         border: Border.all(color: AppTheme.border.withValues(alpha: 0.64)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -32,7 +32,7 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 92),
+                padding: const EdgeInsets.only(bottom: 104),
                 child: IndexedStack(
                   index: _selectedIndex,
                   children: [
@@ -48,9 +48,9 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
             ),
           ),
           Positioned(
-            left: 18,
-            right: 18,
-            bottom: 14,
+            left: 20,
+            right: 20,
+            bottom: 18,
             child: SafeArea(
               top: false,
               child: _FloatingNavBar(
@@ -92,7 +92,7 @@ class _FloatingNavBar extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Row(
           children: [
             _FloatingNavItem(
