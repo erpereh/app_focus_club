@@ -17,12 +17,12 @@ class HomePlaceholderScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _StatusPill(label: 'Base Flutter lista'),
+              const _StatusPill(label: 'Siguiente tanda'),
               const SizedBox(height: 28),
-              Text('Portal movil de clientes', style: textTheme.headlineMedium),
+              Text('Dashboard en preparacion', style: textTheme.headlineMedium),
               const SizedBox(height: 12),
               Text(
-                'Una base limpia para construir login, dashboard, bonos y citas pantalla por pantalla.',
+                'El acceso ya queda preparado para continuar con Inicio, Citas y Perfil.',
                 style: textTheme.bodyLarge,
               ),
               const SizedBox(height: 28),
@@ -87,7 +87,7 @@ class _ReadinessPanel extends StatelessWidget {
             Text('Siguiente paso', style: textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
-              'Construir la primera pantalla real manteniendo esta base sin Firebase ni logica de negocio.',
+              'Construir la navegacion inferior y las pantallas principales con datos mock.',
               style: textTheme.bodyMedium,
             ),
           ],

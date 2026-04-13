@@ -12,7 +12,7 @@ class FocusClubApp extends StatelessWidget {
       title: 'Focus Club',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      initialRoute: AppRouter.home,
+      initialRoute: AppRouter.splash,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }
