@@ -11,7 +11,7 @@ import '../widgets/client_cards.dart';
 import 'appointment_detail_screen.dart';
 import 'booking_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.onOpenAppointments,
     required this.onOpenProfile,
@@ -20,6 +20,13 @@ class DashboardScreen extends StatelessWidget {
 
   final VoidCallback onOpenAppointments;
   final VoidCallback onOpenProfile;
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int _historyTabIndex = 0;
 
   void _openBooking(BuildContext context) {
     Navigator.of(
@@ -46,7 +53,10 @@ class DashboardScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
         children: [
-          _DashboardHeader(profile: profile, onOpenProfile: onOpenProfile),
+          _DashboardHeader(
+            profile: profile,
+            onOpenProfile: widget.onOpenProfile,
+          ),
           const SizedBox(height: 22),
           FocusPrimaryButton(
             label: 'Reservar Sesion',
@@ -94,7 +104,7 @@ class DashboardScreen extends StatelessWidget {
           FocusSectionHeader(
             title: 'Mis Citas',
             actionLabel: 'Ver todas',
-            onAction: onOpenAppointments,
+            onAction: widget.onOpenAppointments,
           ),
           const SizedBox(height: 10),
           if (appointments.isEmpty)
@@ -117,17 +127,15 @@ class DashboardScreen extends StatelessWidget {
           FocusSectionHeader(
             title: 'Historial',
             actionLabel: 'Abrir citas',
-            onAction: onOpenAppointments,
+            onAction: widget.onOpenAppointments,
           ),
           const SizedBox(height: 10),
-          ...MockClientData.historyAppointments
-              .take(1)
-              .map(
-                (appointment) => ClientAppointmentCard(
-                  appointment: appointment,
-                  onTap: () => _openDetail(context, appointment),
-                ),
-              ),
+          _HistoryPreview(
+            tabIndex: _historyTabIndex,
+            onTabChanged: (index) => setState(() => _historyTabIndex = index),
+            onOpenAppointment: (appointment) =>
+                _openDetail(context, appointment),
+          ),
         ],
       ),
     );
@@ -147,23 +155,26 @@ class _DashboardHeader extends StatelessWidget {
         InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onOpenProfile,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppTheme.emerald.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppTheme.emerald.withValues(alpha: 0.45),
+          child: Tooltip(
+            message: 'Abrir perfil',
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.emerald.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppTheme.emerald.withValues(alpha: 0.45),
+                ),
               ),
-            ),
-            child: SizedBox(
-              width: 58,
-              height: 58,
-              child: Center(
-                child: Text(
-                  profile.initials,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.emerald,
-                    fontWeight: FontWeight.w900,
+              child: SizedBox(
+                width: 58,
+                height: 58,
+                child: Center(
+                  child: Text(
+                    profile.initials,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppTheme.emerald,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
@@ -194,6 +205,73 @@ class _DashboardHeader extends StatelessWidget {
           onPressed: () => Navigator.of(context).pushReplacementNamed('/auth'),
           icon: const Icon(Icons.logout_rounded),
         ),
+      ],
+    );
+  }
+}
+
+class _HistoryPreview extends StatelessWidget {
+  const _HistoryPreview({
+    required this.tabIndex,
+    required this.onTabChanged,
+    required this.onOpenAppointment,
+  });
+
+  final int tabIndex;
+  final ValueChanged<int> onTabChanged;
+  final ValueChanged<Appointment> onOpenAppointment;
+
+  @override
+  Widget build(BuildContext context) {
+    final appointments = MockClientData.historyAppointments;
+    final passes = MockClientData.passHistory;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<int>(
+          segments: const [
+            ButtonSegment(value: 0, label: Text('Historial Citas')),
+            ButtonSegment(value: 1, label: Text('Historial Bonos')),
+          ],
+          selected: {tabIndex},
+          onSelectionChanged: (value) => onTabChanged(value.first),
+        ),
+        const SizedBox(height: 12),
+        if (tabIndex == 0)
+          if (appointments.isEmpty)
+            const FocusEmptyState(
+              title: 'Sin historial de citas',
+              description: 'Las citas anteriores apareceran aqui.',
+              icon: Icons.history_rounded,
+            )
+          else
+            ...appointments
+                .take(2)
+                .map(
+                  (appointment) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: ClientAppointmentCard(
+                      appointment: appointment,
+                      onTap: () => onOpenAppointment(appointment),
+                    ),
+                  ),
+                )
+        else if (passes.isEmpty)
+          const FocusEmptyState(
+            title: 'Sin historial de bonos',
+            description: 'Tus bonos no activos apareceran aqui.',
+            icon: Icons.local_activity_outlined,
+          )
+        else
+          ...passes
+              .take(2)
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: PassHistoryCard(item: item),
+                ),
+              ),
       ],
     );
   }

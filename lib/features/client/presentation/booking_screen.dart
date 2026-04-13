@@ -88,19 +88,12 @@ class _BookingScreenState extends State<BookingScreen> {
             const SizedBox(height: 16),
             _StepCard(
               title: 'Fecha',
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: MockClientData.bookingDates.map((date) {
-                  return ChoiceChip(
-                    label: Text(date),
-                    selected: _selectedDate == date,
-                    onSelected: (_) => setState(() {
-                      _selectedDate = date;
-                      _selectedSlot = null;
-                    }),
-                  );
-                }).toList(),
+              child: _BookingCalendar(
+                selectedDate: _selectedDate,
+                onSelected: (date) => setState(() {
+                  _selectedDate = date;
+                  _selectedSlot = null;
+                }),
               ),
             ),
             const SizedBox(height: 16),
@@ -254,6 +247,95 @@ class _SlotChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BookingCalendar extends StatelessWidget {
+  const _BookingCalendar({
+    required this.selectedDate,
+    required this.onSelected,
+  });
+
+  final String selectedDate;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.calendar_month_outlined,
+              color: AppTheme.emerald,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text('Abril 2026', style: Theme.of(context).textTheme.titleSmall),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.48,
+          children: MockClientData.bookingDates.map((date) {
+            final parts = date.split(' ');
+            final weekday = parts.first;
+            final day = parts.length > 1 ? parts[1] : date;
+            final month = parts.length > 2 ? parts[2] : '';
+            final isSelected = selectedDate == date;
+
+            return InkWell(
+              onTap: () => onSelected(date),
+              borderRadius: BorderRadius.circular(8),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.emerald.withValues(alpha: 0.18)
+                      : AppTheme.input,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? AppTheme.emerald : AppTheme.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        weekday,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: isSelected
+                              ? AppTheme.emerald
+                              : AppTheme.textSecondary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '$day $month',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

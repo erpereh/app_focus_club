@@ -120,6 +120,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Reservar Sesion'), findsOneWidget);
+    expect(find.text('Abril 2026'), findsOneWidget);
     await tester.tap(find.text('18:00'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Enviar Solicitud'));
@@ -129,6 +130,21 @@ void main() {
       find.text('Solicitud Enviada. Revisaremos la franja y te avisaremos.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('dashboard switches between appointment and pass history', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester);
+
+    expect(find.text('Historial Citas'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Historial Bonos'), 400);
+    await tester.tap(find.text('Historial Bonos'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bono Marzo'), findsOneWidget);
+    expect(find.text('Bono Febrero'), findsOneWidget);
   });
 
   testWidgets('profile saves visual changes', (tester) async {

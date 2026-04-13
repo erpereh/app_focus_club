@@ -125,7 +125,12 @@ class ClientPassCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              const FocusStatusBadge(label: 'Activo', color: AppTheme.emerald),
+              FocusStatusBadge(
+                label: pass.statusLabel,
+                color: pass.statusLabel == 'Activo'
+                    ? AppTheme.emerald
+                    : AppTheme.amber,
+              ),
             ],
           ),
           const SizedBox(height: 16),
