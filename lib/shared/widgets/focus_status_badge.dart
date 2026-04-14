@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../features/client/data/mock_client_data.dart';
+import '../../features/client/domain/portal_models.dart';
+import '../../features/client/widgets/appointment_display.dart';
 import '../../theme/app_theme.dart';
 
 class FocusStatusBadge extends StatelessWidget {
@@ -8,16 +9,8 @@ class FocusStatusBadge extends StatelessWidget {
 
   factory FocusStatusBadge.appointment(AppointmentStatus status) {
     return FocusStatusBadge(
-      label: switch (status) {
-        AppointmentStatus.pending => 'Pendiente',
-        AppointmentStatus.approved => 'Aprobada',
-        AppointmentStatus.rejected => 'Rechazada',
-      },
-      color: switch (status) {
-        AppointmentStatus.pending => AppTheme.amber,
-        AppointmentStatus.approved => AppTheme.emerald,
-        AppointmentStatus.rejected => AppTheme.danger,
-      },
+      label: appointmentStatusLabel(status),
+      color: appointmentStatusColor(status),
     );
   }
 

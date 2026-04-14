@@ -4,16 +4,42 @@ import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_badge.dart';
 import '../../../theme/app_theme.dart';
-import '../data/mock_client_data.dart';
+import '../data/mock_client_data.dart' as mock;
+import '../domain/portal_models.dart' as portal;
+import 'appointment_display.dart';
 
 class ClientAppointmentCard extends StatelessWidget {
-  const ClientAppointmentCard({
-    required this.appointment,
+  ClientAppointmentCard({
+    required mock.Appointment appointment,
     required this.onTap,
     super.key,
-  });
+  }) : serviceType = appointment.serviceType,
+       statusLabel = _mockAppointmentStatusLabel(appointment.status),
+       statusColor = _mockAppointmentStatusColor(appointment.status),
+       dateLabel = appointment.dateLabel,
+       timeLabel = appointment.timeLabel,
+       durationMinutes = appointment.durationMinutes,
+       assignedTrainer = appointment.assignedTrainer;
 
-  final Appointment appointment;
+  ClientAppointmentCard.real({
+    required portal.Appointment appointment,
+    required this.onTap,
+    super.key,
+  }) : serviceType = appointment.serviceType,
+       statusLabel = appointmentStatusLabel(appointment.status),
+       statusColor = appointmentStatusColor(appointment.status),
+       dateLabel = appointment.dateLabel,
+       timeLabel = appointment.timeLabel,
+       durationMinutes = appointment.durationMinutes,
+       assignedTrainer = appointment.assignedTrainer;
+
+  final String serviceType;
+  final String statusLabel;
+  final Color statusColor;
+  final String dateLabel;
+  final String timeLabel;
+  final int durationMinutes;
+  final String? assignedTrainer;
   final VoidCallback onTap;
 
   @override
@@ -36,26 +62,25 @@ class ClientAppointmentCard extends StatelessWidget {
                       const FocusKicker('Cita'),
                       const SizedBox(height: 6),
                       Text(
-                        appointment.serviceType,
+                        serviceType,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                     ],
                   ),
                 ),
-                FocusStatusBadge.appointment(appointment.status),
+                FocusStatusBadge(label: statusLabel, color: statusColor),
               ],
             ),
             const SizedBox(height: 14),
             _InfoLine(
               icon: Icons.schedule_rounded,
-              text:
-                  '${appointment.dateLabel} - ${appointment.timeLabel} - ${appointment.durationMinutes} min',
+              text: '$dateLabel - $timeLabel - $durationMinutes min',
             ),
-            if (appointment.assignedTrainer != null) ...[
+            if (assignedTrainer != null) ...[
               const SizedBox(height: 8),
               _InfoLine(
                 icon: Icons.person_outline_rounded,
-                text: appointment.assignedTrainer!,
+                text: assignedTrainer!,
               ),
             ],
           ],
@@ -111,7 +136,7 @@ class ClientMetricCard extends StatelessWidget {
 class ClientPassCard extends StatelessWidget {
   const ClientPassCard({required this.pass, super.key});
 
-  final ClientPass pass;
+  final mock.ClientPass pass;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +196,7 @@ class ClientPassCard extends StatelessWidget {
 class PassHistoryCard extends StatelessWidget {
   const PassHistoryCard({required this.item, super.key});
 
-  final PassHistoryItem item;
+  final mock.PassHistoryItem item;
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +231,22 @@ class PassHistoryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _mockAppointmentStatusLabel(mock.AppointmentStatus status) {
+  return switch (status) {
+    mock.AppointmentStatus.pending => 'Pendiente',
+    mock.AppointmentStatus.approved => 'Aprobada',
+    mock.AppointmentStatus.rejected => 'Rechazada',
+  };
+}
+
+Color _mockAppointmentStatusColor(mock.AppointmentStatus status) {
+  return switch (status) {
+    mock.AppointmentStatus.pending => AppTheme.amber,
+    mock.AppointmentStatus.approved => AppTheme.emerald,
+    mock.AppointmentStatus.rejected => AppTheme.danger,
+  };
 }
 
 class _InfoLine extends StatelessWidget {

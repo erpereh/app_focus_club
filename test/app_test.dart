@@ -1,5 +1,7 @@
 import 'package:app_focus_club/app/app.dart';
 import 'package:app_focus_club/features/auth/data/auth_repository.dart';
+import 'package:app_focus_club/features/client/data/portal_repository.dart';
+import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,7 +9,10 @@ void main() {
   testWidgets('renders splash and moves to auth', (tester) async {
     _setTestViewport(tester);
     await tester.pumpWidget(
-      FocusClubApp(authRepository: _FakeAuthRepository()),
+      FocusClubApp(
+        authRepository: _FakeAuthRepository(),
+        portalRepository: _fakePortalRepository(),
+      ),
     );
 
     expect(find.text('Focus Club'), findsOneWidget);
@@ -214,10 +219,50 @@ Future<void> _pumpAuth(
 }) async {
   _setTestViewport(tester);
   await tester.pumpWidget(
-    FocusClubApp(authRepository: authRepository ?? _FakeAuthRepository()),
+    FocusClubApp(
+      authRepository: authRepository ?? _FakeAuthRepository(),
+      portalRepository: _fakePortalRepository(),
+    ),
   );
   await tester.pump(const Duration(milliseconds: 950));
   await tester.pumpAndSettle();
+}
+
+PortalRepository _fakePortalRepository() {
+  return FakePortalRepository(
+    appointments: const [
+      Appointment(
+        id: 'FC-1042',
+        userId: 'test-user',
+        name: 'Laura Perez',
+        email: 'cliente@email.com',
+        phone: '+34612345678',
+        serviceType: 'Bono Mensual de Entrenamiento',
+        durationMinutes: 60,
+        preferredSlots: [TimeSlot(date: '2026-04-17', time: '18:00')],
+        reason: 'Trabajo de fuerza y movilidad de cadera.',
+        status: AppointmentStatus.approved,
+        createdAt: '2026-04-10T10:00:00.000Z',
+        approvedSlot: TimeSlot(date: '2026-04-17', time: '18:00'),
+        assignedTrainer: 'Marta Sanchez',
+        sessionType: 'Entrenamiento personal',
+        updatedAt: '2026-04-10T10:05:00.000Z',
+      ),
+      Appointment(
+        id: 'FC-1047',
+        userId: 'test-user',
+        name: 'Laura Perez',
+        email: 'cliente@email.com',
+        phone: '+34612345678',
+        serviceType: 'Bono Mensual de Entrenamiento',
+        durationMinutes: 45,
+        preferredSlots: [TimeSlot(date: '2026-04-20', time: '09:30')],
+        reason: 'Preferencia por trabajo de tren superior.',
+        status: AppointmentStatus.pending,
+        createdAt: '2026-04-12T10:00:00.000Z',
+      ),
+    ],
+  );
 }
 
 void _setTestViewport(WidgetTester tester) {
