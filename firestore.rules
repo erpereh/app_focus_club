@@ -1,0 +1,160 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read: if (isVerified() && request.auth.uid == uid) || isAdmin();
+      allow create: if createsOwnUserProfile(uid) || isAdmin();
+      allow update: if (isVerified() && request.auth.uid == uid && onlyOwnUserProfileFieldsChanged()) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      // Temporary compatibility path for the existing web/admin client.
+      // Remove this client create branch once web and mobile use requestAppointment.
+      allow create: if isAdmin() || (
+        isVerified()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && isValidUserAppointmentCreate()
+      );
+
+      allow read: if (isVerified() && resource.data.userId == request.auth.uid)
+        || isAdmin()
+        || isAssignedTrainer(resource);
+
+      allow update: if isAdmin()
+        || (isTrainer() && isAssignedTrainer(resource) && onlyTrainerNotesChanged());
+      allow delete: if isAdmin();
+    }
+
+    match /bonos/{bonoId} {
+      allow read: if (isVerified() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /trainers/{trainerId} {
+      allow read: if isVerified() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /blocked_slots/{slotId} {
+      allow read: if isVerified() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /slot_occupancy/{slotId} {
+      allow read: if isVerified() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /site_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /activity_logs/{logId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /media_folders/{folderId} {
+      allow read: if isVerified() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /media_files/{fileId} {
+      allow read: if isVerified() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /gallery_items/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /site_content/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /system_config/{docId} {
+      allow read: if isVerified() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow create: if isValidUserTestimonialCreate();
+      allow update, delete: if isAdmin();
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isTrainer() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer';
+    }
+
+    function isAssignedTrainer(appointmentResource) {
+      return isTrainer()
+        && appointmentResource.data.assignedTrainer is string
+        && isTrainerAssignedByUid(appointmentResource.data.assignedTrainer, request.auth.uid);
+    }
+
+    function isTrainerAssignedByUid(trainerId, uid) {
+      return exists(/databases/$(database)/documents/trainers/$(trainerId))
+        && get(/databases/$(database)/documents/trainers/$(trainerId)).data.uid == uid;
+    }
+
+    function onlyTrainerNotesChanged() {
+      let diff = request.resource.data.diff(resource.data);
+      return diff.affectedKeys().hasOnly(['trainerNotes']);
+    }
+
+    function createsOwnUserProfile(uid) {
+      return isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'user'
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'phone', 'role', 'isTrainer', 'photoURL', 'createdAt']);
+    }
+
+    function onlyOwnUserProfileFieldsChanged() {
+      let diff = request.resource.data.diff(resource.data);
+      return diff.affectedKeys().hasOnly(['name', 'phone', 'photoURL']);
+    }
+
+    function isValidUserAppointmentCreate() {
+      return request.resource.data.keys().hasOnly(['userId', 'name', 'email', 'phone', 'serviceType', 'duration', 'preferredSlots', 'reason', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['userId', 'name', 'email', 'phone', 'serviceType', 'duration', 'preferredSlots', 'reason', 'status', 'createdAt'])
+        && request.resource.data.duration in ['30', '45', '60']
+        && request.resource.data.preferredSlots is list
+        && request.resource.data.preferredSlots.size() == 1;
+    }
+
+    function isValidUserTestimonialCreate() {
+      return request.resource.data.keys().hasOnly(['name', 'role', 'content', 'rating', 'image', 'source', 'approved'])
+        && request.resource.data.keys().hasAll(['name', 'role', 'content', 'rating', 'approved'])
+        && request.resource.data.approved == false;
+    }
+  }
+}
