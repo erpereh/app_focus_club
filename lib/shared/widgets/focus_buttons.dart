@@ -102,17 +102,24 @@ class FocusGhostButton extends StatelessWidget {
 }
 
 class FocusGoogleButton extends StatelessWidget {
-  const FocusGoogleButton({required this.onPressed, super.key});
+  const FocusGoogleButton({
+    required this.onPressed,
+    super.key,
+    this.isLoading = false,
+  });
 
   final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    final isDisabled = onPressed == null || isLoading;
+
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: OutlinedButton(
-        onPressed: onPressed,
+        onPressed: isDisabled ? null : onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
           backgroundColor: AppTheme.input.withValues(alpha: 0.72),
@@ -121,14 +128,22 @@ class FocusGoogleButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
           ),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _GoogleGlyph(),
-            SizedBox(width: 10),
-            Text('Continuar con Google'),
-          ],
-        ),
+        child: isLoading
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.textPrimary,
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _GoogleGlyph(),
+                  SizedBox(width: 10),
+                  Text('Continuar con Google'),
+                ],
+              ),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../auth/application/auth_scope.dart';
+import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
@@ -26,6 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _passwordController = TextEditingController();
   bool _hasAvatar = MockClientData.profile.hasAvatar;
   String? _statusMessage;
+  bool _isSigningOut = false;
 
   @override
   void dispose() {
@@ -114,6 +117,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     label: 'Guardar cambios',
                     onPressed: _saveProfile,
                   ),
+                  const SizedBox(height: 12),
+                  FocusGhostButton(
+                    label: 'Cerrar sesion',
+                    icon: Icons.logout_rounded,
+                    onPressed: _isSigningOut ? null : _signOut,
+                  ),
                 ],
               ),
             ),
@@ -121,6 +130,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _signOut() async {
+    setState(() => _isSigningOut = true);
+    await AuthScope.of(context).signOut();
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
   }
 
   void _saveProfile() {

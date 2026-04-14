@@ -7,5 +7,5 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseBootstrap.initializeIfConfigured();
 
-  runApp(const FocusClubApp());
+  runApp(FocusClubApp());
 }

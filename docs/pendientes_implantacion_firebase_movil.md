@@ -10,6 +10,15 @@ Fecha: 2026-04-14
 - Regla de negocio de maximo un bono `activo` util por usuario en la capa de dominio.
 - Repositorio Firebase/Fake para lecturas del portal y callable `requestAppointment`.
 - Repositorios base para Auth y avatar Storage.
+- Auth real integrado en la app Flutter:
+  - Login email/password, registro email/password, reset password y logout usan Firebase Auth.
+  - Registro crea perfil minimo en `users/{uid}`, envia verificacion y cierra sesion.
+  - Login bloquea email no verificado y reenvia enlace de verificacion.
+  - Google Sign-In crea/carga perfil parcial y exige telefono antes de entrar al dashboard.
+  - Splash resuelve sesion persistida con Firebase Auth.
+- Google Sign-In nativo configurado:
+  - iOS `Info.plist` contiene `GIDClientID` y URL scheme de Google.
+  - Android tiene SHA1 debug registrada en Firebase (`F6:85:2E:7B:B2:19:58:7E:24:C0:71:3A:37:8E:CF:31:0B:4D:9E:85`) y `google-services.json` refrescado.
 - ViewModel base del portal cliente para sustituir progresivamente `MockClientData`.
 - Scaffold local de Firebase: `firebase.json`, `.firebaserc`, `firestore.rules`, `storage.rules`, `firestore.indexes.json`.
 - Apps Android/iOS registradas en `focus-club-f73b8` con FlutterFire CLI:
@@ -28,11 +37,13 @@ Fecha: 2026-04-14
 - Integracion Make.com. No se ha guardado el webhook como secreto y no se han hecho llamadas reales.
 - `requestAppointment` esta preparado como callable, pero la app todavia no lo invoca desde UI real.
 - La UI movil sigue usando `MockClientData` mientras se conecta el ViewModel a pantallas concretas.
+- Dashboard, citas, bonos, reserva, perfil visual y avatar siguen en modo mock salvo el perfil minimo usado por Auth/Google.
 - No se ha desplegado App Hosting, web, reglas, Functions ni datos a produccion.
 
 ## Pendiente por confirmar
 
-- Confirmar si iOS necesita esquemas URL nativos cuando se conecte el flujo real de Google Sign-In.
+- Confirmar en Firebase Console que los providers Email/Password y Google estan habilitados en Auth si aparece `operation-not-allowed`.
+- Registrar SHA de release/play signing en Firebase antes de probar Google Sign-In fuera de debug local.
 - Confirmar cuando endurecer reglas en produccion, porque la web/admin existente aun puede depender de creacion directa de `appointments`.
 - Confirmar payload exacto esperado por Make.com para `Reserva confirmada`.
 - Confirmar si el backend administrativo emitira `Reserva eliminada`; no pertenece a la app movil V1.
@@ -40,8 +51,8 @@ Fecha: 2026-04-14
 ## Pasos recomendados para Android/iOS
 
 1. Ejecutar `flutter analyze` y `flutter test` tras cada cambio relevante.
-2. Probar login/lecturas contra emulador antes de usar produccion.
-3. Revisar configuracion nativa adicional para Google Sign-In antes de activar el flujo real en iOS.
+2. Probar login, registro, reset, Google Sign-In y logout en emulador/dispositivo.
+3. Probar lecturas de dashboard contra emulador antes de sustituir `MockClientData`.
 
 ## Riesgos abiertos
 

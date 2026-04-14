@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1555015411-ql8g91nnjqs8l8ak4t92qdm0d51o5hn5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "es.focusclub.clientes.app_focus_club",
+            "certificate_hash": "f6852e7bb219587e24c0713a378ecf310b4d9e85"
+          }
+        },
+        {
           "client_id": "1555015411-lueeo8ds7tran7anbdqho8fldsjdi2v5.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../application/auth_scope.dart';
+import '../data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_auth_scaffold.dart';
 import '../../../shared/widgets/focus_brand_mark.dart';
@@ -34,6 +36,12 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _statusMessage;
   FocusStatusType? _statusType;
   bool _privacyAccepted = false;
+  bool _isLoginLoading = false;
+  bool _isRegisterLoading = false;
+  bool _isGoogleLoading = false;
+  bool _isResendingVerification = false;
+  String? _lastUnverifiedEmail;
+  String? _lastUnverifiedPassword;
 
   @override
   void dispose() {
@@ -104,11 +112,8 @@ class _AuthScreenState extends State<AuthScreen> {
             _DividerLabel(label: 'o'),
             const SizedBox(height: 18),
             FocusGoogleButton(
-              onPressed: () {
-                Navigator.of(
-                  context,
-                ).pushNamed(AppRouter.completeGoogleProfile);
-              },
+              isLoading: _isGoogleLoading,
+              onPressed: _isBusy ? null : _submitGoogle,
             ),
           ],
         ),
@@ -150,7 +155,11 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          FocusPrimaryButton(label: 'Entrar', onPressed: _submitLogin),
+          FocusPrimaryButton(
+            label: 'Entrar',
+            isLoading: _isLoginLoading,
+            onPressed: _isBusy ? null : _submitLogin,
+          ),
         ],
       ),
     );
@@ -247,31 +256,139 @@ class _AuthScreenState extends State<AuthScreen> {
             },
           ),
           const SizedBox(height: 18),
-          FocusPrimaryButton(label: 'Crear Cuenta', onPressed: _submitRegister),
+          FocusPrimaryButton(
+            label: 'Crear Cuenta',
+            isLoading: _isRegisterLoading,
+            onPressed: _isBusy ? null : _submitRegister,
+          ),
         ],
       ),
     );
   }
 
-  void _submitLogin() {
+  bool get _isBusy =>
+      _isLoginLoading ||
+      _isRegisterLoading ||
+      _isGoogleLoading ||
+      _isResendingVerification;
+
+  Future<void> _submitLogin() async {
     if (!_loginFormKey.currentState!.validate()) return;
-    Navigator.of(context).pushReplacementNamed(AppRouter.dashboard);
+    setState(() {
+      _isLoginLoading = true;
+      _statusMessage = null;
+      _statusType = null;
+    });
+
+    try {
+      await AuthScope.of(context).signInWithEmail(
+        email: _loginEmailController.text,
+        password: _loginPasswordController.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(AppRouter.dashboard);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusType = error is AuthFailure && error.code == 'email-not-verified'
+            ? FocusStatusType.warning
+            : FocusStatusType.error;
+        _statusMessage = authErrorMessage(error);
+        if (error is AuthFailure && error.code == 'email-not-verified') {
+          _lastUnverifiedEmail = _loginEmailController.text;
+          _lastUnverifiedPassword = _loginPasswordController.text;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _isLoginLoading = false);
+    }
   }
 
-  void _submitRegister() {
+  Future<void> _submitRegister() async {
     if (!_registerFormKey.currentState!.validate()) return;
     setState(() {
-      _statusType = FocusStatusType.success;
-      _statusMessage =
-          'Cuenta creada. Revisa tu email para completar la verificacion.';
+      _isRegisterLoading = true;
+      _statusMessage = null;
+      _statusType = null;
     });
+
+    try {
+      await AuthScope.of(context).registerWithEmail(
+        name: _nameController.text,
+        email: _registerEmailController.text,
+        phone: _phoneController.text,
+        password: _registerPasswordController.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _mode = _AuthMode.login;
+        _statusType = FocusStatusType.success;
+        _statusMessage =
+            'Cuenta creada. Revisa tu email para completar la verificacion.';
+        _loginEmailController.text = _registerEmailController.text.trim();
+        _registerPasswordController.clear();
+        _confirmPasswordController.clear();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusType = FocusStatusType.error;
+        _statusMessage = authErrorMessage(error);
+      });
+    } finally {
+      if (mounted) setState(() => _isRegisterLoading = false);
+    }
   }
 
-  void _showVerificationResent() {
+  Future<void> _submitGoogle() async {
     setState(() {
-      _statusType = FocusStatusType.success;
-      _statusMessage = 'Email de verificacion reenviado.';
+      _isGoogleLoading = true;
+      _statusMessage = null;
+      _statusType = null;
     });
+
+    try {
+      final result = await AuthScope.of(context).signInWithGoogle();
+      if (!mounted) return;
+      final route = result.status == GoogleAuthStatus.needsProfile
+          ? AppRouter.completeGoogleProfile
+          : AppRouter.dashboard;
+      Navigator.of(context).pushReplacementNamed(route);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusType = FocusStatusType.error;
+        _statusMessage = authErrorMessage(error);
+      });
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  Future<void> _showVerificationResent() async {
+    final email = _lastUnverifiedEmail;
+    final password = _lastUnverifiedPassword;
+    if (email == null || password == null) return;
+
+    setState(() => _isResendingVerification = true);
+    try {
+      await AuthScope.of(
+        context,
+      ).resendEmailVerification(email: email, password: password);
+      if (!mounted) return;
+      setState(() {
+        _statusType = FocusStatusType.success;
+        _statusMessage = 'Email de verificacion reenviado.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusType = FocusStatusType.error;
+        _statusMessage = authErrorMessage(error);
+      });
+    } finally {
+      if (mounted) setState(() => _isResendingVerification = false);
+    }
   }
 
   String? _validateEmail(String? value) {

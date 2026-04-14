@@ -1,7 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
+import '../application/auth_scope.dart';
+import '../data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_auth_scaffold.dart';
 import '../../../shared/widgets/focus_brand_mark.dart';
@@ -15,21 +15,44 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  Timer? _timer;
+  bool _started = false;
 
   @override
-  void initState() {
-    super.initState();
-    _timer = Timer(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(AppRouter.auth);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    _resolveSession();
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  Future<void> _resolveSession() async {
+    final authRepository = AuthScope.of(context);
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+
+    try {
+      final session = await authRepository.authStateChanges().first.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => authRepository.currentSession,
+      );
+      if (!mounted) return;
+      if (session == null) {
+        Navigator.of(context).pushReplacementNamed(AppRouter.auth);
+        return;
+      }
+
+      final gate = await authRepository.resolveAuthGate();
+      if (!mounted) return;
+      final route = switch (gate) {
+        AuthGateResult.signedOut => AppRouter.auth,
+        AuthGateResult.needsGoogleProfile => AppRouter.completeGoogleProfile,
+        AuthGateResult.signedIn => AppRouter.dashboard,
+      };
+      Navigator.of(context).pushReplacementNamed(route);
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(AppRouter.auth);
+    }
   }
 
   @override

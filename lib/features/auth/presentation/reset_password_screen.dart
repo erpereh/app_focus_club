@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../application/auth_scope.dart';
+import '../data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_auth_scaffold.dart';
 import '../../../shared/widgets/focus_brand_mark.dart';
@@ -19,6 +21,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   String? _successMessage;
+  String? _errorMessage;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -67,8 +71,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   type: FocusStatusType.success,
                 ),
               ],
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 18),
+                FocusStatusMessage(
+                  message: _errorMessage!,
+                  type: FocusStatusType.error,
+                ),
+              ],
               const SizedBox(height: 22),
-              FocusPrimaryButton(label: 'Enviar enlace', onPressed: _submit),
+              FocusPrimaryButton(
+                label: 'Enviar enlace',
+                isLoading: _isLoading,
+                onPressed: _isLoading ? null : _submit,
+              ),
               const SizedBox(height: 12),
               FocusGhostButton(
                 label: 'Volver al inicio de sesion',
@@ -83,11 +98,25 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
-      _successMessage = 'Enlace enviado. Revisa tu bandeja de entrada.';
+      _isLoading = true;
+      _successMessage = null;
+      _errorMessage = null;
     });
+    try {
+      await AuthScope.of(context).sendPasswordResetEmail(_emailController.text);
+      if (!mounted) return;
+      setState(() {
+        _successMessage = 'Enlace enviado. Revisa tu bandeja de entrada.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = authErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   String? _validateEmail(String? value) {

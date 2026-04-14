@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../application/auth_scope.dart';
+import '../data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_auth_scaffold.dart';
 import '../../../shared/widgets/focus_brand_mark.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
+import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 
 class CompleteGoogleProfileScreen extends StatefulWidget {
@@ -20,6 +23,20 @@ class _CompleteGoogleProfileScreenState
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController(text: 'Cliente Focus');
   final _phoneController = TextEditingController();
+  bool _didHydrateName = false;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didHydrateName) return;
+    _didHydrateName = true;
+    final displayName = AuthScope.of(context).currentSession?.displayName;
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      _nameController.text = displayName.trim();
+    }
+  }
 
   @override
   void dispose() {
@@ -73,8 +90,16 @@ class _CompleteGoogleProfileScreenState
                 validator: _validateSpanishPhone,
               ),
               const SizedBox(height: 24),
+              if (_errorMessage != null) ...[
+                FocusStatusMessage(
+                  message: _errorMessage!,
+                  type: FocusStatusType.error,
+                ),
+                const SizedBox(height: 18),
+              ],
               FocusPrimaryButton(
                 label: 'Guardar y Continuar',
+                isLoading: _isLoading,
                 onPressed: _submit,
               ),
               const SizedBox(height: 12),
@@ -89,9 +114,36 @@ class _CompleteGoogleProfileScreenState
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.of(context).pushReplacementNamed(AppRouter.dashboard);
+    final authRepository = AuthScope.of(context);
+    final session = authRepository.currentSession;
+    if (session == null) {
+      setState(() {
+        _errorMessage = 'La sesion ha caducado. Vuelve a iniciar sesion.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      await authRepository.updateSafeProfileFields(
+        uid: session.uid,
+        name: _nameController.text,
+        phone: _phoneController.text,
+        photoUrl: session.photoUrl,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(AppRouter.dashboard);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = authErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   String? _validateSpanishPhone(String? value) {
