@@ -39,6 +39,7 @@ Fecha: 2026-04-14
 - La UI movil sigue usando `MockClientData` mientras se conecta el ViewModel a pantallas concretas.
 - Dashboard, citas, bonos, reserva, perfil visual y avatar siguen en modo mock salvo el perfil minimo usado por Auth/Google.
 - No se ha desplegado App Hosting, web, reglas, Functions ni datos a produccion.
+- Chrome/web no es target soportado para esta app movil: `flutter run -d chrome` falla porque `DefaultFirebaseOptions` no tiene configuracion web.
 
 ## Pendiente por confirmar
 
@@ -53,6 +54,7 @@ Fecha: 2026-04-14
 1. Ejecutar `flutter analyze` y `flutter test` tras cada cambio relevante.
 2. Probar login, registro, reset, Google Sign-In y logout en emulador/dispositivo.
 3. Probar lecturas de dashboard contra emulador antes de sustituir `MockClientData`.
+4. Para ejecutar localmente usar `flutter devices` y `flutter run -d <deviceId-android-o-ios>`, no Chrome.
 
 ## Riesgos abiertos
 

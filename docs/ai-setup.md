@@ -2,7 +2,7 @@
 
 Fecha de preparacion: 2026-04-13
 
-Este repo queda preparado para trabajar con Flutter + AI, priorizando desarrollo de UI movil. Ya existe una app Flutter base para Android e iOS, sin Firebase, autenticacion ni logica de negocio real.
+Este repo queda preparado para trabajar con Flutter + AI, priorizando desarrollo de UI movil. Ya existe una app Flutter base para Android e iOS con Firebase base y Auth real incremental; dashboard, citas, bonos y reserva siguen en modo mock.
 
 ## Estado actual
 
@@ -10,13 +10,13 @@ Este repo queda preparado para trabajar con Flutter + AI, priorizando desarrollo
 - Nombre tecnico Dart: `app_focus_club`.
 - Package/bundle base: `es.focusclub.clientes`.
 - Plataformas generadas: `android` e `ios`.
-- Plataformas no generadas: `web`, `windows`, `macos`, `linux`.
+- Plataformas no generadas: `web`, `windows`, `macos`, `linux`. Chrome no es target soportado; usar Android/iOS.
 - Flutter SDK: `C:\Users\Perez\develop\flutter`, version `3.41.6`, channel `stable`.
 - Dart: `3.11.4`.
 - DevTools: `2.54.2`.
-- Dependencias runtime: solo Flutter SDK.
+- Dependencias runtime: Flutter SDK, Firebase Auth/Core/Firestore/Storage/Functions y Google Sign-In.
 - Dependencias dev: `flutter_test` y `flutter_lints`.
-- No hay Firebase, Firestore, Storage, autenticacion, Marionette en app ni logica de citas/bonos.
+- Firebase base y Auth real estan integrados para Android/iOS; dashboard, citas, bonos, reserva y avatar siguen en modo mock.
 
 `flutter doctor` corre correctamente y queda con 2 categorias pendientes:
 
@@ -168,15 +168,16 @@ Conecta Marionette MCP a ws://127.0.0.1:<puerto>/ws, inspecciona los elementos i
 
 - Android todavia requiere `cmdline-tools` y licencias.
 - Windows desktop todavia requiere componentes C++ de Visual Studio si se quiere compilar para Windows.
-- Firebase, autenticacion y datos reales estan fuera de alcance por ahora.
+- Web/Chrome no esta configurado como target. No usar `flutter run -d chrome` salvo que se decida generar web y reconfigurar FlutterFire con plataforma `web`.
+- Dashboard, citas, bonos, reserva y avatar reales siguen fuera de alcance por ahora.
 - Marionette MCP esta listo como servidor, pero la app no tiene `marionette_flutter` instalado todavia.
 - Git sigue mostrando `unable to access 'C:\Users\Perez/.config/git/ignore': Permission denied`; es configuracion local/global, no del repo.
 - `skills-lock.json` se conserva porque lo genera el instalador de Flutter skills para registrar origen y hashes.
 
 ## Fuera de alcance en este paso
 
-- Integracion Firebase.
-- Autenticacion, Firestore, Storage o logica de negocio.
+- Configuracion web/Chrome.
+- Conexion completa de dashboard, citas, bonos, reserva, avatar, Firestore/Storage/Functions o logica de negocio real.
 - Pantallas finales completas.
 - Dependencias extra de navegacion, estado o Marionette en app.
 - Configs de Cursor o Gemini.

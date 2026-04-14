@@ -18,3 +18,14 @@ flutter pub get
 flutter analyze
 flutter test
 ```
+
+## Ejecucion local
+
+Esta app esta configurada solo para Android e iOS. No uses Chrome como target:
+
+```powershell
+flutter devices
+flutter run -d <deviceId-android-o-ios>
+```
+
+`flutter run -d chrome` no esta soportado ahora mismo porque no hay carpeta `web/` ni configuracion Firebase Web en `lib/firebase_options.dart`. Si en el futuro se quiere web real, habra que generar soporte web y reconfigurar FlutterFire incluyendo la plataforma `web`.
