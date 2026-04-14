@@ -4,26 +4,14 @@ import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_badge.dart';
 import '../../../theme/app_theme.dart';
-import '../data/mock_client_data.dart' as mock;
-import '../domain/portal_models.dart' as portal;
+import '../domain/portal_models.dart';
 import 'appointment_display.dart';
 
 class ClientAppointmentCard extends StatelessWidget {
   ClientAppointmentCard({
-    required mock.Appointment appointment,
+    required Appointment appointment,
     required this.onTap,
-    super.key,
-  }) : serviceType = appointment.serviceType,
-       statusLabel = _mockAppointmentStatusLabel(appointment.status),
-       statusColor = _mockAppointmentStatusColor(appointment.status),
-       dateLabel = appointment.dateLabel,
-       timeLabel = appointment.timeLabel,
-       durationMinutes = appointment.durationMinutes,
-       assignedTrainer = appointment.assignedTrainer;
-
-  ClientAppointmentCard.real({
-    required portal.Appointment appointment,
-    required this.onTap,
+    String? trainerName,
     super.key,
   }) : serviceType = appointment.serviceType,
        statusLabel = appointmentStatusLabel(appointment.status),
@@ -31,7 +19,7 @@ class ClientAppointmentCard extends StatelessWidget {
        dateLabel = appointment.dateLabel,
        timeLabel = appointment.timeLabel,
        durationMinutes = appointment.durationMinutes,
-       assignedTrainer = appointment.assignedTrainer;
+       assignedTrainer = trainerName ?? appointment.assignedTrainer;
 
   final String serviceType;
   final String statusLabel;
@@ -136,7 +124,7 @@ class ClientMetricCard extends StatelessWidget {
 class ClientPassCard extends StatelessWidget {
   const ClientPassCard({required this.pass, super.key});
 
-  final mock.ClientPass pass;
+  final Bono pass;
 
   @override
   Widget build(BuildContext context) {
@@ -159,17 +147,15 @@ class ClientPassCard extends StatelessWidget {
               ),
               FocusStatusBadge(
                 label: pass.statusLabel,
-                color: pass.statusLabel == 'Activo'
-                    ? AppTheme.emerald
-                    : AppTheme.amber,
+                color: pass.statusColor,
               ),
             ],
           ),
           const SizedBox(height: 18),
-          Text(pass.name, style: Theme.of(context).textTheme.titleSmall),
+          Text(pass.nameLabel, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           Text(
-            '${pass.remainingMinutes} min disponibles',
+            '${pass.minutosRestantes} min disponibles',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
@@ -184,7 +170,7 @@ class ClientPassCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${pass.usedMinutes} de ${pass.totalMinutes} minutos usados - ${pass.expiresAtLabel}',
+            '${pass.usedMinutes} de ${pass.minutosTotales} minutos usados - ${pass.expiresAtLabel}',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
@@ -196,14 +182,10 @@ class ClientPassCard extends StatelessWidget {
 class PassHistoryCard extends StatelessWidget {
   const PassHistoryCard({required this.item, super.key});
 
-  final mock.PassHistoryItem item;
+  final Bono item;
 
   @override
   Widget build(BuildContext context) {
-    final color = item.statusLabel == 'Agotado'
-        ? AppTheme.amber
-        : AppTheme.textSecondary;
-
     return FocusGlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -213,11 +195,14 @@ class PassHistoryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  item.name,
+                  item.nameLabel,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
-              FocusStatusBadge(label: item.statusLabel, color: color),
+              FocusStatusBadge(
+                label: item.statusLabel,
+                color: item.statusColor,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -231,22 +216,6 @@ class PassHistoryCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _mockAppointmentStatusLabel(mock.AppointmentStatus status) {
-  return switch (status) {
-    mock.AppointmentStatus.pending => 'Pendiente',
-    mock.AppointmentStatus.approved => 'Aprobada',
-    mock.AppointmentStatus.rejected => 'Rechazada',
-  };
-}
-
-Color _mockAppointmentStatusColor(mock.AppointmentStatus status) {
-  return switch (status) {
-    mock.AppointmentStatus.pending => AppTheme.amber,
-    mock.AppointmentStatus.approved => AppTheme.emerald,
-    mock.AppointmentStatus.rejected => AppTheme.danger,
-  };
 }
 
 class _InfoLine extends StatelessWidget {

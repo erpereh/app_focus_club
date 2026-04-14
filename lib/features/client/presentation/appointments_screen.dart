@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../../auth/application/auth_scope.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
-import '../application/portal_scope.dart';
-import '../data/mock_client_data.dart' as mock;
+import '../application/client_portal_view_model.dart';
 import '../domain/portal_models.dart';
 import '../widgets/client_cards.dart';
 import 'appointment_detail_screen.dart';
-import 'booking_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
-  const AppointmentsScreen({super.key});
+  const AppointmentsScreen({
+    required this.state,
+    required this.onOpenBooking,
+    super.key,
+  });
+
+  final ClientPortalState state;
+  final VoidCallback onOpenBooking;
 
   @override
   State<AppointmentsScreen> createState() => _AppointmentsScreenState();
@@ -22,25 +26,19 @@ class AppointmentsScreen extends StatefulWidget {
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
   int _tabIndex = 0;
 
-  void _openBooking() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const BookingScreen()));
-  }
-
   void _openDetail(Appointment appointment) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => AppointmentDetailScreen.real(appointment: appointment),
+        builder: (_) => AppointmentDetailScreen(
+          appointment: appointment,
+          trainerName: _trainerName(appointment.assignedTrainer),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final session = AuthScope.of(context).currentSession;
-    final repository = PortalScope.of(context);
-
     return SafeArea(
       child: Column(
         children: [
@@ -61,7 +59,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 const SizedBox(height: 26),
                 FocusPrimaryButton(
                   label: 'Reservar Sesion',
-                  onPressed: _openBooking,
+                  onPressed: widget.onOpenBooking,
                 ),
                 const SizedBox(height: 24),
                 FocusSegmentedControl(
@@ -76,40 +74,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             ),
           ),
           Expanded(
-            child: session == null
+            child: widget.state.error != null
                 ? _AppointmentsList(
                     tabIndex: _tabIndex,
                     appointments: const [],
-                    error: 'Inicia sesion para ver tus citas.',
+                    error:
+                        'No hemos podido cargar tus citas. Intentalo de nuevo en unos minutos.',
                     onOpenDetail: _openDetail,
+                    trainerNameFor: _trainerName,
                   )
-                : StreamBuilder<List<Appointment>>(
-                    stream: repository.watchAppointmentsByUser(session.uid),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return _AppointmentsList(
-                          tabIndex: _tabIndex,
-                          appointments: const [],
-                          error:
-                              'No hemos podido cargar tus citas. Intentalo de nuevo en unos minutos.',
-                          onOpenDetail: _openDetail,
-                        );
-                      }
-
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      final appointments = (snapshot.data ?? const [])
-                          .where(_matchesSelectedTab)
-                          .toList(growable: false);
-
-                      return _AppointmentsList(
-                        tabIndex: _tabIndex,
-                        appointments: appointments,
-                        onOpenDetail: _openDetail,
-                      );
-                    },
+                : widget.state.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _AppointmentsList(
+                    tabIndex: _tabIndex,
+                    appointments: widget.state.appointments
+                        .where(_matchesSelectedTab)
+                        .toList(growable: false),
+                    inactiveBonos: widget.state.inactiveBonos,
+                    onOpenDetail: _openDetail,
+                    trainerNameFor: _trainerName,
                   ),
           ),
         ],
@@ -125,6 +108,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       _ => appointment.status == AppointmentStatus.rejected,
     };
   }
+
+  String? _trainerName(String? trainerId) {
+    if (trainerId == null) return null;
+    for (final trainer in widget.state.trainers) {
+      if (trainer.id == trainerId) return trainer.name;
+    }
+    return trainerId;
+  }
 }
 
 class _AppointmentsList extends StatelessWidget {
@@ -132,12 +123,16 @@ class _AppointmentsList extends StatelessWidget {
     required this.tabIndex,
     required this.appointments,
     required this.onOpenDetail,
+    required this.trainerNameFor,
+    this.inactiveBonos = const [],
     this.error,
   });
 
   final int tabIndex;
   final List<Appointment> appointments;
+  final List<Bono> inactiveBonos;
   final ValueChanged<Appointment> onOpenDetail;
+  final String? Function(String? trainerId) trainerNameFor;
   final String? error;
 
   @override
@@ -169,8 +164,9 @@ class _AppointmentsList extends StatelessWidget {
           ...appointments.map(
             (appointment) => Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: ClientAppointmentCard.real(
+              child: ClientAppointmentCard(
                 appointment: appointment,
+                trainerName: trainerNameFor(appointment.assignedTrainer),
                 onTap: () => onOpenDetail(appointment),
               ),
             ),
@@ -179,17 +175,17 @@ class _AppointmentsList extends StatelessWidget {
           const SizedBox(height: 22),
           const FocusSectionHeader(title: 'Historial de bonos'),
           const SizedBox(height: 16),
-          if (mock.MockClientData.passHistory.isEmpty)
+          if (inactiveBonos.isEmpty)
             const FocusEmptyState(
               title: 'Sin historial de bonos',
               description: 'Tus bonos no activos apareceran aqui.',
               icon: Icons.local_activity_outlined,
             )
           else
-            ...mock.MockClientData.passHistory.map(
-              (item) => Padding(
+            ...inactiveBonos.map(
+              (bono) => Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: PassHistoryCard(item: item),
+                child: PassHistoryCard(item: bono),
               ),
             ),
         ],

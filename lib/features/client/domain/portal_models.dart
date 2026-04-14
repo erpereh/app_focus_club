@@ -256,7 +256,7 @@ class BonoHistorialEntry {
     return BonoHistorialEntry(
       fecha: stringifyDate(map['fecha']) ?? '',
       tipo: map['tipo'] as String? ?? '',
-      minutos: parseInt(map['minutos']),
+      minutos: parseInt(map['minutos'] ?? map['duracion']),
       appointmentId: map['appointmentId'] as String?,
       descripcion: map['descripcion'] as String?,
     );

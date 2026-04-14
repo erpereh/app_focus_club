@@ -6,10 +6,13 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
-import '../data/mock_client_data.dart';
+import '../application/client_portal_view_model.dart';
+import '../widgets/appointment_display.dart';
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({super.key});
+  const BookingScreen({required this.state, super.key});
+
+  final ClientPortalState state;
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -18,9 +21,8 @@ class BookingScreen extends StatefulWidget {
 class _BookingScreenState extends State<BookingScreen> {
   final _commentController = TextEditingController();
   int _selectedDuration = 45;
-  String _selectedDate = MockClientData.bookingDates.first;
-  BookingSlot? _selectedSlot;
-  bool _sent = false;
+  String _selectedDate = buildBookingDates().first;
+  BookingSlotState? _selectedSlot;
 
   @override
   void dispose() {
@@ -30,9 +32,24 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final slots = MockClientData.bookingSlots
-        .where((slot) => slot.dateLabel == _selectedDate)
-        .toList();
+    final state = widget.state;
+    final activeBono = state.activeBono;
+    final siteConfig = state.siteConfig;
+    final dates = buildBookingDates();
+    final canBook = activeBono?.canBook == true && siteConfig != null;
+    final slots = siteConfig == null
+        ? const <BookingSlotState>[]
+        : buildBookingSlotsForDate(date: _selectedDate, siteConfig: siteConfig)
+              .map(
+                (slot) => bookingSlotState(
+                  slot: slot,
+                  durationMinutes: _selectedDuration,
+                  blockedSlots: state.blockedSlots,
+                  occupancy: state.slotOccupancy,
+                  activeAppointments: state.activeAppointments,
+                ),
+              )
+              .toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -47,21 +64,21 @@ class _BookingScreenState extends State<BookingScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
           children: [
-            if (_sent) ...[
-              const FocusStatusMessage(
-                message:
-                    'Solicitud Enviada. Revisaremos la franja y te avisaremos.',
-                type: FocusStatusType.success,
-              ),
-              const SizedBox(height: 18),
-            ],
+            const FocusStatusMessage(
+              message:
+                  'La reserva real necesita el backend requestAppointment. Ahora mismo no esta disponible en Firebase, asi que no se crearan citas desde la app.',
+              type: FocusStatusType.warning,
+            ),
+            const SizedBox(height: 18),
             _StepCard(
               title: 'Duracion',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${MockClientData.activePass.remainingMinutes} minutos disponibles en tu bono.',
+                    activeBono == null
+                        ? 'No hay bono activo disponible para reservar.'
+                        : '${activeBono.minutosRestantes} minutos disponibles en tu bono.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
@@ -70,14 +87,16 @@ class _BookingScreenState extends State<BookingScreen> {
                     runSpacing: 10,
                     children: [30, 45, 60].map((duration) {
                       final isEnabled =
-                          duration <=
-                          MockClientData.activePass.remainingMinutes;
+                          activeBono != null &&
+                          duration <= activeBono.minutosRestantes;
                       return ChoiceChip(
                         label: Text('$duration min'),
                         selected: _selectedDuration == duration,
                         onSelected: isEnabled
-                            ? (_) =>
-                                  setState(() => _selectedDuration = duration)
+                            ? (_) => setState(() {
+                                _selectedDuration = duration;
+                                _selectedSlot = null;
+                              })
                             : null,
                       );
                     }).toList(),
@@ -90,6 +109,7 @@ class _BookingScreenState extends State<BookingScreen> {
               title: 'Fecha',
               child: _BookingCalendar(
                 selectedDate: _selectedDate,
+                dates: dates,
                 onSelected: (date) => setState(() {
                   _selectedDate = date;
                   _selectedSlot = null;
@@ -104,24 +124,31 @@ class _BookingScreenState extends State<BookingScreen> {
                 children: [
                   const _SlotLegend(),
                   const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: slots.map((slot) {
-                      final isSelected = _selectedSlot == slot;
-                      return _SlotChip(
-                        slot: slot,
-                        isSelected: isSelected,
-                        onTap: slot.isEnabled
-                            ? () => setState(() => _selectedSlot = slot)
-                            : null,
-                      );
-                    }).toList(),
-                  ),
+                  if (!canBook)
+                    const FocusStatusMessage(
+                      message:
+                          'Necesitas un bono activo y la configuracion horaria del centro para seleccionar una franja.',
+                      type: FocusStatusType.warning,
+                    )
+                  else
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: slots.map((slot) {
+                        final isSelected = _selectedSlot?.slot == slot.slot;
+                        return _SlotChip(
+                          slot: slot,
+                          isSelected: isSelected,
+                          onTap: slot.isEnabled
+                              ? () => setState(() => _selectedSlot = slot)
+                              : null,
+                        );
+                      }).toList(),
+                    ),
                   if (_selectedSlot != null) ...[
                     const SizedBox(height: 16),
                     Text(
-                      'Elegida: $_selectedDate a las ${_selectedSlot!.timeLabel}',
+                      'Elegida: ${_selectedSlot!.slot.dateLabel} a las ${_selectedSlot!.slot.time}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppTheme.emerald,
                         fontWeight: FontWeight.w800,
@@ -144,11 +171,9 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
             const SizedBox(height: 22),
-            FocusPrimaryButton(
+            const FocusPrimaryButton(
               label: 'Enviar Solicitud',
-              onPressed: _selectedSlot == null
-                  ? null
-                  : () => setState(() => _sent = true),
+              onPressed: null,
             ),
             const SizedBox(height: 12),
             FocusGhostButton(
@@ -191,20 +216,12 @@ class _SlotChip extends StatelessWidget {
     required this.onTap,
   });
 
-  final BookingSlot slot;
+  final BookingSlotState slot;
   final bool isSelected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (slot.stateLabel) {
-      'Disponible' => AppTheme.emerald,
-      '1 plaza' => AppTheme.amber,
-      'Tu sesion' => const Color(0xFF6AA7FF),
-      'Completo' || 'Bloqueado' => AppTheme.danger,
-      _ => AppTheme.textSecondary,
-    };
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppTheme.radiusInput),
@@ -219,7 +236,7 @@ class _SlotChip extends StatelessWidget {
             border: Border.all(
               color: isSelected
                   ? AppTheme.emerald.withValues(alpha: 0.34)
-                  : color.withValues(alpha: 0.32),
+                  : slot.color.withValues(alpha: 0.32),
               width: isSelected ? 1.2 : 1,
             ),
             boxShadow: isSelected
@@ -238,16 +255,16 @@ class _SlotChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  slot.timeLabel,
+                  slot.slot.time,
                   style: Theme.of(
                     context,
                   ).textTheme.labelLarge?.copyWith(color: AppTheme.textPrimary),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  isSelected ? 'Elegida' : slot.stateLabel,
+                  isSelected ? 'Elegida' : slot.label,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isSelected ? AppTheme.textPrimary : color,
+                    color: isSelected ? AppTheme.textPrimary : slot.color,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -263,14 +280,17 @@ class _SlotChip extends StatelessWidget {
 class _BookingCalendar extends StatelessWidget {
   const _BookingCalendar({
     required this.selectedDate,
+    required this.dates,
     required this.onSelected,
   });
 
   final String selectedDate;
+  final List<String> dates;
   final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) {
+    final selectedDateTime = DateTime.tryParse(selectedDate);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -282,7 +302,12 @@ class _BookingCalendar extends StatelessWidget {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text('Abril 2026', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              selectedDateTime == null
+                  ? 'Calendario'
+                  : '${_monthLabel(selectedDateTime.month)} ${selectedDateTime.year}',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -293,11 +318,13 @@ class _BookingCalendar extends StatelessWidget {
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
           childAspectRatio: 1.48,
-          children: MockClientData.bookingDates.map((date) {
-            final parts = date.split(' ');
-            final weekday = parts.first;
-            final day = parts.length > 1 ? parts[1] : date;
-            final month = parts.length > 2 ? parts[2] : '';
+          children: dates.map((date) {
+            final dateTime = DateTime.tryParse(date);
+            final weekday = dateTime == null
+                ? ''
+                : _weekdayLabel(dateTime.weekday);
+            final day = dateTime?.day.toString().padLeft(2, '0') ?? date;
+            final month = dateTime == null ? '' : _monthLabel(dateTime.month);
             final isSelected = selectedDate == date;
 
             return InkWell(
@@ -358,6 +385,27 @@ class _BookingCalendar extends StatelessWidget {
       ],
     );
   }
+}
+
+String _weekdayLabel(int weekday) {
+  return const ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'][weekday - 1];
+}
+
+String _monthLabel(int month) {
+  return const [
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ][month - 1];
 }
 
 class _SlotLegend extends StatelessWidget {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/application/auth_scope.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
@@ -8,10 +9,14 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
-import '../data/mock_client_data.dart';
+import '../application/client_portal_view_model.dart';
+import '../domain/portal_models.dart';
+import '../widgets/appointment_display.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({required this.state, super.key});
+
+  final ClientPortalState state;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -19,16 +24,28 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(
-    text: MockClientData.profile.name,
-  );
-  final _phoneController = TextEditingController(
-    text: MockClientData.profile.phone,
-  );
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _hasAvatar = MockClientData.profile.hasAvatar;
+  String? _profileUid;
   String? _statusMessage;
+  FocusStatusType _statusType = FocusStatusType.success;
+  bool _isSaving = false;
   bool _isSigningOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncProfile();
+  }
+
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state.profile?.uid != widget.state.profile?.uid) {
+      _syncProfile();
+    }
+  }
 
   @override
   void dispose() {
@@ -40,6 +57,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = widget.state.profile;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 28, 20, 42),
@@ -57,25 +76,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _AvatarEditor(
-                    hasAvatar: _hasAvatar,
-                    initials: MockClientData.profile.initials,
-                    onChangePhoto: () {
-                      setState(() {
-                        _hasAvatar = true;
-                        _statusMessage = 'Foto actualizada en modo demo.';
-                      });
-                    },
-                    onRemovePhoto: _hasAvatar
-                        ? () {
-                            setState(() {
-                              _hasAvatar = false;
-                              _statusMessage = 'Foto eliminada en modo demo.';
-                            });
-                          }
-                        : null,
-                  ),
+                  _AvatarEditor(profile: profile),
                   const SizedBox(height: 28),
+                  if (profile != null) ...[
+                    _ReadonlyLine(label: 'Email', value: profile.email),
+                    const SizedBox(height: 18),
+                  ],
                   FocusTextField(
                     label: 'Nombre visible',
                     icon: Icons.person_outline_rounded,
@@ -94,28 +100,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     validator: _validateSpanishPhone,
                     textInputAction: TextInputAction.next,
                   ),
-                  if (MockClientData.profile.usesPasswordProvider) ...[
-                    const SizedBox(height: 18),
-                    FocusTextField(
-                      label: 'Nueva contrasena',
-                      icon: Icons.lock_outline_rounded,
-                      controller: _passwordController,
-                      obscureText: true,
-                      validator: _validateOptionalPassword,
-                      textInputAction: TextInputAction.done,
-                    ),
-                  ],
+                  const SizedBox(height: 18),
+                  FocusTextField(
+                    label: 'Nueva contrasena',
+                    icon: Icons.lock_outline_rounded,
+                    controller: _passwordController,
+                    obscureText: true,
+                    validator: _validateOptionalPassword,
+                    textInputAction: TextInputAction.done,
+                  ),
                   if (_statusMessage != null) ...[
                     const SizedBox(height: 20),
                     FocusStatusMessage(
                       message: _statusMessage!,
-                      type: FocusStatusType.success,
+                      type: _statusType,
                     ),
                   ],
                   const SizedBox(height: 26),
                   FocusPrimaryButton(
                     label: 'Guardar cambios',
-                    onPressed: _saveProfile,
+                    onPressed: _isSaving ? null : _saveProfile,
                   ),
                   const SizedBox(height: 12),
                   FocusGhostButton(
@@ -132,6 +136,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _syncProfile() {
+    final profile = widget.state.profile;
+    if (profile == null || profile.uid == _profileUid) return;
+    _profileUid = profile.uid;
+    _nameController.text = profile.name;
+    _phoneController.text = profile.phone ?? '';
+  }
+
   Future<void> _signOut() async {
     setState(() => _isSigningOut = true);
     await AuthScope.of(context).signOut();
@@ -141,12 +153,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
+    final authRepository = AuthScope.of(context);
+    final uid = authRepository.currentSession?.uid;
+    if (uid == null) {
+      setState(() {
+        _statusMessage = 'Inicia sesion para actualizar el perfil.';
+        _statusType = FocusStatusType.error;
+      });
+      return;
+    }
+
     setState(() {
-      _statusMessage = 'Perfil actualizado correctamente.';
-      _passwordController.clear();
+      _isSaving = true;
+      _statusMessage = null;
     });
+    try {
+      await authRepository.updateSafeProfileFields(
+        uid: uid,
+        name: _nameController.text,
+        phone: _phoneController.text,
+        photoUrl: widget.state.profile?.photoUrl,
+      );
+      if (_passwordController.text.isNotEmpty) {
+        await authRepository.updatePassword(_passwordController.text);
+      }
+      if (!mounted) return;
+      _passwordController.clear();
+      setState(() {
+        _statusMessage = 'Perfil actualizado correctamente.';
+        _statusType = FocusStatusType.success;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = authErrorMessage(error);
+        _statusType = FocusStatusType.error;
+      });
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   String? _validateSpanishPhone(String? value) {
@@ -172,20 +219,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _AvatarEditor extends StatelessWidget {
-  const _AvatarEditor({
-    required this.hasAvatar,
-    required this.initials,
-    required this.onChangePhoto,
-    required this.onRemovePhoto,
-  });
+  const _AvatarEditor({required this.profile});
 
-  final bool hasAvatar;
-  final String initials;
-  final VoidCallback onChangePhoto;
-  final VoidCallback? onRemovePhoto;
+  final UserProfile? profile;
 
   @override
   Widget build(BuildContext context) {
+    final hasAvatar = profile?.hasPhoto == true;
     return Column(
       children: [
         DecoratedBox(
@@ -210,18 +250,22 @@ class _AvatarEditor extends StatelessWidget {
             height: 92,
             child: Center(
               child: hasAvatar
-                  ? Text(
-                      initials,
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      child: Image.network(
+                        profile!.photoUrl!,
+                        width: 92,
+                        height: 92,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Text(
+                      profile?.displayInitials ?? '?',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             color: AppTheme.emerald,
                             fontWeight: FontWeight.w900,
                           ),
-                    )
-                  : const Icon(
-                      Icons.person_outline_rounded,
-                      color: AppTheme.textSecondary,
-                      size: 34,
                     ),
             ),
           ),
@@ -229,18 +273,41 @@ class _AvatarEditor extends StatelessWidget {
         const SizedBox(height: 20),
         FocusSectionHeader(title: 'Avatar'),
         const SizedBox(height: 14),
-        FocusGhostButton(
-          label: hasAvatar ? 'Cambiar foto' : 'Subir foto',
-          icon: Icons.photo_camera_outlined,
-          onPressed: onChangePhoto,
-        ),
-        const SizedBox(height: 12),
-        FocusGhostButton(
-          label: 'Eliminar foto',
-          icon: Icons.delete_outline_rounded,
-          onPressed: onRemovePhoto,
+        const FocusStatusMessage(
+          message:
+              'La gestion de avatar no esta disponible todavia en la app movil.',
+          type: FocusStatusType.warning,
         ),
       ],
+    );
+  }
+}
+
+class _ReadonlyLine extends StatelessWidget {
+  const _ReadonlyLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.input,
+        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 5),
+            Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
+      ),
     );
   }
 }

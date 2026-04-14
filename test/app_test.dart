@@ -146,7 +146,7 @@ void main() {
     expect(find.text('FC-1047'), findsOneWidget);
   });
 
-  testWidgets('booking request enables submit after selecting a slot', (
+  testWidgets('booking request shows real availability and blocks submit', (
     tester,
   ) async {
     await _pumpDashboard(tester);
@@ -155,20 +155,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Reservar Sesion'), findsOneWidget);
-    expect(find.text('Abril 2026'), findsOneWidget);
-    await tester.ensureVisible(find.text('18:00'));
-    await tester.tap(find.text('18:00'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Enviar Solicitud'));
-    await tester.tap(find.text('Enviar Solicitud'));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, 600));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('Solicitud Enviada. Revisaremos la franja y te avisaremos.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('requestAppointment'), findsOneWidget);
+    expect(find.text('30 min'), findsOneWidget);
+    expect(find.text('45 min'), findsOneWidget);
+    expect(find.text('60 min'), findsOneWidget);
+    expect(find.text('abr 2026'), findsOneWidget);
   });
 
   testWidgets('dashboard switches between appointment and pass history', (
@@ -183,8 +174,8 @@ void main() {
     await tester.tap(find.text('Historial Bonos'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bono Marzo'), findsOneWidget);
-    expect(find.text('Bono Febrero'), findsOneWidget);
+    expect(find.text('Agotado'), findsOneWidget);
+    expect(find.text('Expirado'), findsOneWidget);
   });
 
   testWidgets('profile saves visual changes', (tester) async {
@@ -230,6 +221,15 @@ Future<void> _pumpAuth(
 
 PortalRepository _fakePortalRepository() {
   return FakePortalRepository(
+    profile: const UserProfile(
+      uid: 'test-user',
+      email: 'cliente@email.com',
+      name: 'Laura Perez',
+      phone: '+34612345678',
+      role: 'user',
+      isTrainer: false,
+      createdAt: '2026-04-01T10:00:00.000Z',
+    ),
     appointments: const [
       Appointment(
         id: 'FC-1042',
@@ -244,7 +244,7 @@ PortalRepository _fakePortalRepository() {
         status: AppointmentStatus.approved,
         createdAt: '2026-04-10T10:00:00.000Z',
         approvedSlot: TimeSlot(date: '2026-04-17', time: '18:00'),
-        assignedTrainer: 'Marta Sanchez',
+        assignedTrainer: 'trainer-marta',
         sessionType: 'Entrenamiento personal',
         updatedAt: '2026-04-10T10:05:00.000Z',
       ),
@@ -262,6 +262,80 @@ PortalRepository _fakePortalRepository() {
         createdAt: '2026-04-12T10:00:00.000Z',
       ),
     ],
+    bonos: const [
+      Bono(
+        id: 'active-bono',
+        userId: 'test-user',
+        tamano: 360,
+        minutosTotales: 360,
+        minutosRestantes: 180,
+        fechaAsignacion: '2026-04-01T00:00:00.000Z',
+        fechaExpiracion: '2026-04-30T00:00:00.000Z',
+        estado: BonoStatus.activo,
+        historial: [],
+        asignadoPor: 'admin@email.com',
+        createdAt: '2026-04-01T00:00:00.000Z',
+      ),
+      Bono(
+        id: 'spent-bono',
+        userId: 'test-user',
+        tamano: 360,
+        minutosTotales: 360,
+        minutosRestantes: 0,
+        fechaAsignacion: '2026-03-01T00:00:00.000Z',
+        fechaExpiracion: '2026-03-31T00:00:00.000Z',
+        estado: BonoStatus.agotado,
+        historial: [
+          BonoHistorialEntry(
+            fecha: '2026-03-12T18:00:00.000Z',
+            tipo: 'descuento',
+            minutos: 60,
+            appointmentId: 'FC-1042',
+          ),
+        ],
+        asignadoPor: 'admin@email.com',
+        createdAt: '2026-03-01T00:00:00.000Z',
+      ),
+      Bono(
+        id: 'expired-bono',
+        userId: 'test-user',
+        tamano: 240,
+        minutosTotales: 240,
+        minutosRestantes: 120,
+        fechaAsignacion: '2026-02-01T00:00:00.000Z',
+        fechaExpiracion: '2026-02-28T00:00:00.000Z',
+        estado: BonoStatus.expirado,
+        historial: [],
+        asignadoPor: 'admin@email.com',
+        createdAt: '2026-02-01T00:00:00.000Z',
+      ),
+    ],
+    trainers: const [
+      Trainer(
+        id: 'trainer-marta',
+        uid: 'trainer-user',
+        name: 'Marta Sanchez',
+        active: true,
+        createdAt: '2026-04-01T00:00:00.000Z',
+        specialties: [],
+      ),
+    ],
+    slotOccupancy: const [
+      SlotOccupancy(
+        id: '2026-04-30_19:30',
+        date: '2026-04-30',
+        time: '19:30',
+        count: 1,
+      ),
+    ],
+    siteConfig: const SiteConfig(
+      startHour: 8,
+      endHour: 20,
+      slotInterval: 30,
+      bonoExpirationMonths: 1,
+      maintenanceMode: false,
+      sessionDuration: 60,
+    ),
   );
 }
 

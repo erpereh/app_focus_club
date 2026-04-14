@@ -7,20 +7,25 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
-import '../data/mock_client_data.dart';
+import '../application/client_portal_view_model.dart';
+import '../domain/portal_models.dart';
+import '../widgets/appointment_display.dart';
 import '../widgets/client_cards.dart';
 import 'appointment_detail_screen.dart';
-import 'booking_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
+    required this.state,
     required this.onOpenAppointments,
     required this.onOpenProfile,
+    required this.onOpenBooking,
     super.key,
   });
 
+  final ClientPortalState state;
   final VoidCallback onOpenAppointments;
   final VoidCallback onOpenProfile;
+  final VoidCallback onOpenBooking;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -29,26 +34,30 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _historyTabIndex = 0;
 
-  void _openBooking(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const BookingScreen()));
-  }
-
   void _openDetail(BuildContext context, Appointment appointment) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => AppointmentDetailScreen(appointment: appointment),
+        builder: (_) => AppointmentDetailScreen(
+          appointment: appointment,
+          trainerName: _trainerName(appointment.assignedTrainer),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = MockClientData.profile;
-    final pass = MockClientData.activePass;
-    final appointments = MockClientData.upcomingAppointments;
-    final nextAppointment = appointments.firstOrNull;
+    final state = widget.state;
+    final profile = state.profile;
+    final pass = state.activeBono;
+    final appointments = state.activeAppointments;
+    final nextAppointment = _nextAppointment(appointments);
+    final pendingCount = appointments
+        .where((item) => item.status == AppointmentStatus.pending)
+        .length;
+    final approvedCount = appointments
+        .where((item) => item.status == AppointmentStatus.approved)
+        .length;
 
     return SafeArea(
       child: ListView(
@@ -61,9 +70,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 28),
           FocusPrimaryButton(
             label: 'Reservar Sesion',
-            onPressed: pass.canBook ? () => _openBooking(context) : null,
+            onPressed: pass?.canBook == true ? widget.onOpenBooking : null,
           ),
-          if (!pass.canBook) ...[
+          if (pass?.canBook != true) ...[
             const SizedBox(height: 18),
             const FocusStatusMessage(
               message: 'No tienes minutos disponibles para reservar ahora.',
@@ -71,7 +80,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
           const SizedBox(height: 30),
-          ClientPassCard(pass: pass),
+          if (pass == null)
+            const FocusEmptyState(
+              title: 'Sin bono activo',
+              description: 'Cuando tengas un bono activo, aparecera aqui.',
+              icon: Icons.local_activity_outlined,
+            )
+          else
+            ClientPassCard(pass: pass),
           const SizedBox(height: 22),
           _NextAppointmentCard(
             appointment: nextAppointment,
@@ -81,22 +97,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 22),
           Row(
-            children: const [
+            children: [
               Expanded(
                 child: ClientMetricCard(
                   icon: Icons.fitness_center_rounded,
-                  value: '5',
-                  label: 'Sesiones realizadas',
-                  detail: 'Este bono activo',
+                  value: '${pass?.usedMinutes ?? 0}',
+                  label: 'Minutos usados',
+                  detail: pass == null ? 'Sin bono activo' : 'Este bono activo',
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: ClientMetricCard(
                   icon: Icons.pending_actions_rounded,
-                  value: '2',
+                  value: '${appointments.length}',
                   label: 'Citas activas',
-                  detail: '1 aprobada - 1 pendiente',
+                  detail: '$approvedCount aprobadas - $pendingCount pendientes',
                 ),
               ),
             ],
@@ -120,6 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: ClientAppointmentCard(
                   appointment: appointment,
+                  trainerName: _trainerName(appointment.assignedTrainer),
                   onTap: () => _openDetail(context, appointment),
                 ),
               ),
@@ -133,6 +150,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           _HistoryPreview(
             tabIndex: _historyTabIndex,
+            appointments: state.rejectedAppointments,
+            passes: state.inactiveBonos,
+            trainerNameFor: _trainerName,
             onTabChanged: (index) => setState(() => _historyTabIndex = index),
             onOpenAppointment: (appointment) =>
                 _openDetail(context, appointment),
@@ -141,12 +161,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  String? _trainerName(String? trainerId) {
+    if (trainerId == null) return null;
+    for (final trainer in widget.state.trainers) {
+      if (trainer.id == trainerId) return trainer.name;
+    }
+    return trainerId;
+  }
+
+  Appointment? _nextAppointment(List<Appointment> appointments) {
+    final sorted = appointments.toList(growable: false)
+      ..sort((a, b) => _slotDateTime(a).compareTo(_slotDateTime(b)));
+    return sorted.firstOrNull;
+  }
+
+  DateTime _slotDateTime(Appointment appointment) {
+    final slot = appointment.schedulingSlot;
+    return DateTime.tryParse('${slot?.date ?? ''}T${slot?.time ?? ''}:00') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
 }
 
 class _DashboardHeader extends StatelessWidget {
   const _DashboardHeader({required this.profile, required this.onOpenProfile});
 
-  final ClientProfile profile;
+  final UserProfile? profile;
   final VoidCallback onOpenProfile;
 
   @override
@@ -178,7 +218,7 @@ class _DashboardHeader extends StatelessWidget {
                 height: 58,
                 child: Center(
                   child: Text(
-                    profile.initials,
+                    profile?.displayInitials ?? '?',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppTheme.emerald,
                       fontWeight: FontWeight.w900,
@@ -197,12 +237,12 @@ class _DashboardHeader extends StatelessWidget {
               const FocusKicker('Focus Club Vallecas'),
               const SizedBox(height: 5),
               Text(
-                profile.name,
+                profile?.name ?? 'Cliente',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 2),
               Text(
-                profile.email,
+                profile?.email ?? '',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -221,19 +261,22 @@ class _DashboardHeader extends StatelessWidget {
 class _HistoryPreview extends StatelessWidget {
   const _HistoryPreview({
     required this.tabIndex,
+    required this.appointments,
+    required this.passes,
+    required this.trainerNameFor,
     required this.onTabChanged,
     required this.onOpenAppointment,
   });
 
   final int tabIndex;
+  final List<Appointment> appointments;
+  final List<Bono> passes;
+  final String? Function(String? trainerId) trainerNameFor;
   final ValueChanged<int> onTabChanged;
   final ValueChanged<Appointment> onOpenAppointment;
 
   @override
   Widget build(BuildContext context) {
-    final appointments = MockClientData.historyAppointments;
-    final passes = MockClientData.passHistory;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -261,6 +304,7 @@ class _HistoryPreview extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: ClientAppointmentCard(
                       appointment: appointment,
+                      trainerName: trainerNameFor(appointment.assignedTrainer),
                       onTap: () => onOpenAppointment(appointment),
                     ),
                   ),

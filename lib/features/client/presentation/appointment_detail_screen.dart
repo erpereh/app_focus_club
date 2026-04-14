@@ -4,30 +4,13 @@ import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_badge.dart';
 import '../../../theme/app_theme.dart';
-import '../data/mock_client_data.dart' as mock;
-import '../domain/portal_models.dart' as portal;
+import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 
 class AppointmentDetailScreen extends StatelessWidget {
-  AppointmentDetailScreen({required mock.Appointment appointment, super.key})
-    : id = appointment.id,
-      serviceType = appointment.serviceType,
-      durationMinutes = appointment.durationMinutes,
-      proposedDateLabel = appointment.dateLabel,
-      proposedTimeLabel = appointment.timeLabel,
-      statusLabel = _mockAppointmentStatusLabel(appointment.status),
-      statusColor = _mockAppointmentStatusColor(appointment.status),
-      statusDescription = _mockStatusDescription(appointment.status),
-      isApproved = appointment.status == mock.AppointmentStatus.approved,
-      createdAtLabel = appointment.createdAtLabel,
-      reason = appointment.reason,
-      assignedTrainer = appointment.assignedTrainer,
-      sessionType = appointment.sessionType,
-      approvedDateLabel = appointment.approvedDateLabel,
-      approvedTimeLabel = appointment.approvedTimeLabel;
-
-  AppointmentDetailScreen.real({
-    required portal.Appointment appointment,
+  AppointmentDetailScreen({
+    required Appointment appointment,
+    String? trainerName,
     super.key,
   }) : id = appointment.id,
        serviceType = appointment.serviceType,
@@ -37,10 +20,10 @@ class AppointmentDetailScreen extends StatelessWidget {
        statusLabel = appointmentStatusLabel(appointment.status),
        statusColor = appointmentStatusColor(appointment.status),
        statusDescription = appointmentStatusDescription(appointment.status),
-       isApproved = appointment.status == portal.AppointmentStatus.approved,
+       isApproved = appointment.status == AppointmentStatus.approved,
        createdAtLabel = appointment.createdAtLabel,
        reason = appointment.reasonLabel,
-       assignedTrainer = appointment.assignedTrainer,
+       assignedTrainer = trainerName ?? appointment.assignedTrainer,
        sessionType = appointment.sessionType,
        approvedDateLabel = appointment.approvedDateLabel,
        approvedTimeLabel = appointment.approvedTimeLabel;
@@ -194,33 +177,6 @@ class _DetailGrid extends StatelessWidget {
       ),
     );
   }
-}
-
-String _mockAppointmentStatusLabel(mock.AppointmentStatus status) {
-  return switch (status) {
-    mock.AppointmentStatus.pending => 'Pendiente',
-    mock.AppointmentStatus.approved => 'Aprobada',
-    mock.AppointmentStatus.rejected => 'Rechazada',
-  };
-}
-
-Color _mockAppointmentStatusColor(mock.AppointmentStatus status) {
-  return switch (status) {
-    mock.AppointmentStatus.pending => AppTheme.amber,
-    mock.AppointmentStatus.approved => AppTheme.emerald,
-    mock.AppointmentStatus.rejected => AppTheme.danger,
-  };
-}
-
-String _mockStatusDescription(mock.AppointmentStatus status) {
-  return switch (status) {
-    mock.AppointmentStatus.pending =>
-      'Solicitud enviada. El equipo de Focus Club confirmara la franja.',
-    mock.AppointmentStatus.approved =>
-      'Cita aprobada. Revisa los datos confirmados antes de acudir.',
-    mock.AppointmentStatus.rejected =>
-      'Solicitud rechazada. La informacion queda disponible en tu historial.',
-  };
 }
 
 class _DetailLine extends StatelessWidget {

@@ -158,6 +158,30 @@ void main() {
       expect(config.logoUrl, isNotNull);
       expect(config.logoStoragePath, isNotNull);
     });
+
+    test('bono history accepts minutos field from functions payload', () {
+      final entry = BonoHistorialEntry.fromMap({
+        'fecha': '2026-04-13T10:00:00.000Z',
+        'tipo': 'descuento',
+        'minutos': 60,
+        'appointmentId': 'appointment',
+      });
+
+      expect(entry.minutos, 60);
+      expect(entry.appointmentId, 'appointment');
+    });
+
+    test('bono history accepts duracion field observed in production', () {
+      final entry = BonoHistorialEntry.fromMap({
+        'fecha': '2026-04-13T10:00:00.000Z',
+        'tipo': 'descuento',
+        'duracion': 45,
+        'appointmentId': 'appointment',
+      });
+
+      expect(entry.minutos, 45);
+      expect(entry.appointmentId, 'appointment');
+    });
   });
 }
 

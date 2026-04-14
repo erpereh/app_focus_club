@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../auth/application/auth_scope.dart';
+import '../application/client_portal_view_model.dart';
+import '../application/portal_scope.dart';
 import '../../../theme/app_theme.dart';
 import 'appointments_screen.dart';
+import 'booking_screen.dart';
 import 'dashboard_screen.dart';
 import 'profile_screen.dart';
 
@@ -14,11 +18,45 @@ class ClientShellScreen extends StatefulWidget {
 
 class _ClientShellScreenState extends State<ClientShellScreen> {
   int _selectedIndex = 0;
+  ClientPortalViewModel? _viewModel;
+  String? _uid;
 
   void _selectTab(int index) => setState(() => _selectedIndex = index);
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final session = AuthScope.of(context).currentSession;
+    final uid = session?.uid;
+    if (uid == null || uid == _uid) return;
+
+    _viewModel?.dispose();
+    _uid = uid;
+    _viewModel = ClientPortalViewModel(
+      repository: PortalScope.of(context),
+      uid: uid,
+    )..start();
+  }
+
+  @override
+  void dispose() {
+    _viewModel?.dispose();
+    super.dispose();
+  }
+
+  void _openBooking(ClientPortalState state) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => BookingScreen(state: state)),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final viewModel = _viewModel;
+    if (viewModel == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       body: Stack(
         children: [
@@ -33,16 +71,27 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
               ),
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 112),
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: [
-                    DashboardScreen(
-                      onOpenAppointments: () => _selectTab(1),
-                      onOpenProfile: () => _selectTab(2),
-                    ),
-                    const AppointmentsScreen(),
-                    const ProfileScreen(),
-                  ],
+                child: ListenableBuilder(
+                  listenable: viewModel,
+                  builder: (context, _) {
+                    final state = viewModel.state;
+                    return IndexedStack(
+                      index: _selectedIndex,
+                      children: [
+                        DashboardScreen(
+                          state: state,
+                          onOpenAppointments: () => _selectTab(1),
+                          onOpenProfile: () => _selectTab(2),
+                          onOpenBooking: () => _openBooking(state),
+                        ),
+                        AppointmentsScreen(
+                          state: state,
+                          onOpenBooking: () => _openBooking(state),
+                        ),
+                        ProfileScreen(state: state),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
