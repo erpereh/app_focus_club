@@ -6,7 +6,9 @@ App movil de clientes para Focus Club Vallecas.
 
 - Proyecto Flutter inicializado para Android e iOS.
 - Base de UI preparada con tema oscuro Focus Club.
-- Sin Firebase, autenticacion ni logica de negocio todavia.
+- Firebase base configurado con FlutterFire para el proyecto `focus-club-f73b8` en Android e iOS.
+- Inicializacion base con `DefaultFirebaseOptions.currentPlatform`.
+- Sin despliegue de reglas/Functions ni conexion completa de pantallas a datos reales todavia.
 
 ## Primeras verificaciones
 

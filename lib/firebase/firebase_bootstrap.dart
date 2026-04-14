@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 
+import '../firebase_options.dart';
+
 class FirebaseBootstrap {
   const FirebaseBootstrap._();
 
@@ -8,6 +10,8 @@ class FirebaseBootstrap {
 
   static Future<void> initializeIfConfigured() async {
     if (Firebase.apps.isNotEmpty) return;
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
 }

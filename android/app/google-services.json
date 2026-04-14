@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1555015411",
+    "project_id": "focus-club-f73b8",
+    "storage_bucket": "focus-club-f73b8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1555015411:android:8f12201d8f5b521fe67986",
+        "android_client_info": {
+          "package_name": "es.focusclub.clientes.app_focus_club"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1555015411-lueeo8ds7tran7anbdqho8fldsjdi2v5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7lDo8oB8U_q7Cr3t3sKVf7zECW_2uM3U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1555015411-lueeo8ds7tran7anbdqho8fldsjdi2v5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1555015411-vrde6e7h8j5klmfv35s6rus2r92pakcf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "es.focusclub.clientes.appFocusClub"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

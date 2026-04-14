@@ -29,5 +29,39 @@
       "enabled": true,
       "port": 4000
     }
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "focus-club-f73b8",
+          "appId": "1:1555015411:android:8f12201d8f5b521fe67986",
+          "fileOutput": "android/app/google-services.json"
+        },
+        "buildConfigurations": {
+          ".": {
+            "projectId": "focus-club-f73b8",
+            "appId": "1:1555015411:android:8f12201d8f5b521fe67986",
+            "fileOutput": "android/app/google-services.json"
+          }
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "focus-club-f73b8",
+          "appId": "1:1555015411:ios:5438e5635dd12b16e67986",
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "focus-club-f73b8",
+          "configurations": {
+            "android": "1:1555015411:android:8f12201d8f5b521fe67986",
+            "ios": "1:1555015411:ios:5438e5635dd12b16e67986"
+          }
+        }
+      }
+    }
   }
 }
