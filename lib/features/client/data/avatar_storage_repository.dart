@@ -11,6 +11,7 @@ abstract interface class AvatarStorageRepository {
   });
 
   Future<void> deleteAvatarByPath(String storagePath);
+  Future<void> deleteAvatarByUrl(String photoUrl);
 }
 
 class FirebaseAvatarStorageRepository implements AvatarStorageRepository {
@@ -39,5 +40,15 @@ class FirebaseAvatarStorageRepository implements AvatarStorageRepository {
   @override
   Future<void> deleteAvatarByPath(String storagePath) {
     return _storage.ref(storagePath).delete();
+  }
+
+  @override
+  Future<void> deleteAvatarByUrl(String photoUrl) async {
+    if (photoUrl.trim().isEmpty) return;
+    try {
+      await _storage.refFromURL(photoUrl).delete();
+    } on FirebaseException {
+      // Avatar cleanup should not block saving the new profile photo.
+    }
   }
 }

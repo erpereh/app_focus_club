@@ -143,12 +143,12 @@ class ClientPortalViewModel extends ChangeNotifier {
       );
   }
 
-  Future<void> requestAppointment({
+  Future<void> createAppointment({
     required int durationMinutes,
     required TimeSlot preferredSlot,
     required String reason,
   }) async {
-    await _repository.requestAppointment(
+    await _repository.createAppointment(
       AppointmentRequest(
         durationMinutes: durationMinutes,
         preferredSlot: preferredSlot,

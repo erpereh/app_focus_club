@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../auth/application/auth_scope.dart';
 import '../../auth/data/auth_repository.dart';
@@ -10,6 +13,7 @@ import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
+import '../data/avatar_storage_repository.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 
@@ -27,7 +31,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _imagePicker = ImagePicker();
   String? _profileUid;
+  String? _profilePhotoUrl;
+  Uint8List? _avatarPreviewBytes;
+  Uint8List? _avatarUploadBytes;
+  String? _avatarExtension;
+  String? _avatarContentType;
+  bool _photoRemoved = false;
   String? _statusMessage;
   FocusStatusType _statusType = FocusStatusType.success;
   bool _isSaving = false;
@@ -42,9 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void didUpdateWidget(ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.state.profile?.uid != widget.state.profile?.uid) {
-      _syncProfile();
-    }
+    _syncProfile();
   }
 
   @override
@@ -58,6 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = widget.state.profile;
+    final session = AuthScope.of(context).currentSession;
 
     return SafeArea(
       child: ListView(
@@ -76,7 +86,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _AvatarEditor(profile: profile),
+                  _AvatarEditor(
+                    profile: profile,
+                    previewBytes: _avatarPreviewBytes,
+                    photoRemoved: _photoRemoved,
+                    onPickAvatar: _pickAvatar,
+                    onRemoveAvatar: _removeAvatar,
+                  ),
                   const SizedBox(height: 28),
                   if (profile != null) ...[
                     _ReadonlyLine(label: 'Email', value: profile.email),
@@ -100,15 +116,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     validator: _validateSpanishPhone,
                     textInputAction: TextInputAction.next,
                   ),
-                  const SizedBox(height: 18),
-                  FocusTextField(
-                    label: 'Nueva contrasena',
-                    icon: Icons.lock_outline_rounded,
-                    controller: _passwordController,
-                    obscureText: true,
-                    validator: _validateOptionalPassword,
-                    textInputAction: TextInputAction.done,
-                  ),
+                  if (session?.canChangePassword == true) ...[
+                    const SizedBox(height: 18),
+                    FocusTextField(
+                      label: 'Nueva contrasena',
+                      icon: Icons.lock_outline_rounded,
+                      controller: _passwordController,
+                      obscureText: true,
+                      validator: _validateOptionalPassword,
+                      textInputAction: TextInputAction.done,
+                    ),
+                  ],
                   if (_statusMessage != null) ...[
                     const SizedBox(height: 20),
                     FocusStatusMessage(
@@ -138,10 +156,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _syncProfile() {
     final profile = widget.state.profile;
-    if (profile == null || profile.uid == _profileUid) return;
-    _profileUid = profile.uid;
-    _nameController.text = profile.name;
-    _phoneController.text = profile.phone ?? '';
+    if (profile == null) return;
+    if (profile.uid != _profileUid) {
+      _profileUid = profile.uid;
+      _nameController.text = profile.name;
+      _phoneController.text = profile.phone ?? '';
+      _clearLocalAvatarState();
+    }
+    if (profile.photoUrl != _profilePhotoUrl && !_isSaving) {
+      _profilePhotoUrl = profile.photoUrl;
+      _clearLocalAvatarState();
+    }
+  }
+
+  Future<void> _pickAvatar() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+    );
+    if (image == null) return;
+    final bytes = await image.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _avatarPreviewBytes = bytes;
+      _avatarUploadBytes = bytes;
+      _avatarExtension = _extensionFor(image.name, image.mimeType);
+      _avatarContentType = image.mimeType ?? 'image/jpeg';
+      _photoRemoved = false;
+      _statusMessage = null;
+    });
+  }
+
+  void _removeAvatar() {
+    setState(() {
+      _avatarPreviewBytes = null;
+      _avatarUploadBytes = null;
+      _avatarExtension = null;
+      _avatarContentType = null;
+      _photoRemoved = true;
+      _statusMessage = null;
+    });
   }
 
   Future<void> _signOut() async {
@@ -170,11 +224,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _statusMessage = null;
     });
     try {
+      final currentPhotoUrl = widget.state.profile?.photoUrl ?? '';
+      String? nextPhotoUrl = currentPhotoUrl.isEmpty ? null : currentPhotoUrl;
+      final avatarUploadBytes = _avatarUploadBytes;
+      if (avatarUploadBytes != null) {
+        final avatarRepository = FirebaseAvatarStorageRepository();
+        final extension = _avatarExtension ?? 'jpg';
+        nextPhotoUrl = await avatarRepository.uploadAvatar(
+          uid: uid,
+          fileName:
+              'profile-${DateTime.now().millisecondsSinceEpoch}.$extension',
+          bytes: avatarUploadBytes,
+          contentType: _avatarContentType ?? 'image/jpeg',
+        );
+        await avatarRepository.deleteAvatarByUrl(currentPhotoUrl);
+      } else if (_photoRemoved) {
+        final avatarRepository = FirebaseAvatarStorageRepository();
+        await avatarRepository.deleteAvatarByUrl(currentPhotoUrl);
+        nextPhotoUrl = '';
+      }
+
       await authRepository.updateSafeProfileFields(
         uid: uid,
         name: _nameController.text,
         phone: _phoneController.text,
-        photoUrl: widget.state.profile?.photoUrl,
+        photoUrl: nextPhotoUrl,
       );
       if (_passwordController.text.isNotEmpty) {
         await authRepository.updatePassword(_passwordController.text);
@@ -184,6 +258,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _statusMessage = 'Perfil actualizado correctamente.';
         _statusType = FocusStatusType.success;
+        _avatarUploadBytes = null;
+        _avatarExtension = null;
+        _avatarContentType = null;
       });
     } catch (error) {
       if (!mounted) return;
@@ -216,16 +293,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     return null;
   }
+
+  void _clearLocalAvatarState() {
+    _avatarPreviewBytes = null;
+    _avatarUploadBytes = null;
+    _avatarExtension = null;
+    _avatarContentType = null;
+    _photoRemoved = false;
+  }
+
+  String _extensionFor(String fileName, String? contentType) {
+    final rawExtension = fileName.split('.').last.toLowerCase();
+    if (rawExtension != fileName && rawExtension.length <= 5) {
+      return rawExtension == 'jpeg' ? 'jpg' : rawExtension;
+    }
+    return switch (contentType) {
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      'image/heic' => 'heic',
+      _ => 'jpg',
+    };
+  }
 }
 
 class _AvatarEditor extends StatelessWidget {
-  const _AvatarEditor({required this.profile});
+  const _AvatarEditor({
+    required this.profile,
+    required this.previewBytes,
+    required this.photoRemoved,
+    required this.onPickAvatar,
+    required this.onRemoveAvatar,
+  });
 
   final UserProfile? profile;
+  final Uint8List? previewBytes;
+  final bool photoRemoved;
+  final VoidCallback onPickAvatar;
+  final VoidCallback onRemoveAvatar;
 
   @override
   Widget build(BuildContext context) {
-    final hasAvatar = profile?.hasPhoto == true;
+    final hasPreview = previewBytes != null;
+    final hasRemoteAvatar = !photoRemoved && profile?.hasPhoto == true;
+    final hasAvatar = hasPreview || hasRemoteAvatar;
     return Column(
       children: [
         DecoratedBox(
@@ -252,12 +362,19 @@ class _AvatarEditor extends StatelessWidget {
               child: hasAvatar
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                      child: Image.network(
-                        profile!.photoUrl!,
-                        width: 92,
-                        height: 92,
-                        fit: BoxFit.cover,
-                      ),
+                      child: hasPreview
+                          ? Image.memory(
+                              previewBytes!,
+                              width: 92,
+                              height: 92,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.network(
+                              profile!.photoUrl!,
+                              width: 92,
+                              height: 92,
+                              fit: BoxFit.cover,
+                            ),
                     )
                   : Text(
                       profile?.displayInitials ?? '?',
@@ -273,10 +390,24 @@ class _AvatarEditor extends StatelessWidget {
         const SizedBox(height: 20),
         FocusSectionHeader(title: 'Avatar'),
         const SizedBox(height: 14),
-        const FocusStatusMessage(
-          message:
-              'La gestion de avatar no esta disponible todavia en la app movil.',
-          type: FocusStatusType.warning,
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onPickAvatar,
+                icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                label: const Text('Cambiar foto'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: hasAvatar ? onRemoveAvatar : null,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text('Eliminar foto'),
+              ),
+            ),
+          ],
         ),
       ],
     );

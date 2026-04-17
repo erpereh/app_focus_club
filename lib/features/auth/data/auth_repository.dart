@@ -45,6 +45,7 @@ class AuthSession {
   const AuthSession({
     required this.uid,
     required this.isEmailVerified,
+    required this.canChangePassword,
     this.email,
     this.displayName,
     this.photoUrl,
@@ -55,6 +56,7 @@ class AuthSession {
   final String? displayName;
   final String? photoUrl;
   final bool isEmailVerified;
+  final bool canChangePassword;
 }
 
 enum GoogleAuthStatus { signedIn, needsProfile }
@@ -284,6 +286,9 @@ extension on firebase_auth.User {
       displayName: displayName,
       photoUrl: photoURL,
       isEmailVerified: emailVerified,
+      canChangePassword: providerData.any(
+        (provider) => provider.providerId == 'password',
+      ),
     );
   }
 }

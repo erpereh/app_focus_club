@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
 
 abstract interface class PortalRepository {
@@ -20,7 +21,7 @@ abstract interface class PortalRepository {
   });
   Stream<SiteConfig?> watchSiteConfig();
 
-  Future<void> requestAppointment(AppointmentRequest request);
+  Future<void> createAppointment(AppointmentRequest request);
 }
 
 class AppointmentRequest {
@@ -150,11 +151,43 @@ class FirebasePortalRepository implements PortalRepository {
   }
 
   @override
-  Future<void> requestAppointment(AppointmentRequest request) async {
+  Future<void> createAppointment(AppointmentRequest request) async {
     await _functions
-        .httpsCallable('requestAppointment')
+        .httpsCallable('createAppointment')
         .call<Object?>(request.toCallablePayload());
   }
+}
+
+String appointmentRequestErrorMessage(Object error) {
+  if (error is FirebaseFunctionsException) {
+    final message = (error.message ?? '').toLowerCase();
+    return switch (error.code) {
+      'unauthenticated' => 'Tu sesion ha caducado. Vuelve a iniciar sesion.',
+      'not-found' when message.contains('profile') =>
+        'Completa tu perfil antes de reservar.',
+      'failed-precondition' when message.contains('phone') =>
+        'Completa tu telefono antes de reservar.',
+      'failed-precondition' when message.contains('no active bono') =>
+        'No tienes un bono activo disponible.',
+      'failed-precondition' when message.contains('not enough') =>
+        'No tienes minutos suficientes para esta sesion.',
+      'failed-precondition' when message.contains('future') =>
+        'Elige una franja futura.',
+      'failed-precondition' when message.contains('blocked') =>
+        'Esta franja ya no esta disponible.',
+      'failed-precondition' when message.contains('full') =>
+        'Esta franja esta completa.',
+      'failed-precondition' when message.contains('already has') =>
+        'Ya tienes una sesion en esa franja.',
+      'failed-precondition' when message.contains('more than one') =>
+        'Hay una incidencia con tu bono activo. Contacta con Focus Club.',
+      _ => 'No hemos podido enviar la solicitud. Intentalo de nuevo.',
+    };
+  }
+  if (error is ActiveBonoConsistencyException) {
+    return 'Hay una incidencia con tu bono activo. Contacta con Focus Club.';
+  }
+  return 'No hemos podido enviar la solicitud. Intentalo de nuevo.';
 }
 
 class FakePortalRepository implements PortalRepository {
@@ -235,7 +268,7 @@ class FakePortalRepository implements PortalRepository {
   Stream<SiteConfig?> watchSiteConfig() => Stream.value(_siteConfig);
 
   @override
-  Future<void> requestAppointment(AppointmentRequest request) async {
+  Future<void> createAppointment(AppointmentRequest request) async {
     requests.add(request);
   }
 }

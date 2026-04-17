@@ -44,9 +44,11 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
     super.dispose();
   }
 
-  void _openBooking(ClientPortalState state) {
+  void _openBooking(ClientPortalViewModel viewModel) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => BookingScreen(state: state)),
+      MaterialPageRoute<void>(
+        builder: (_) => BookingScreen(viewModel: viewModel),
+      ),
     );
   }
 
@@ -82,11 +84,11 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
                           state: state,
                           onOpenAppointments: () => _selectTab(1),
                           onOpenProfile: () => _selectTab(2),
-                          onOpenBooking: () => _openBooking(state),
+                          onOpenBooking: () => _openBooking(viewModel),
                         ),
                         AppointmentsScreen(
                           state: state,
-                          onOpenBooking: () => _openBooking(state),
+                          onOpenBooking: () => _openBooking(viewModel),
                         ),
                         ProfileScreen(state: state),
                       ],

@@ -7,12 +7,13 @@ import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
+import '../data/portal_repository.dart';
 import '../widgets/appointment_display.dart';
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({required this.state, super.key});
+  const BookingScreen({required this.viewModel, super.key});
 
-  final ClientPortalState state;
+  final ClientPortalViewModel viewModel;
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -23,20 +24,41 @@ class _BookingScreenState extends State<BookingScreen> {
   int _selectedDuration = 45;
   String _selectedDate = buildBookingDates().first;
   BookingSlotState? _selectedSlot;
+  String? _statusMessage;
+  FocusStatusType _statusType = FocusStatusType.success;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.viewModel.addListener(_handlePortalChange);
+  }
+
+  @override
+  void didUpdateWidget(BookingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.viewModel == widget.viewModel) return;
+    oldWidget.viewModel.removeListener(_handlePortalChange);
+    widget.viewModel.addListener(_handlePortalChange);
+  }
 
   @override
   void dispose() {
+    widget.viewModel.removeListener(_handlePortalChange);
     _commentController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = widget.state;
+    final state = widget.viewModel.state;
     final activeBono = state.activeBono;
     final siteConfig = state.siteConfig;
     final dates = buildBookingDates();
-    final canBook = activeBono?.canBook == true && siteConfig != null;
+    final canBook =
+        activeBono?.canBook == true &&
+        siteConfig != null &&
+        _selectedDuration <= (activeBono?.minutosRestantes ?? 0);
     final slots = siteConfig == null
         ? const <BookingSlotState>[]
         : buildBookingSlotsForDate(date: _selectedDate, siteConfig: siteConfig)
@@ -50,6 +72,10 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
               )
               .toList(growable: false);
+    final selectedSlot = _selectedSlot == null
+        ? null
+        : slots.where((slot) => slot.slot == _selectedSlot!.slot).firstOrNull;
+    final canSubmit = canBook && selectedSlot?.isEnabled == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -64,12 +90,10 @@ class _BookingScreenState extends State<BookingScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
           children: [
-            const FocusStatusMessage(
-              message:
-                  'La reserva real necesita el backend requestAppointment. Ahora mismo no esta disponible en Firebase, asi que no se crearan citas desde la app.',
-              type: FocusStatusType.warning,
-            ),
-            const SizedBox(height: 18),
+            if (_statusMessage != null) ...[
+              FocusStatusMessage(message: _statusMessage!, type: _statusType),
+              const SizedBox(height: 18),
+            ],
             _StepCard(
               title: 'Duracion',
               child: Column(
@@ -171,9 +195,10 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
             const SizedBox(height: 22),
-            const FocusPrimaryButton(
+            FocusPrimaryButton(
               label: 'Enviar Solicitud',
-              onPressed: null,
+              isLoading: _isSubmitting,
+              onPressed: canSubmit && !_isSubmitting ? _submit : null,
             ),
             const SizedBox(height: 12),
             FocusGhostButton(
@@ -185,6 +210,81 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       ),
     );
+  }
+
+  void _handlePortalChange() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _submit() async {
+    final state = widget.viewModel.state;
+    final activeBono = state.activeBono;
+    final selectedSlot = _selectedSlot;
+    if (activeBono == null) {
+      _showError('No tienes un bono activo disponible.');
+      return;
+    }
+    if (activeBono.minutosRestantes < _selectedDuration) {
+      _showError('No tienes minutos suficientes para esta sesion.');
+      return;
+    }
+    if (selectedSlot == null) {
+      _showError('Selecciona una franja horaria.');
+      return;
+    }
+    final latestSlot = bookingSlotState(
+      slot: selectedSlot.slot,
+      durationMinutes: _selectedDuration,
+      blockedSlots: state.blockedSlots,
+      occupancy: state.slotOccupancy,
+      activeAppointments: state.activeAppointments,
+    );
+    if (!latestSlot.isEnabled) {
+      _showError(_messageForDisabledSlot(latestSlot));
+      setState(() => _selectedSlot = latestSlot);
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _statusMessage = null;
+    });
+    try {
+      await widget.viewModel.createAppointment(
+        durationMinutes: _selectedDuration,
+        preferredSlot: latestSlot.slot,
+        reason: _commentController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = 'Solicitud Enviada';
+        _statusType = FocusStatusType.success;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      _showError(appointmentRequestErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showError(String message) {
+    setState(() {
+      _statusMessage = message;
+      _statusType = FocusStatusType.error;
+    });
+  }
+
+  String _messageForDisabledSlot(BookingSlotState slot) {
+    return switch (slot.label) {
+      'Pasado' => 'Elige una franja futura.',
+      'Bloqueado' => 'Esta franja ya no esta disponible.',
+      'Completo' => 'Esta franja esta completa.',
+      'Tu sesion' => 'Ya tienes una sesion en esa franja.',
+      _ => 'Esta franja ya no esta disponible.',
+    };
   }
 }
 

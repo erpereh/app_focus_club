@@ -7,7 +7,7 @@ import {
   Transaction,
 } from "firebase-admin/firestore";
 import {defineSecret} from "firebase-functions/params";
-import {onCall, HttpsError} from "firebase-functions/v2/https";
+import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 
 initializeApp();
@@ -97,55 +97,56 @@ interface AssignBonoToUserPayload {
   mesesValidez?: number;
 }
 
-export const requestAppointment = onCall(
-  {region},
-  async (request) => {
-    const uid = requireAuthUid(request.auth?.uid);
-    const payload = parseRequestAppointmentPayload(request.data);
-    const duration = parseDuration(payload.duration);
-    const nowIso = new Date().toISOString();
+export const createAppointment = onCall({region}, handleCreateAppointment);
 
-    await db.runTransaction(async (transaction) => {
-      const user = await getUserProfile(transaction, uid);
-      if (!user.phone) {
-        throw new HttpsError("failed-precondition", "Profile phone is required.");
-      }
-      requireFutureSlot(payload.preferredSlot);
+export const requestAppointment = onCall({region}, handleCreateAppointment);
 
-      const activeBono = await getUniqueActiveBono(transaction, uid);
-      if (!activeBono) {
-        throw new HttpsError("failed-precondition", "No active bono found.");
-      }
-      if (activeBono.data.minutosRestantes < duration) {
-        throw new HttpsError("failed-precondition", "Not enough bono minutes.");
-      }
+async function handleCreateAppointment(request: CallableRequest<unknown>) {
+  const uid = requireAuthUid(request.auth?.uid);
+  const payload = parseRequestAppointmentPayload(request.data);
+  const duration = parseDuration(payload.duration);
+  const nowIso = new Date().toISOString();
 
-      await assertSlotAvailability({
-        transaction,
-        slot: payload.preferredSlot,
-        duration,
-        userId: uid,
-      });
+  await db.runTransaction(async (transaction) => {
+    const user = await getUserProfile(transaction, uid);
+    if (!user.phone) {
+      throw new HttpsError("failed-precondition", "Profile phone is required.");
+    }
+    requireFutureSlot(payload.preferredSlot);
 
-      const appointmentRef = db.collection("appointments").doc();
-      transaction.set(appointmentRef, {
-        userId: uid,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        serviceType,
-        duration: String(duration),
-        preferredSlots: [payload.preferredSlot],
-        reason: payload.reason ?? "",
-        status: "pending",
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      } satisfies Appointment);
+    const activeBono = await getUniqueActiveBono(transaction, uid);
+    if (!activeBono) {
+      throw new HttpsError("failed-precondition", "No active bono found.");
+    }
+    if (activeBono.data.minutosRestantes < duration) {
+      throw new HttpsError("failed-precondition", "Not enough bono minutes.");
+    }
+
+    await assertSlotAvailability({
+      transaction,
+      slot: payload.preferredSlot,
+      duration,
+      userId: uid,
     });
 
-    return {ok: true};
-  },
-);
+    const appointmentRef = db.collection("appointments").doc();
+    transaction.set(appointmentRef, {
+      userId: uid,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      serviceType,
+      duration: String(duration),
+      preferredSlots: [payload.preferredSlot],
+      reason: payload.reason ?? "",
+      status: "pending",
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    } satisfies Appointment);
+  });
+
+  return {ok: true};
+}
 
 export const approveAppointment = onCall(
   {region, secrets: [makeReservationWebhookUrl]},

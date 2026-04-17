@@ -2,6 +2,7 @@ import 'package:app_focus_club/app/app.dart';
 import 'package:app_focus_club/features/auth/data/auth_repository.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -146,20 +147,82 @@ void main() {
     expect(find.text('FC-1047'), findsOneWidget);
   });
 
-  testWidgets('booking request shows real availability and blocks submit', (
+  testWidgets('booking request uses createAppointment with selected slot', (
     tester,
   ) async {
-    await _pumpDashboard(tester);
+    final portalRepository = _fakePortalRepository();
+    await _pumpDashboard(
+      tester,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1600),
+    );
 
     await tester.tap(find.text('Reservar Sesion').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Reservar Sesion'), findsOneWidget);
-    expect(find.textContaining('requestAppointment'), findsOneWidget);
+    expect(find.textContaining('requestAppointment'), findsNothing);
     expect(find.text('30 min'), findsOneWidget);
     expect(find.text('45 min'), findsOneWidget);
     expect(find.text('60 min'), findsOneWidget);
     expect(find.text('abr 2026'), findsOneWidget);
+
+    await tester.tap(find.text('18 abr'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('08:00').first);
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enviar Solicitud'));
+    await tester.pump();
+
+    expect(portalRepository.requests, hasLength(1));
+    await tester.drag(find.byType(ListView), const Offset(0, 1000));
+    await tester.pump();
+    expect(find.text('Solicitud Enviada'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 901));
+    await tester.pumpAndSettle();
+    expect(portalRepository.requests.single.durationMinutes, 45);
+    expect(portalRepository.requests.single.reason, '');
+    expect(portalRepository.requests.single.preferredSlot.date, '2026-04-18');
+  });
+
+  test('fake portal stores createAppointment payload', () async {
+    final repository = FakePortalRepository();
+    await repository.createAppointment(
+      const AppointmentRequest(
+        durationMinutes: 60,
+        preferredSlot: TimeSlot(date: '2026-04-18', time: '10:00'),
+        reason: 'Trabajo suave.',
+      ),
+    );
+
+    expect(repository.requests, hasLength(1));
+    expect(repository.requests.single.durationMinutes, 60);
+    expect(repository.requests.single.preferredSlot.time, '10:00');
+    expect(repository.requests.single.reason, 'Trabajo suave.');
+  });
+
+  test('maps createAppointment errors to Spanish messages', () {
+    expect(
+      appointmentRequestErrorMessage(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message: 'Slot is full.',
+        ),
+      ),
+      'Esta franja esta completa.',
+    );
+    expect(
+      appointmentRequestErrorMessage(
+        _FakeFunctionsException(
+          code: 'unauthenticated',
+          message: 'Authentication is required.',
+        ),
+      ),
+      'Tu sesion ha caducado. Vuelve a iniciar sesion.',
+    );
   });
 
   testWidgets('dashboard switches between appointment and pass history', (
@@ -183,6 +246,10 @@ void main() {
 
     await tester.tap(find.text('Perfil').last);
     await tester.pumpAndSettle();
+    expect(find.text('LP'), findsOneWidget);
+    expect(find.text('Cambiar foto'), findsOneWidget);
+    expect(find.text('Eliminar foto'), findsOneWidget);
+    expect(find.text('Nueva contrasena'), findsOneWidget);
     await tester.ensureVisible(find.text('Guardar cambios'));
     await tester.tap(find.text('Guardar cambios'));
     await tester.pumpAndSettle();
@@ -207,19 +274,21 @@ void main() {
 Future<void> _pumpAuth(
   WidgetTester tester, {
   _FakeAuthRepository? authRepository,
+  FakePortalRepository? portalRepository,
+  Size viewportSize = const Size(800, 1000),
 }) async {
-  _setTestViewport(tester);
+  _setTestViewport(tester, viewportSize);
   await tester.pumpWidget(
     FocusClubApp(
       authRepository: authRepository ?? _FakeAuthRepository(),
-      portalRepository: _fakePortalRepository(),
+      portalRepository: portalRepository ?? _fakePortalRepository(),
     ),
   );
   await tester.pump(const Duration(milliseconds: 950));
   await tester.pumpAndSettle();
 }
 
-PortalRepository _fakePortalRepository() {
+FakePortalRepository _fakePortalRepository() {
   return FakePortalRepository(
     profile: const UserProfile(
       uid: 'test-user',
@@ -339,16 +408,31 @@ PortalRepository _fakePortalRepository() {
   );
 }
 
-void _setTestViewport(WidgetTester tester) {
-  tester.view.physicalSize = const Size(800, 1000);
+void _setTestViewport(
+  WidgetTester tester, [
+  Size size = const Size(800, 1000),
+]) {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> _pumpDashboard(WidgetTester tester) async {
-  await _pumpAuth(tester);
+Future<void> _pumpDashboard(
+  WidgetTester tester, {
+  FakePortalRepository? portalRepository,
+  Size viewportSize = const Size(800, 1000),
+}) async {
+  await _pumpAuth(
+    tester,
+    portalRepository: portalRepository,
+    viewportSize: viewportSize,
+  );
   await _login(tester);
+}
+
+class _FakeFunctionsException extends FirebaseFunctionsException {
+  _FakeFunctionsException({required super.code, required super.message});
 }
 
 Future<void> _login(WidgetTester tester) async {
@@ -390,6 +474,7 @@ class _FakeAuthRepository implements AuthRepository {
       email: email,
       displayName: 'Laura Perez',
       isEmailVerified: true,
+      canChangePassword: true,
     );
   }
 
@@ -408,6 +493,7 @@ class _FakeAuthRepository implements AuthRepository {
       email: 'google@email.com',
       displayName: 'Laura Perez',
       isEmailVerified: true,
+      canChangePassword: false,
     );
     return GoogleAuthResult(
       status: GoogleAuthStatus.needsProfile,

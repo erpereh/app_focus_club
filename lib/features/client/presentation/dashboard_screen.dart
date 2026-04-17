@@ -7,6 +7,8 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
+import '../../auth/application/auth_scope.dart';
+import '../../../navigation/app_router.dart';
 import '../application/client_portal_view_model.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
@@ -66,6 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _DashboardHeader(
             profile: profile,
             onOpenProfile: widget.onOpenProfile,
+            onSignOut: () => _signOut(context),
           ),
           const SizedBox(height: 28),
           FocusPrimaryButton(
@@ -181,13 +184,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return DateTime.tryParse('${slot?.date ?? ''}T${slot?.time ?? ''}:00') ??
         DateTime.fromMillisecondsSinceEpoch(0);
   }
+
+  Future<void> _signOut(BuildContext context) async {
+    await AuthScope.of(context).signOut();
+    if (!context.mounted) return;
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
+  }
 }
 
 class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader({required this.profile, required this.onOpenProfile});
+  const _DashboardHeader({
+    required this.profile,
+    required this.onOpenProfile,
+    required this.onSignOut,
+  });
 
   final UserProfile? profile;
   final VoidCallback onOpenProfile;
+  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +266,7 @@ class _DashboardHeader extends StatelessWidget {
         ),
         IconButton(
           tooltip: 'Salir',
-          onPressed: () => Navigator.of(context).pushReplacementNamed('/auth'),
+          onPressed: onSignOut,
           icon: const Icon(Icons.logout_rounded),
         ),
       ],

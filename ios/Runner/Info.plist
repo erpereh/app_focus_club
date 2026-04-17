@@ -39,6 +39,8 @@
 	<string>1555015411-vrde6e7h8j5klmfv35s6rus2r92pakcf.apps.googleusercontent.com</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Permite seleccionar una foto para tu perfil de Focus Club.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

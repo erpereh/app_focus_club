@@ -8,7 +8,7 @@ Fecha: 2026-04-14
 - Contratos Dart del portal cliente para `users`, `appointments`, `bonos`, `trainers`, `blocked_slots`, `slot_occupancy` y `site_config/main`.
 - Logica pura de disponibilidad con sub-slots internos de 15 minutos y capacidad fija `2`.
 - Regla de negocio de maximo un bono `activo` util por usuario en la capa de dominio.
-- Repositorio Firebase/Fake para lecturas del portal y callable `requestAppointment`.
+- Repositorio Firebase/Fake para lecturas del portal y callable `createAppointment`.
 - Repositorios base para Auth y avatar Storage.
 - Auth real integrado en la app Flutter:
   - Login email/password, registro email/password, reset password y logout usan Firebase Auth.
@@ -26,7 +26,7 @@ Fecha: 2026-04-14
   - iOS: `es.focusclub.clientes.appFocusClub` (`1:1555015411:ios:5438e5635dd12b16e67986`).
 - Configuracion oficial Flutter generada en `lib/firebase_options.dart`, `android/app/google-services.json` e `ios/Runner/GoogleService-Info.plist`.
 - Inicializacion base integrada con `Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`.
-- Scaffold local de Cloud Functions TypeScript para `requestAppointment`, `approveAppointment`, `rejectAppointment`, `updateAppointmentSlot`, `assignBonoToUser` y `expireOverdueBonos`.
+- Scaffold local de Cloud Functions TypeScript para `createAppointment`, alias legacy `requestAppointment`, `approveAppointment`, `rejectAppointment`, `updateAppointmentSlot`, `assignBonoToUser` y `expireOverdueBonos`.
 - Punto de integracion Make.com preparado en backend para `Reserva confirmada`, desactivado por defecto y mediante secreto `MAKE_RESERVATION_WEBHOOK_URL`.
 - Tests puros para sub-slots, capacidad, solape, bono activo unico y parsing de campos opcionales.
 
@@ -35,9 +35,9 @@ Fecha: 2026-04-14
 - Reglas Firestore/Storage locales. No se han desplegado al proyecto `focus-club-f73b8`.
 - Functions locales. No se han instalado dependencias npm, compilado ni desplegado.
 - Integracion Make.com. No se ha guardado el webhook como secreto y no se han hecho llamadas reales.
-- `requestAppointment` esta preparado como callable, pero la app todavia no lo invoca desde UI real.
-- La UI movil sigue usando `MockClientData` mientras se conecta el ViewModel a pantallas concretas.
-- Dashboard, citas, bonos, reserva, perfil visual y avatar siguen en modo mock salvo el perfil minimo usado por Auth/Google.
+- La app movil invoca `createAppointment` desde la UI de reserva y no escribe `appointments` directamente.
+- La UI movil usa el ViewModel del portal para dashboard, citas, bonos, disponibilidad, `site_config/main`, perfil y avatar.
+- `MockClientData` se elimino del codigo productivo.
 - No se ha desplegado App Hosting, web, reglas, Functions ni datos a produccion.
 - Chrome/web no es target soportado para esta app movil: `flutter run -d chrome` falla porque `DefaultFirebaseOptions` no tiene configuracion web.
 
@@ -59,7 +59,7 @@ Fecha: 2026-04-14
 ## Riesgos abiertos
 
 - Storage en produccion esta mas abierto que la regla local preparada; no desplegar sin revisar impacto en CMS/media.
-- Firestore en produccion aun permite crear citas desde cliente; cerrar esto requiere coordinar web/admin y app movil con `requestAppointment`.
+- Firestore en produccion aun puede permitir crear citas desde cliente si no se despliegan reglas endurecidas; la app movil ya usa `createAppointment`.
 - Cloud Functions API aparecio deshabilitada o sin uso en `focus-club-f73b8`; habilitarla es una accion de proyecto que requiere autorizacion.
 - `slot_occupancy` usa sub-slots internos de 15 minutos; cualquier reconciliacion futura debe comparar por bloques internos, no por cita completa.
-- La app aun necesita reemplazar `MockClientData` por repositorios/ViewModels en las pantallas.
+- Validar end-to-end en dispositivo real que `createAppointment` este desplegada en `europe-west1`.

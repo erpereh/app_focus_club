@@ -81,7 +81,7 @@ Funcionalidades principales:
 7. El usuario puede anadir un comentario opcional.
 8. El boton "Enviar Solicitud" se habilita solo cuando hay una franja seleccionada.
 9. Antes de crear la cita, la app vuelve a comprobar el bono activo y los minutos disponibles.
-10. La app crea una cita en Firestore con estado `pending`.
+10. La app llama a la Firebase Function `createAppointment`, que crea la cita `pending` desde backend.
 11. La app muestra confirmacion: "Solicitud Enviada".
 12. La app refresca las citas y cierra el flujo de reserva.
 
@@ -155,7 +155,7 @@ Funcionalidades principales:
   - Leer/suscribirse a `site_config`.
   - Leer/suscribirse a `slot_occupancy` del mes visible.
   - Leer/suscribirse a `blocked_slots` del mes visible.
-  - Crear documento en `appointments` con estado `pending`.
+  - Llamar a la Firebase Function `createAppointment`.
 
 ### Detalle de cita
 
