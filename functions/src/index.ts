@@ -31,6 +31,12 @@ interface TimeSlot {
   time: string;
 }
 
+interface SiteConfig {
+  startHour: number;
+  endHour: number;
+  slotInterval: number;
+}
+
 interface UserProfile {
   uid: string;
   email: string;
@@ -121,12 +127,14 @@ async function handleCreateAppointment(request: CallableRequest<unknown>) {
     if (activeBono.data.minutosRestantes < duration) {
       throw new HttpsError("failed-precondition", "Not enough bono minutes.");
     }
+    const siteConfig = await getSiteConfig(transaction);
 
     await assertSlotAvailability({
       transaction,
       slot: payload.preferredSlot,
       duration,
       userId: uid,
+      siteConfig,
     });
 
     const appointmentRef = db.collection("appointments").doc();
@@ -166,12 +174,14 @@ export const approveAppointment = onCall(
       }
 
       const duration = parseDuration(appointment.duration);
+      const siteConfig = await getSiteConfig(transaction);
       await assertSlotAvailability({
         transaction,
         slot: payload.approvedSlot,
         duration,
         userId: appointment.userId,
         ignoreAppointmentId: payload.appointmentId,
+        siteConfig,
       });
       const activeBono = await getUniqueActiveBono(transaction, appointment.userId);
       if (!activeBono || activeBono.data.minutosRestantes < duration) {
@@ -274,12 +284,14 @@ export const updateAppointmentSlot = onCall(
       }
 
       const duration = parseDuration(appointment.duration);
+      const siteConfig = await getSiteConfig(transaction);
       await assertSlotAvailability({
         transaction,
         slot: payload.approvedSlot,
         duration,
         userId: appointment.userId,
         ignoreAppointmentId: payload.appointmentId,
+        siteConfig,
       });
 
       writeOccupancyDelta(transaction, appointment.approvedSlot, duration, -1);
@@ -402,14 +414,36 @@ async function getUniqueActiveBono(
   return doc ? {ref: doc.ref, data: doc.data() as Bono} : null;
 }
 
+async function getSiteConfig(transaction: Transaction): Promise<SiteConfig> {
+  const snapshot = await transaction.get(db.collection("site_config").doc("main"));
+  if (!snapshot.exists) {
+    throw new HttpsError("failed-precondition", "Site config is required.");
+  }
+  const data = snapshot.data() as Partial<SiteConfig>;
+  if (
+    typeof data.startHour !== "number" ||
+    typeof data.endHour !== "number" ||
+    typeof data.slotInterval !== "number"
+  ) {
+    throw new HttpsError("failed-precondition", "Site config is invalid.");
+  }
+  return {
+    startHour: data.startHour,
+    endHour: data.endHour,
+    slotInterval: data.slotInterval,
+  };
+}
+
 async function assertSlotAvailability(params: {
   transaction: Transaction;
   slot: TimeSlot;
   duration: number;
   userId: string;
   ignoreAppointmentId?: string;
+  siteConfig: SiteConfig;
 }): Promise<void> {
   requireFutureSlot(params.slot);
+  requireSlotFitsSchedule(params.slot, params.duration, params.siteConfig);
   const internalSlots = expandInternalSlots(params.slot, params.duration);
 
   for (const slot of internalSlots) {
@@ -447,6 +481,20 @@ async function assertSlotAvailability(params: {
     if (overlaps) {
       throw new HttpsError("failed-precondition", "User already has a session at this time.");
     }
+  }
+}
+
+function requireSlotFitsSchedule(
+  slot: TimeSlot,
+  duration: number,
+  siteConfig: SiteConfig,
+): void {
+  const startMinutes = parseTimeMinutes(slot.time);
+  const scheduleStart = siteConfig.startHour * 60;
+  const scheduleEnd = siteConfig.endHour * 60;
+  const endMinutes = startMinutes + duration;
+  if (startMinutes < scheduleStart || endMinutes > scheduleEnd) {
+    throw new HttpsError("failed-precondition", "Slot does not fit schedule.");
   }
 }
 
@@ -493,6 +541,26 @@ function parseDuration(value: string | number): number {
     throw new HttpsError("invalid-argument", "Duration must be 30, 45, or 60.");
   }
   return duration;
+}
+
+function parseTimeMinutes(value: string): number {
+  const parts = value.split(":");
+  if (parts.length !== 2) {
+    throw new HttpsError("invalid-argument", "Slot time must use HH:mm format.");
+  }
+  const hour = Number(parts[0]);
+  const minute = Number(parts[1]);
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    throw new HttpsError("invalid-argument", "Slot time must use HH:mm format.");
+  }
+  return hour * 60 + minute;
 }
 
 function requireFutureSlot(slot: TimeSlot): void {

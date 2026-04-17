@@ -66,6 +66,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 (slot) => bookingSlotState(
                   slot: slot,
                   durationMinutes: _selectedDuration,
+                  siteConfig: siteConfig,
                   blockedSlots: state.blockedSlots,
                   occupancy: state.slotOccupancy,
                   activeAppointments: state.activeAppointments,
@@ -106,24 +107,49 @@ class _BookingScreenState extends State<BookingScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [30, 45, 60].map((duration) {
-                      final isEnabled =
-                          activeBono != null &&
-                          duration <= activeBono.minutosRestantes;
-                      return ChoiceChip(
-                        label: Text('$duration min'),
-                        selected: _selectedDuration == duration,
-                        onSelected: isEnabled
-                            ? (_) => setState(() {
-                                _selectedDuration = duration;
-                                _selectedSlot = null;
-                              })
-                            : null,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final useGrid = constraints.maxWidth >= 420;
+                      final options = [30, 45, 60]
+                          .map((duration) {
+                            final isEnabled =
+                                activeBono != null &&
+                                duration <= activeBono.minutosRestantes;
+                            return _DurationOption(
+                              duration: duration,
+                              isSelected: _selectedDuration == duration,
+                              isEnabled: isEnabled,
+                              onTap: isEnabled
+                                  ? () => setState(() {
+                                      _selectedDuration = duration;
+                                      _selectedSlot = null;
+                                    })
+                                  : null,
+                            );
+                          })
+                          .toList(growable: false);
+
+                      if (!useGrid) {
+                        return Column(
+                          children: [
+                            for (final option in options) ...[
+                              option,
+                              if (option != options.last)
+                                const SizedBox(height: 10),
+                            ],
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          for (final option in options) ...[
+                            Expanded(child: option),
+                            if (option != options.last)
+                              const SizedBox(width: 10),
+                          ],
+                        ],
                       );
-                    }).toList(),
+                    },
                   ),
                 ],
               ),
@@ -155,19 +181,11 @@ class _BookingScreenState extends State<BookingScreen> {
                       type: FocusStatusType.warning,
                     )
                   else
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: slots.map((slot) {
-                        final isSelected = _selectedSlot?.slot == slot.slot;
-                        return _SlotChip(
-                          slot: slot,
-                          isSelected: isSelected,
-                          onTap: slot.isEnabled
-                              ? () => setState(() => _selectedSlot = slot)
-                              : null,
-                        );
-                      }).toList(),
+                    _SlotGrid(
+                      slots: slots,
+                      selectedSlot: _selectedSlot,
+                      onSelected: (slot) =>
+                          setState(() => _selectedSlot = slot),
                     ),
                   if (_selectedSlot != null) ...[
                     const SizedBox(height: 16),
@@ -220,6 +238,11 @@ class _BookingScreenState extends State<BookingScreen> {
     final state = widget.viewModel.state;
     final activeBono = state.activeBono;
     final selectedSlot = _selectedSlot;
+    final siteConfig = state.siteConfig;
+    if (siteConfig == null) {
+      _showError('No hemos podido cargar la configuracion horaria del centro.');
+      return;
+    }
     if (activeBono == null) {
       _showError('No tienes un bono activo disponible.');
       return;
@@ -235,6 +258,7 @@ class _BookingScreenState extends State<BookingScreen> {
     final latestSlot = bookingSlotState(
       slot: selectedSlot.slot,
       durationMinutes: _selectedDuration,
+      siteConfig: siteConfig,
       blockedSlots: state.blockedSlots,
       occupancy: state.slotOccupancy,
       activeAppointments: state.activeAppointments,
@@ -280,6 +304,7 @@ class _BookingScreenState extends State<BookingScreen> {
   String _messageForDisabledSlot(BookingSlotState slot) {
     return switch (slot.label) {
       'Pasado' => 'Elige una franja futura.',
+      'No cabe' => 'Esta franja no cabe en el horario disponible.',
       'Bloqueado' => 'Esta franja ya no esta disponible.',
       'Completo' => 'Esta franja esta completa.',
       'Tu sesion' => 'Ya tienes una sesion en esa franja.',
@@ -309,6 +334,122 @@ class _StepCard extends StatelessWidget {
   }
 }
 
+class _DurationOption extends StatelessWidget {
+  const _DurationOption({
+    required this.duration,
+    required this.isSelected,
+    required this.isEnabled,
+    required this.onTap,
+  });
+
+  final int duration;
+  final bool isSelected;
+  final bool isEnabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isSelected
+        ? AppTheme.emerald.withValues(alpha: 0.72)
+        : AppTheme.borderStrong.withValues(alpha: 0.76);
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.42,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          constraints: const BoxConstraints(minHeight: 82),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.surfaceElevated.withValues(alpha: 0.96)
+                : AppTheme.input,
+            borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+            border: Border.all(color: borderColor, width: isSelected ? 1.4 : 1),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.emerald.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$duration',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontSize: 27,
+                  color: isSelected ? AppTheme.textPrimary : AppTheme.emerald,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'min',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: isSelected ? AppTheme.emerald : AppTheme.textSecondary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SlotGrid extends StatelessWidget {
+  const _SlotGrid({
+    required this.slots,
+    required this.selectedSlot,
+    required this.onSelected,
+  });
+
+  final List<BookingSlotState> slots;
+  final BookingSlotState? selectedSlot;
+  final ValueChanged<BookingSlotState> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = switch (constraints.maxWidth) {
+          < 340 => 2,
+          < 560 => 3,
+          _ => 4,
+        };
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: slots.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: 74,
+          ),
+          itemBuilder: (context, index) {
+            final slot = slots[index];
+            final isSelected = selectedSlot?.slot == slot.slot;
+            return _SlotChip(
+              slot: slot,
+              isSelected: isSelected,
+              onTap: slot.isEnabled ? () => onSelected(slot) : null,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _SlotChip extends StatelessWidget {
   const _SlotChip({
     required this.slot,
@@ -322,12 +463,14 @@ class _SlotChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-      child: Opacity(
-        opacity: slot.isEnabled ? 1 : 0.52,
-        child: DecoratedBox(
+    return Opacity(
+      opacity: slot.isEnabled ? 1 : 0.5,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
           decoration: BoxDecoration(
             color: isSelected
                 ? AppTheme.surfaceElevated.withValues(alpha: 0.94)
@@ -342,27 +485,31 @@ class _SlotChip extends StatelessWidget {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
+                      color: AppTheme.emerald.withValues(alpha: 0.12),
+                      blurRadius: 14,
+                      offset: const Offset(0, 7),
                     ),
                   ]
                 : null,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   slot.slot.time,
                   style: Theme.of(
                     context,
-                  ).textTheme.labelLarge?.copyWith(color: AppTheme.textPrimary),
+                  ).textTheme.titleSmall?.copyWith(color: AppTheme.textPrimary),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   isSelected ? 'Elegida' : slot.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: isSelected ? AppTheme.textPrimary : slot.color,
                     fontWeight: FontWeight.w800,
@@ -519,6 +666,7 @@ class _SlotLegend extends StatelessWidget {
       children: const [
         _LegendItem(color: AppTheme.emerald, label: 'Disponible'),
         _LegendItem(color: AppTheme.amber, label: 'Casi lleno'),
+        _LegendItem(color: AppTheme.textSecondary, label: 'No cabe'),
         _LegendItem(color: AppTheme.danger, label: 'Completo'),
       ],
     );

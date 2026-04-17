@@ -153,15 +153,14 @@ List<TimeSlot> buildBookingSlotsForDate({
   required SiteConfig siteConfig,
 }) {
   final slots = <TimeSlot>[];
-  for (var hour = siteConfig.startHour; hour < siteConfig.endHour; hour += 1) {
-    for (var minute = 0; minute < 60; minute += siteConfig.slotInterval) {
-      slots.add(
-        TimeSlot(
-          date: date,
-          time: _formatTime(DateTime(2000, 1, 1, hour, minute)),
-        ),
-      );
-    }
+  final startMinutes = siteConfig.startHour * 60;
+  final endMinutes = siteConfig.endHour * 60;
+  for (
+    var minutes = startMinutes;
+    minutes < endMinutes;
+    minutes += siteConfig.slotInterval
+  ) {
+    slots.add(TimeSlot(date: date, time: _formatMinutes(minutes)));
   }
   return slots;
 }
@@ -178,6 +177,7 @@ List<String> buildBookingDates({int days = 21, DateTime? now}) {
 BookingSlotState bookingSlotState({
   required TimeSlot slot,
   required int durationMinutes,
+  required SiteConfig siteConfig,
   required Iterable<BlockedSlot> blockedSlots,
   required Iterable<SlotOccupancy> occupancy,
   required Iterable<Appointment> activeAppointments,
@@ -189,6 +189,18 @@ BookingSlotState bookingSlotState({
     return BookingSlotState(
       slot: slot,
       label: 'Pasado',
+      color: AppTheme.textSecondary,
+      isEnabled: false,
+    );
+  }
+  if (!doesDurationFitInSchedule(
+    slot: slot,
+    durationMinutes: durationMinutes,
+    siteConfig: siteConfig,
+  )) {
+    return BookingSlotState(
+      slot: slot,
+      label: 'No cabe',
       color: AppTheme.textSecondary,
       isEnabled: false,
     );
@@ -251,6 +263,19 @@ BookingSlotState bookingSlotState({
   );
 }
 
+bool doesDurationFitInSchedule({
+  required TimeSlot slot,
+  required int durationMinutes,
+  required SiteConfig siteConfig,
+}) {
+  final startMinutes = _parseTimeMinutes(slot.time);
+  if (startMinutes == null) return false;
+  final scheduleStart = siteConfig.startHour * 60;
+  final scheduleEnd = siteConfig.endHour * 60;
+  final endMinutes = startMinutes + durationMinutes;
+  return startMinutes >= scheduleStart && endMinutes <= scheduleEnd;
+}
+
 String _formatDate(String? value) {
   if (value == null || value.isEmpty) return 'Sin fecha';
   final parts = value.split('-');
@@ -291,6 +316,21 @@ String _formatTime(DateTime value) {
   final hour = value.hour.toString().padLeft(2, '0');
   final minute = value.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
+}
+
+String _formatMinutes(int value) {
+  final hour = (value ~/ 60).toString().padLeft(2, '0');
+  final minute = (value % 60).toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+int? _parseTimeMinutes(String value) {
+  final parts = value.split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return hour * 60 + minute;
 }
 
 String _formatWireDate(DateTime value) {

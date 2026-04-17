@@ -1,5 +1,6 @@
 import 'package:app_focus_club/features/client/domain/portal_availability.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
+import 'package:app_focus_club/features/client/widgets/appointment_display.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -38,6 +39,65 @@ void main() {
   });
 
   group('availability', () {
+    const config = SiteConfig(
+      startHour: 8,
+      endHour: 21,
+      slotInterval: 30,
+      bonoExpirationMonths: 1,
+      maintenanceMode: false,
+      sessionDuration: 60,
+    );
+
+    test('duration must fit before closing time', () {
+      expect(
+        doesDurationFitInSchedule(
+          slot: const TimeSlot(date: '2026-04-30', time: '20:30'),
+          durationMinutes: 30,
+          siteConfig: config,
+        ),
+        isTrue,
+      );
+      expect(
+        doesDurationFitInSchedule(
+          slot: const TimeSlot(date: '2026-04-30', time: '20:30'),
+          durationMinutes: 45,
+          siteConfig: config,
+        ),
+        isFalse,
+      );
+      expect(
+        doesDurationFitInSchedule(
+          slot: const TimeSlot(date: '2026-04-30', time: '20:30'),
+          durationMinutes: 60,
+          siteConfig: config,
+        ),
+        isFalse,
+      );
+      expect(
+        doesDurationFitInSchedule(
+          slot: const TimeSlot(date: '2026-04-30', time: '20:00'),
+          durationMinutes: 60,
+          siteConfig: config,
+        ),
+        isTrue,
+      );
+    });
+
+    test('booking slot state disables sessions that do not fit schedule', () {
+      final state = bookingSlotState(
+        slot: const TimeSlot(date: '2026-04-30', time: '20:30'),
+        durationMinutes: 45,
+        siteConfig: config,
+        blockedSlots: const [],
+        occupancy: const [],
+        activeAppointments: const [],
+        now: DateTime(2026, 4, 17, 10),
+      );
+
+      expect(state.isEnabled, isFalse);
+      expect(state.label, 'No cabe');
+    });
+
     test(
       'duration is full when any internal sub-slot reaches capacity two',
       () {
@@ -92,6 +152,31 @@ void main() {
       );
 
       expect(hasOverlap, isTrue);
+    });
+  });
+
+  group('booking slot generation', () {
+    test('generates continuous slots using the configured interval', () {
+      const config = SiteConfig(
+        startHour: 8,
+        endHour: 11,
+        slotInterval: 45,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+        sessionDuration: 60,
+      );
+
+      final slots = buildBookingSlotsForDate(
+        date: '2026-04-30',
+        siteConfig: config,
+      );
+
+      expect(slots.map((slot) => slot.time), [
+        '08:00',
+        '08:45',
+        '09:30',
+        '10:15',
+      ]);
     });
   });
 

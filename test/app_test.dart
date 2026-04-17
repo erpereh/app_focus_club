@@ -162,9 +162,9 @@ void main() {
 
     expect(find.text('Reservar Sesion'), findsOneWidget);
     expect(find.textContaining('requestAppointment'), findsNothing);
-    expect(find.text('30 min'), findsOneWidget);
-    expect(find.text('45 min'), findsOneWidget);
-    expect(find.text('60 min'), findsOneWidget);
+    expect(find.text('30'), findsOneWidget);
+    expect(find.text('45'), findsOneWidget);
+    expect(find.text('60'), findsOneWidget);
     expect(find.text('abr 2026'), findsOneWidget);
 
     await tester.tap(find.text('18 abr'));
@@ -172,7 +172,12 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
     await tester.tap(find.text('08:00').first);
-    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Enviar Solicitud'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Enviar Solicitud'));
     await tester.pump();
@@ -186,6 +191,83 @@ void main() {
     expect(portalRepository.requests.single.durationMinutes, 45);
     expect(portalRepository.requests.single.reason, '');
     expect(portalRepository.requests.single.preferredSlot.date, '2026-04-18');
+  });
+
+  testWidgets('booking disables slots that do not fit selected duration', (
+    tester,
+  ) async {
+    final portalRepository = _fakePortalRepository(
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 21,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+        sessionDuration: 60,
+      ),
+    );
+    await _pumpDashboard(
+      tester,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1600),
+    );
+
+    await tester.tap(find.text('Reservar Sesion').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('18 abr'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+
+    expect(find.text('20:30'), findsOneWidget);
+    expect(find.text('No cabe'), findsWidgets);
+    await tester.tap(find.text('20:30'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Elegida:'), findsNothing);
+    expect(portalRepository.requests, isEmpty);
+  });
+
+  testWidgets('changing duration clears a slot that becomes invalid', (
+    tester,
+  ) async {
+    final portalRepository = _fakePortalRepository(
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 21,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+        sessionDuration: 60,
+      ),
+    );
+    await _pumpDashboard(
+      tester,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1600),
+    );
+
+    await tester.tap(find.text('Reservar Sesion').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('30'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('18 abr'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('20:30'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Elegida:'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, 700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('45'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Elegida:'), findsNothing);
   });
 
   test('fake portal stores createAppointment payload', () async {
@@ -222,6 +304,15 @@ void main() {
         ),
       ),
       'Tu sesion ha caducado. Vuelve a iniciar sesion.',
+    );
+    expect(
+      appointmentRequestErrorMessage(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message: 'Slot does not fit schedule.',
+        ),
+      ),
+      'Esta franja no cabe en el horario disponible.',
     );
   });
 
@@ -288,7 +379,7 @@ Future<void> _pumpAuth(
   await tester.pumpAndSettle();
 }
 
-FakePortalRepository _fakePortalRepository() {
+FakePortalRepository _fakePortalRepository({SiteConfig? siteConfig}) {
   return FakePortalRepository(
     profile: const UserProfile(
       uid: 'test-user',
@@ -397,14 +488,16 @@ FakePortalRepository _fakePortalRepository() {
         count: 1,
       ),
     ],
-    siteConfig: const SiteConfig(
-      startHour: 8,
-      endHour: 20,
-      slotInterval: 30,
-      bonoExpirationMonths: 1,
-      maintenanceMode: false,
-      sessionDuration: 60,
-    ),
+    siteConfig:
+        siteConfig ??
+        const SiteConfig(
+          startHour: 8,
+          endHour: 20,
+          slotInterval: 30,
+          bonoExpirationMonths: 1,
+          maintenanceMode: false,
+          sessionDuration: 60,
+        ),
   );
 }
 

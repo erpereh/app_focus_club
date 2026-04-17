@@ -173,6 +173,8 @@ String appointmentRequestErrorMessage(Object error) {
         'No tienes minutos suficientes para esta sesion.',
       'failed-precondition' when message.contains('future') =>
         'Elige una franja futura.',
+      'failed-precondition' when message.contains('fit schedule') =>
+        'Esta franja no cabe en el horario disponible.',
       'failed-precondition' when message.contains('blocked') =>
         'Esta franja ya no esta disponible.',
       'failed-precondition' when message.contains('full') =>
