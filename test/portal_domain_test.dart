@@ -153,6 +153,101 @@ void main() {
 
       expect(hasOverlap, isTrue);
     });
+
+    test('own appointment at 13:30 only blocks durations that reach it', () {
+      const ownAppointment = Appointment(
+        id: 'appointment',
+        userId: 'uid',
+        name: 'Cliente',
+        email: 'cliente@example.com',
+        phone: '+34612345678',
+        serviceType: 'Bono Mensual de Entrenamiento',
+        durationMinutes: 30,
+        preferredSlots: [TimeSlot(date: '2026-04-30', time: '13:30')],
+        reason: '',
+        status: AppointmentStatus.pending,
+        createdAt: '2026-04-13T10:00:00.000Z',
+      );
+
+      final thirty = bookingSlotState(
+        slot: const TimeSlot(date: '2026-04-30', time: '13:00'),
+        durationMinutes: 30,
+        siteConfig: config,
+        blockedSlots: const [],
+        occupancy: const [],
+        activeAppointments: const [ownAppointment],
+        now: DateTime(2026, 4, 17, 10),
+      );
+      final fortyFive = bookingSlotState(
+        slot: const TimeSlot(date: '2026-04-30', time: '13:00'),
+        durationMinutes: 45,
+        siteConfig: config,
+        blockedSlots: const [],
+        occupancy: const [],
+        activeAppointments: const [ownAppointment],
+        now: DateTime(2026, 4, 17, 10),
+      );
+      final sixty = bookingSlotState(
+        slot: const TimeSlot(date: '2026-04-30', time: '13:00'),
+        durationMinutes: 60,
+        siteConfig: config,
+        blockedSlots: const [],
+        occupancy: const [],
+        activeAppointments: const [ownAppointment],
+        now: DateTime(2026, 4, 17, 10),
+      );
+
+      expect(thirty.isEnabled, isTrue);
+      expect(thirty.label, 'Disponible');
+      expect(fortyFive.isEnabled, isFalse);
+      expect(fortyFive.label, 'Tu sesion');
+      expect(sixty.isEnabled, isFalse);
+      expect(sixty.label, 'Tu sesion');
+    });
+
+    test('full occupancy in any covered sub-slot disables the duration', () {
+      final state = bookingSlotState(
+        slot: const TimeSlot(date: '2026-04-30', time: '13:00'),
+        durationMinutes: 45,
+        siteConfig: config,
+        blockedSlots: const [],
+        occupancy: const [
+          SlotOccupancy(
+            id: '2026-04-30_13:30',
+            date: '2026-04-30',
+            time: '13:30',
+            count: maxCapacityPerInternalSlot,
+          ),
+        ],
+        activeAppointments: const [],
+        now: DateTime(2026, 4, 17, 10),
+      );
+
+      expect(state.isEnabled, isFalse);
+      expect(state.label, 'Completo');
+    });
+
+    test('one remaining place in any covered sub-slot remains bookable', () {
+      final state = bookingSlotState(
+        slot: const TimeSlot(date: '2026-04-30', time: '13:00'),
+        durationMinutes: 60,
+        siteConfig: config,
+        blockedSlots: const [],
+        occupancy: const [
+          SlotOccupancy(
+            id: '2026-04-30_13:30',
+            date: '2026-04-30',
+            time: '13:30',
+            count: maxCapacityPerInternalSlot - 1,
+          ),
+        ],
+        activeAppointments: const [],
+        now: DateTime(2026, 4, 17, 10),
+      );
+
+      expect(state.isEnabled, isTrue);
+      expect(state.label, '1 plaza');
+    });
   });
 
   group('booking slot generation', () {

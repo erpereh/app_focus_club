@@ -227,6 +227,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Elegida:'), findsNothing);
+    await _submitVisibleBooking(tester);
     expect(portalRepository.requests, isEmpty);
   });
 
@@ -268,6 +269,111 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Elegida:'), findsNothing);
+  });
+
+  testWidgets('booking blocks slots that invade an own appointment', (
+    tester,
+  ) async {
+    final portalRepository = _fakePortalRepository(
+      appointments: const [
+        Appointment(
+          id: 'own-appointment',
+          userId: 'test-user',
+          name: 'Laura Perez',
+          email: 'cliente@email.com',
+          phone: '+34612345678',
+          serviceType: 'Bono Mensual de Entrenamiento',
+          durationMinutes: 30,
+          preferredSlots: [TimeSlot(date: '2026-04-18', time: '13:30')],
+          reason: '',
+          status: AppointmentStatus.pending,
+          createdAt: '2026-04-12T10:00:00.000Z',
+        ),
+      ],
+    );
+    await _pumpDashboard(
+      tester,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1600),
+    );
+
+    await _openBookingOnDate(tester, dateLabel: '18 abr');
+    await _scrollToBookingSlot(tester, '13:00');
+
+    expect(find.text('13:00'), findsOneWidget);
+    expect(find.text('Tu sesion'), findsWidgets);
+    await tester.tap(find.text('13:00'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Elegida:'), findsNothing);
+    await _submitVisibleBooking(tester);
+    expect(portalRepository.requests, isEmpty);
+  });
+
+  testWidgets('booking blocks slots that invade a full occupancy sub-slot', (
+    tester,
+  ) async {
+    final portalRepository = _fakePortalRepository(
+      slotOccupancy: const [
+        SlotOccupancy(
+          id: '2026-04-18_13:30',
+          date: '2026-04-18',
+          time: '13:30',
+          count: 2,
+        ),
+      ],
+    );
+    await _pumpDashboard(
+      tester,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1600),
+    );
+
+    await _openBookingOnDate(tester, dateLabel: '18 abr');
+    await _scrollToBookingSlot(tester, '13:00');
+
+    expect(find.text('13:00'), findsOneWidget);
+    expect(find.text('Completo'), findsWidgets);
+    await tester.tap(find.text('13:00'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Elegida:'), findsNothing);
+    expect(portalRepository.requests, isEmpty);
+  });
+
+  testWidgets('booking allows slots with one remaining place', (tester) async {
+    final portalRepository = _fakePortalRepository(
+      slotOccupancy: const [
+        SlotOccupancy(
+          id: '2026-04-18_13:30',
+          date: '2026-04-18',
+          time: '13:30',
+          count: 1,
+        ),
+      ],
+    );
+    await _pumpDashboard(
+      tester,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1600),
+    );
+
+    await _openBookingOnDate(tester, dateLabel: '18 abr');
+    await _scrollToBookingSlot(tester, '13:00');
+
+    expect(find.text('13:00'), findsOneWidget);
+    expect(find.text('1 plaza'), findsWidgets);
+    await tester.tap(find.text('13:00'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Elegida:'), findsOneWidget);
+    await _submitVisibleBooking(tester);
+
+    expect(portalRepository.requests, hasLength(1));
+    expect(portalRepository.requests.single.preferredSlot.time, '13:00');
+    expect(portalRepository.requests.single.durationMinutes, 45);
+    await tester.pump(const Duration(milliseconds: 901));
+    await tester.pumpAndSettle();
   });
 
   test('fake portal stores createAppointment payload', () async {
@@ -379,7 +485,41 @@ Future<void> _pumpAuth(
   await tester.pumpAndSettle();
 }
 
-FakePortalRepository _fakePortalRepository({SiteConfig? siteConfig}) {
+Future<void> _openBookingOnDate(
+  WidgetTester tester, {
+  required String dateLabel,
+}) async {
+  await tester.tap(find.text('Reservar Sesion').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(dateLabel));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _scrollToBookingSlot(WidgetTester tester, String time) async {
+  await tester.scrollUntilVisible(
+    find.text(time),
+    400,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _submitVisibleBooking(WidgetTester tester) async {
+  await tester.scrollUntilVisible(
+    find.text('Enviar Solicitud'),
+    500,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Enviar Solicitud'));
+  await tester.pump();
+}
+
+FakePortalRepository _fakePortalRepository({
+  SiteConfig? siteConfig,
+  List<Appointment>? appointments,
+  List<SlotOccupancy>? slotOccupancy,
+}) {
   return FakePortalRepository(
     profile: const UserProfile(
       uid: 'test-user',
@@ -390,38 +530,7 @@ FakePortalRepository _fakePortalRepository({SiteConfig? siteConfig}) {
       isTrainer: false,
       createdAt: '2026-04-01T10:00:00.000Z',
     ),
-    appointments: const [
-      Appointment(
-        id: 'FC-1042',
-        userId: 'test-user',
-        name: 'Laura Perez',
-        email: 'cliente@email.com',
-        phone: '+34612345678',
-        serviceType: 'Bono Mensual de Entrenamiento',
-        durationMinutes: 60,
-        preferredSlots: [TimeSlot(date: '2026-04-17', time: '18:00')],
-        reason: 'Trabajo de fuerza y movilidad de cadera.',
-        status: AppointmentStatus.approved,
-        createdAt: '2026-04-10T10:00:00.000Z',
-        approvedSlot: TimeSlot(date: '2026-04-17', time: '18:00'),
-        assignedTrainer: 'trainer-marta',
-        sessionType: 'Entrenamiento personal',
-        updatedAt: '2026-04-10T10:05:00.000Z',
-      ),
-      Appointment(
-        id: 'FC-1047',
-        userId: 'test-user',
-        name: 'Laura Perez',
-        email: 'cliente@email.com',
-        phone: '+34612345678',
-        serviceType: 'Bono Mensual de Entrenamiento',
-        durationMinutes: 45,
-        preferredSlots: [TimeSlot(date: '2026-04-20', time: '09:30')],
-        reason: 'Preferencia por trabajo de tren superior.',
-        status: AppointmentStatus.pending,
-        createdAt: '2026-04-12T10:00:00.000Z',
-      ),
-    ],
+    appointments: appointments ?? _defaultAppointments,
     bonos: const [
       Bono(
         id: 'active-bono',
@@ -480,14 +589,7 @@ FakePortalRepository _fakePortalRepository({SiteConfig? siteConfig}) {
         specialties: [],
       ),
     ],
-    slotOccupancy: const [
-      SlotOccupancy(
-        id: '2026-04-30_19:30',
-        date: '2026-04-30',
-        time: '19:30',
-        count: 1,
-      ),
-    ],
+    slotOccupancy: slotOccupancy ?? _defaultSlotOccupancy,
     siteConfig:
         siteConfig ??
         const SiteConfig(
@@ -500,6 +602,48 @@ FakePortalRepository _fakePortalRepository({SiteConfig? siteConfig}) {
         ),
   );
 }
+
+const _defaultAppointments = [
+  Appointment(
+    id: 'FC-1042',
+    userId: 'test-user',
+    name: 'Laura Perez',
+    email: 'cliente@email.com',
+    phone: '+34612345678',
+    serviceType: 'Bono Mensual de Entrenamiento',
+    durationMinutes: 60,
+    preferredSlots: [TimeSlot(date: '2026-04-17', time: '18:00')],
+    reason: 'Trabajo de fuerza y movilidad de cadera.',
+    status: AppointmentStatus.approved,
+    createdAt: '2026-04-10T10:00:00.000Z',
+    approvedSlot: TimeSlot(date: '2026-04-17', time: '18:00'),
+    assignedTrainer: 'trainer-marta',
+    sessionType: 'Entrenamiento personal',
+    updatedAt: '2026-04-10T10:05:00.000Z',
+  ),
+  Appointment(
+    id: 'FC-1047',
+    userId: 'test-user',
+    name: 'Laura Perez',
+    email: 'cliente@email.com',
+    phone: '+34612345678',
+    serviceType: 'Bono Mensual de Entrenamiento',
+    durationMinutes: 45,
+    preferredSlots: [TimeSlot(date: '2026-04-20', time: '09:30')],
+    reason: 'Preferencia por trabajo de tren superior.',
+    status: AppointmentStatus.pending,
+    createdAt: '2026-04-12T10:00:00.000Z',
+  ),
+];
+
+const _defaultSlotOccupancy = [
+  SlotOccupancy(
+    id: '2026-04-30_19:30',
+    date: '2026-04-30',
+    time: '19:30',
+    count: 1,
+  ),
+];
 
 void _setTestViewport(
   WidgetTester tester, [
