@@ -73,10 +73,13 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
               )
               .toList(growable: false);
-    final selectedSlot = _selectedSlot == null
+    final recalculatedSelectedSlot = _selectedSlot == null
         ? null
         : slots.where((slot) => slot.slot == _selectedSlot!.slot).firstOrNull;
-    final canSubmit = canBook && selectedSlot?.isEnabled == true;
+    final selectedSlot = recalculatedSelectedSlot?.isEnabled == true
+        ? recalculatedSelectedSlot
+        : null;
+    final canSubmit = canBook && selectedSlot != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -183,14 +186,14 @@ class _BookingScreenState extends State<BookingScreen> {
                   else
                     _SlotGrid(
                       slots: slots,
-                      selectedSlot: _selectedSlot,
+                      selectedSlot: selectedSlot,
                       onSelected: (slot) =>
                           setState(() => _selectedSlot = slot),
                     ),
-                  if (_selectedSlot != null) ...[
+                  if (selectedSlot != null) ...[
                     const SizedBox(height: 16),
                     Text(
-                      'Elegida: ${_selectedSlot!.slot.dateLabel} a las ${_selectedSlot!.slot.time}',
+                      'Elegida: ${selectedSlot.slot.dateLabel} a las ${selectedSlot.slot.time}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppTheme.emerald,
                         fontWeight: FontWeight.w800,
@@ -265,7 +268,7 @@ class _BookingScreenState extends State<BookingScreen> {
     );
     if (!latestSlot.isEnabled) {
       _showError(_messageForDisabledSlot(latestSlot));
-      setState(() => _selectedSlot = latestSlot);
+      setState(() => _selectedSlot = null);
       return;
     }
 
