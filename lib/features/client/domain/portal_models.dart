@@ -58,6 +58,7 @@ class UserProfile {
     required this.createdAt,
     this.phone,
     this.photoUrl,
+    this.pushNotificationsEnabled = false,
   });
 
   final String uid;
@@ -68,6 +69,7 @@ class UserProfile {
   final bool isTrainer;
   final String createdAt;
   final String? photoUrl;
+  final bool pushNotificationsEnabled;
 
   factory UserProfile.fromMap(Map<String, Object?> map) {
     return UserProfile(
@@ -79,6 +81,8 @@ class UserProfile {
       isTrainer: map['isTrainer'] as bool? ?? false,
       createdAt: stringifyDate(map['createdAt']) ?? '',
       photoUrl: map['photoURL'] as String?,
+      pushNotificationsEnabled:
+          map['pushNotificationsEnabled'] as bool? ?? false,
     );
   }
 
@@ -92,6 +96,7 @@ class UserProfile {
       'isTrainer': isTrainer,
       'createdAt': createdAt,
       if (photoUrl != null) 'photoURL': photoUrl,
+      'pushNotificationsEnabled': pushNotificationsEnabled,
     };
   }
 }

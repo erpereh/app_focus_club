@@ -10,6 +10,7 @@ import '../../../theme/app_theme.dart';
 import '../../auth/application/auth_scope.dart';
 import '../../../navigation/app_router.dart';
 import '../application/client_portal_view_model.dart';
+import '../data/push_notification_service.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 import '../widgets/client_cards.dart';
@@ -186,11 +187,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _signOut(BuildContext context) async {
-    await AuthScope.of(context).signOut();
+    final authRepository = AuthScope.of(context);
+    final navigator = Navigator.of(context);
+    await FirebasePushNotificationService.instance.stop();
+    await authRepository.signOut();
     if (!context.mounted) return;
-    Navigator.of(
-      context,
-    ).pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
+    navigator.pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
   }
 }
 

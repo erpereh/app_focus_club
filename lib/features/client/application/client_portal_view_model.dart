@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/portal_repository.dart';
+import '../data/push_notification_service.dart';
 import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
 
@@ -85,11 +86,15 @@ class ClientPortalViewModel extends ChangeNotifier {
   ClientPortalViewModel({
     required PortalRepository repository,
     required String uid,
+    FirebasePushNotificationService? pushNotificationService,
   }) : _repository = repository,
-       _uid = uid;
+       _uid = uid,
+       _pushNotificationService =
+           pushNotificationService ?? FirebasePushNotificationService.instance;
 
   final PortalRepository _repository;
   final String _uid;
+  final FirebasePushNotificationService _pushNotificationService;
   final List<StreamSubscription<Object?>> _subscriptions = [];
 
   ClientPortalState _state = const ClientPortalState();
@@ -162,11 +167,21 @@ class ClientPortalViewModel extends ChangeNotifier {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    unawaited(_pushNotificationService.stop());
     super.dispose();
   }
 
   void _setProfile(UserProfile? profile) {
     _state = _state.copyWith(profile: profile, isLoading: false);
+    if (profile != null) {
+      unawaited(
+        _pushNotificationService.configureForUser(
+          uid: _uid,
+          enabled: profile.pushNotificationsEnabled,
+          repository: _repository,
+        ),
+      );
+    }
     notifyListeners();
   }
 

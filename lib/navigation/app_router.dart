@@ -9,11 +9,15 @@ import '../features/client/presentation/client_shell_screen.dart';
 class AppRouter {
   const AppRouter._();
 
+  static final navigatorKey = GlobalKey<NavigatorState>();
+
   static const splash = '/';
   static const auth = '/auth';
   static const resetPassword = '/auth/reset-password';
   static const completeGoogleProfile = '/auth/complete-google-profile';
   static const dashboard = '/dashboard';
+
+  static const dashboardTabAppointments = 1;
 
   static Route<void> onGenerateRoute(RouteSettings settings) {
     return MaterialPageRoute<void>(
@@ -23,9 +27,17 @@ class AppRouter {
         auth => const AuthScreen(),
         resetPassword => const ResetPasswordScreen(),
         completeGoogleProfile => const CompleteGoogleProfileScreen(),
-        dashboard => const ClientShellScreen(),
-        _ => const ClientShellScreen(),
+        dashboard => ClientShellScreen(
+          initialTabIndex: _dashboardInitialTab(settings.arguments),
+        ),
+        _ => ClientShellScreen(
+          initialTabIndex: _dashboardInitialTab(settings.arguments),
+        ),
       },
     );
+  }
+
+  static int _dashboardInitialTab(Object? arguments) {
+    return arguments == dashboardTabAppointments ? dashboardTabAppointments : 0;
   }
 }

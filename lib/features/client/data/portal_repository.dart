@@ -22,6 +22,15 @@ abstract interface class PortalRepository {
   Stream<SiteConfig?> watchSiteConfig();
 
   Future<void> createAppointment(AppointmentRequest request);
+  Future<void> setPushNotificationsEnabled({
+    required String uid,
+    required bool enabled,
+  });
+  Future<void> saveFcmToken({
+    required String uid,
+    required String token,
+    required String platform,
+  });
 }
 
 class AppointmentRequest {
@@ -156,6 +165,39 @@ class FirebasePortalRepository implements PortalRepository {
         .httpsCallable('createAppointment')
         .call<Object?>(request.toCallablePayload());
   }
+
+  @override
+  Future<void> setPushNotificationsEnabled({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _firestore.collection('users').doc(uid).update({
+      'pushNotificationsEnabled': enabled,
+    });
+  }
+
+  @override
+  Future<void> saveFcmToken({
+    required String uid,
+    required String token,
+    required String platform,
+  }) async {
+    final tokenRef = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('fcmTokens')
+        .doc(token);
+    final snapshot = await tokenRef.get();
+    final data = <String, Object?>{
+      'token': token,
+      'platform': platform,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (!snapshot.exists) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+    }
+    await tokenRef.set(data, SetOptions(merge: true));
+  }
 }
 
 String appointmentRequestErrorMessage(Object error) {
@@ -273,4 +315,17 @@ class FakePortalRepository implements PortalRepository {
   Future<void> createAppointment(AppointmentRequest request) async {
     requests.add(request);
   }
+
+  @override
+  Future<void> setPushNotificationsEnabled({
+    required String uid,
+    required bool enabled,
+  }) async {}
+
+  @override
+  Future<void> saveFcmToken({
+    required String uid,
+    required String token,
+    required String platform,
+  }) async {}
 }

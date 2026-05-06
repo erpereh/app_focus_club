@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth/application/auth_scope.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
+import '../application/portal_scope.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
@@ -14,6 +15,7 @@ import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/avatar_storage_repository.dart';
+import '../data/push_notification_service.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 
@@ -43,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   FocusStatusType _statusType = FocusStatusType.success;
   bool _isSaving = false;
   bool _isSigningOut = false;
+  bool _isUpdatingPushNotifications = false;
 
   @override
   void initState() {
@@ -96,6 +99,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 28),
                   if (profile != null) ...[
                     _ReadonlyLine(label: 'Email', value: profile.email),
+                    const SizedBox(height: 18),
+                    _PushNotificationsSwitch(
+                      enabled: profile.pushNotificationsEnabled,
+                      isUpdating: _isUpdatingPushNotifications,
+                      onChanged: _isUpdatingPushNotifications
+                          ? null
+                          : _setPushNotificationsEnabled,
+                    ),
                     const SizedBox(height: 18),
                   ],
                   FocusTextField(
@@ -199,12 +210,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _signOut() async {
+    final authRepository = AuthScope.of(context);
+    final navigator = Navigator.of(context);
     setState(() => _isSigningOut = true);
-    await AuthScope.of(context).signOut();
+    await FirebasePushNotificationService.instance.stop();
+    await authRepository.signOut();
     if (!mounted) return;
-    Navigator.of(
-      context,
-    ).pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
+    navigator.pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
+  }
+
+  Future<void> _setPushNotificationsEnabled(bool enabled) async {
+    final uid = AuthScope.of(context).currentSession?.uid;
+    if (uid == null) {
+      setState(() {
+        _statusMessage = 'Inicia sesion para actualizar las notificaciones.';
+        _statusType = FocusStatusType.error;
+      });
+      return;
+    }
+
+    final repository = PortalScope.of(context);
+    setState(() {
+      _isUpdatingPushNotifications = true;
+      _statusMessage = null;
+    });
+
+    try {
+      if (enabled) {
+        await FirebasePushNotificationService.instance.enableForUser(
+          uid: uid,
+          repository: repository,
+        );
+        if (!mounted) return;
+        setState(() {
+          _statusMessage = 'Notificaciones activadas.';
+          _statusType = FocusStatusType.success;
+        });
+      } else {
+        await FirebasePushNotificationService.instance.disableForUser(
+          uid: uid,
+          repository: repository,
+        );
+        if (!mounted) return;
+        setState(() {
+          _statusMessage = 'Notificaciones desactivadas.';
+          _statusType = FocusStatusType.success;
+        });
+      }
+    } on PushNotificationPermissionDenied {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage =
+            'Activa el permiso de notificaciones para recibir avisos.';
+        _statusType = FocusStatusType.error;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage =
+            'No hemos podido actualizar las notificaciones. Intentalo de nuevo.';
+        _statusType = FocusStatusType.error;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingPushNotifications = false);
+      }
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -437,6 +508,52 @@ class _ReadonlyLine extends StatelessWidget {
             const SizedBox(height: 5),
             Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PushNotificationsSwitch extends StatelessWidget {
+  const _PushNotificationsSwitch({
+    required this.enabled,
+    required this.isUpdating,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final bool isUpdating;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.input,
+        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: SwitchListTile(
+        value: enabled,
+        onChanged: onChanged,
+        activeThumbColor: AppTheme.emerald,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        secondary: isUpdating
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.notifications_active_outlined),
+        title: Text(
+          'Notificaciones Push',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          'Recibe avisos cuando una cita se apruebe o rechace.',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ),
     );

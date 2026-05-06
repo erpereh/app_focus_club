@@ -10,18 +10,26 @@ import 'dashboard_screen.dart';
 import 'profile_screen.dart';
 
 class ClientShellScreen extends StatefulWidget {
-  const ClientShellScreen({super.key});
+  const ClientShellScreen({this.initialTabIndex = 0, super.key});
+
+  final int initialTabIndex;
 
   @override
   State<ClientShellScreen> createState() => _ClientShellScreenState();
 }
 
 class _ClientShellScreenState extends State<ClientShellScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
   ClientPortalViewModel? _viewModel;
   String? _uid;
 
   void _selectTab(int index) => setState(() => _selectedIndex = index);
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTabIndex.clamp(0, 2);
+  }
 
   @override
   void didChangeDependencies() {
