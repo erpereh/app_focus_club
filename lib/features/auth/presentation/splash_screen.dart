@@ -64,16 +64,44 @@ class _SplashScreenState extends State<SplashScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 220,
-            height: 220,
-            child: Image.asset(
-              _focusClubLogoAsset,
-              fit: BoxFit.contain,
-              semanticLabel: 'Focus Club',
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceElevated,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: AppTheme.emerald.withValues(alpha: 0.24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.emerald.withValues(alpha: 0.12),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(7),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: SizedBox(
+                  width: 82,
+                  height: 82,
+                  child: Image.asset(
+                    _focusClubLogoAsset,
+                    fit: BoxFit.cover,
+                    semanticLabel: 'Focus Club',
+                  ),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 22),
+          Text(
+            'Focus Club',
+            textAlign: TextAlign.center,
+            style: textTheme.headlineLarge,
+          ),
+          const SizedBox(height: 8),
           Text(
             'Portal del Cliente',
             textAlign: TextAlign.center,
