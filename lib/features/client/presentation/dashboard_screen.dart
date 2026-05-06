@@ -232,15 +232,7 @@ class _DashboardHeader extends StatelessWidget {
               child: SizedBox(
                 width: 58,
                 height: 58,
-                child: Center(
-                  child: Text(
-                    profile?.displayInitials ?? '?',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.emerald,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
+                child: _DashboardAvatar(profile: profile),
               ),
             ),
           ),
@@ -270,6 +262,51 @@ class _DashboardHeader extends StatelessWidget {
           icon: const Icon(Icons.logout_rounded),
         ),
       ],
+    );
+  }
+}
+
+class _DashboardAvatar extends StatelessWidget {
+  const _DashboardAvatar({required this.profile});
+
+  final UserProfile? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    if (profile?.hasPhoto != true) {
+      return _DashboardAvatarFallback(profile: profile);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: Image.network(
+        profile!.photoUrl!,
+        width: 58,
+        height: 58,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _DashboardAvatarFallback(profile: profile);
+        },
+      ),
+    );
+  }
+}
+
+class _DashboardAvatarFallback extends StatelessWidget {
+  const _DashboardAvatarFallback({required this.profile});
+
+  final UserProfile? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        profile?.displayInitials ?? '?',
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: AppTheme.emerald,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }

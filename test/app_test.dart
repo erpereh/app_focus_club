@@ -16,7 +16,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Focus Club'), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/images/focus_club_logo.jpeg')),
+      findsOneWidget,
+    );
     expect(find.text('Portal del Cliente'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 950));

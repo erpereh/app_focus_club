@@ -4,8 +4,9 @@ import '../application/auth_scope.dart';
 import '../data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_auth_scaffold.dart';
-import '../../../shared/widgets/focus_brand_mark.dart';
 import '../../../theme/app_theme.dart';
+
+const _focusClubLogoAsset = 'assets/images/focus_club_logo.jpeg';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -63,14 +64,16 @@ class _SplashScreenState extends State<SplashScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const FocusBrandMark(),
-          const SizedBox(height: 22),
-          Text(
-            'Focus Club',
-            textAlign: TextAlign.center,
-            style: textTheme.headlineLarge,
+          SizedBox(
+            width: 220,
+            height: 220,
+            child: Image.asset(
+              _focusClubLogoAsset,
+              fit: BoxFit.contain,
+              semanticLabel: 'Focus Club',
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 18),
           Text(
             'Portal del Cliente',
             textAlign: TextAlign.center,
