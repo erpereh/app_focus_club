@@ -1,0 +1,10 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/focus_club_launcher_icon.png"
+  remove_alpha_ios: true
+  background_color_ios: "#050807"
+  adaptive_icon_background: "#050807"
+  adaptive_icon_foreground: "assets/images/focus_club_launcher_icon.png"
+  adaptive_icon_foreground_inset: 12
+  min_sdk_android: 21

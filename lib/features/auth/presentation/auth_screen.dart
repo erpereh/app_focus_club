@@ -4,13 +4,14 @@ import '../application/auth_scope.dart';
 import '../data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../../../shared/widgets/focus_auth_scaffold.dart';
-import '../../../shared/widgets/focus_brand_mark.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
+
+const _focusClubLogoAsset = 'assets/images/focus_club_logo.jpeg';
 
 enum _AuthMode { login, register }
 
@@ -66,7 +67,7 @@ class _AuthScreenState extends State<AuthScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Align(child: FocusBrandMark(icon: Icons.fitness_center)),
+            const Align(child: _AuthLogo()),
             const SizedBox(height: 18),
             Text(
               'Portal del Cliente',
@@ -434,6 +435,42 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _required(String? value, String message) {
     if ((value ?? '').trim().isEmpty) return message;
     return null;
+  }
+}
+
+class _AuthLogo extends StatelessWidget {
+  const _AuthLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.24)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.emerald.withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(19),
+          child: SizedBox.square(
+            dimension: 66,
+            child: Image.asset(
+              _focusClubLogoAsset,
+              fit: BoxFit.contain,
+              semanticLabel: 'Focus Club',
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
