@@ -154,6 +154,9 @@ void main() {
   testWidgets('booking request uses createAppointment with selected slot', (
     tester,
   ) async {
+    final bookingDate = _futureBookingDate();
+    final bookingDateLabel = _calendarDateLabel(bookingDate);
+    final expectedWireDate = _wireDate(bookingDate);
     final portalRepository = _fakePortalRepository();
     await _pumpDashboard(
       tester,
@@ -169,9 +172,9 @@ void main() {
     expect(find.text('30'), findsOneWidget);
     expect(find.text('45'), findsOneWidget);
     expect(find.text('60'), findsOneWidget);
-    expect(find.text('abr 2026'), findsOneWidget);
+    expect(find.text(_calendarHeaderLabel(_todayDate())), findsOneWidget);
 
-    await tester.tap(find.text('18 abr'));
+    await tester.tap(find.text(bookingDateLabel));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
@@ -194,12 +197,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(portalRepository.requests.single.durationMinutes, 45);
     expect(portalRepository.requests.single.reason, '');
-    expect(portalRepository.requests.single.preferredSlot.date, '2026-04-18');
+    expect(
+      portalRepository.requests.single.preferredSlot.date,
+      expectedWireDate,
+    );
   });
 
   testWidgets('booking disables slots that do not fit selected duration', (
     tester,
   ) async {
+    final bookingDateLabel = _calendarDateLabel(_futureBookingDate());
     final portalRepository = _fakePortalRepository(
       siteConfig: const SiteConfig(
         startHour: 8,
@@ -220,7 +227,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('18 abr'));
+    await tester.tap(find.text(bookingDateLabel));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pumpAndSettle();
@@ -238,6 +245,7 @@ void main() {
   testWidgets('changing duration clears a slot that becomes invalid', (
     tester,
   ) async {
+    final bookingDateLabel = _calendarDateLabel(_futureBookingDate());
     final portalRepository = _fakePortalRepository(
       siteConfig: const SiteConfig(
         startHour: 8,
@@ -258,7 +266,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('30'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('18 abr'));
+    await tester.tap(find.text(bookingDateLabel));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pumpAndSettle();
@@ -278,8 +286,10 @@ void main() {
   testWidgets('booking blocks slots that invade an own appointment', (
     tester,
   ) async {
+    final bookingDate = _futureBookingDate();
+    final bookingWireDate = _wireDate(bookingDate);
     final portalRepository = _fakePortalRepository(
-      appointments: const [
+      appointments: [
         Appointment(
           id: 'own-appointment',
           userId: 'test-user',
@@ -288,7 +298,7 @@ void main() {
           phone: '+34612345678',
           serviceType: 'Bono Mensual de Entrenamiento',
           durationMinutes: 30,
-          preferredSlots: [TimeSlot(date: '2026-04-18', time: '13:30')],
+          preferredSlots: [TimeSlot(date: bookingWireDate, time: '13:30')],
           reason: '',
           status: AppointmentStatus.pending,
           createdAt: '2026-04-12T10:00:00.000Z',
@@ -301,7 +311,10 @@ void main() {
       viewportSize: const Size(800, 1600),
     );
 
-    await _openBookingOnDate(tester, dateLabel: '18 abr');
+    await _openBookingOnDate(
+      tester,
+      dateLabel: _calendarDateLabel(bookingDate),
+    );
     await _scrollToBookingSlot(tester, '13:00');
 
     expect(find.text('13:00'), findsOneWidget);
@@ -317,11 +330,13 @@ void main() {
   testWidgets('booking blocks slots that invade a full occupancy sub-slot', (
     tester,
   ) async {
+    final bookingDate = _futureBookingDate();
+    final bookingWireDate = _wireDate(bookingDate);
     final portalRepository = _fakePortalRepository(
-      slotOccupancy: const [
+      slotOccupancy: [
         SlotOccupancy(
-          id: '2026-04-18_13:30',
-          date: '2026-04-18',
+          id: '${bookingWireDate}_13:30',
+          date: bookingWireDate,
           time: '13:30',
           count: 2,
         ),
@@ -333,7 +348,10 @@ void main() {
       viewportSize: const Size(800, 1600),
     );
 
-    await _openBookingOnDate(tester, dateLabel: '18 abr');
+    await _openBookingOnDate(
+      tester,
+      dateLabel: _calendarDateLabel(bookingDate),
+    );
     await _scrollToBookingSlot(tester, '13:00');
 
     expect(find.text('13:00'), findsOneWidget);
@@ -346,11 +364,13 @@ void main() {
   });
 
   testWidgets('booking allows slots with one remaining place', (tester) async {
+    final bookingDate = _futureBookingDate();
+    final bookingWireDate = _wireDate(bookingDate);
     final portalRepository = _fakePortalRepository(
-      slotOccupancy: const [
+      slotOccupancy: [
         SlotOccupancy(
-          id: '2026-04-18_13:30',
-          date: '2026-04-18',
+          id: '${bookingWireDate}_13:30',
+          date: bookingWireDate,
           time: '13:30',
           count: 1,
         ),
@@ -362,7 +382,10 @@ void main() {
       viewportSize: const Size(800, 1600),
     );
 
-    await _openBookingOnDate(tester, dateLabel: '18 abr');
+    await _openBookingOnDate(
+      tester,
+      dateLabel: _calendarDateLabel(bookingDate),
+    );
     await _scrollToBookingSlot(tester, '13:00');
 
     expect(find.text('13:00'), findsOneWidget);
@@ -506,6 +529,45 @@ Future<void> _scrollToBookingSlot(WidgetTester tester, String time) async {
     scrollable: find.byType(Scrollable).first,
   );
   await tester.pumpAndSettle();
+}
+
+DateTime _todayDate() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+}
+
+DateTime _futureBookingDate() => _todayDate().add(const Duration(days: 1));
+
+String _calendarHeaderLabel(DateTime date) {
+  return '${_monthLabel(date.month)} ${date.year}';
+}
+
+String _calendarDateLabel(DateTime date) {
+  final day = date.day.toString().padLeft(2, '0');
+  return '$day ${_monthLabel(date.month)}';
+}
+
+String _wireDate(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
+}
+
+String _monthLabel(int month) {
+  return const [
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ][month - 1];
 }
 
 Future<void> _submitVisibleBooking(WidgetTester tester) async {
