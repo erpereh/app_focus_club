@@ -40,6 +40,7 @@ void main() {
     expect(find.text('Citas'), findsOneWidget);
     expect(find.text('Perfil'), findsOneWidget);
     expect(find.text('Reservar Sesion'), findsOneWidget);
+    expect(find.text('1 aprobadas\n1 pendientes'), findsOneWidget);
   });
 
   testWidgets('login blocks unverified email and shows resend action', (
@@ -471,6 +472,8 @@ void main() {
     await tester.tap(find.text('Perfil').last);
     await tester.pumpAndSettle();
     expect(find.text('LP'), findsOneWidget);
+    expect(find.text('Notificaciones'), findsOneWidget);
+    expect(find.text('Notificaciones Push'), findsNothing);
     expect(find.text('Cambiar foto'), findsOneWidget);
     expect(find.text('Eliminar foto'), findsOneWidget);
     expect(find.text('Nueva contrasena'), findsOneWidget);

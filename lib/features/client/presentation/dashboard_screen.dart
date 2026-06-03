@@ -100,26 +100,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : () => _openDetail(context, nextAppointment),
           ),
           const SizedBox(height: 22),
-          Row(
-            children: [
-              Expanded(
-                child: ClientMetricCard(
-                  icon: Icons.fitness_center_rounded,
-                  value: '${pass?.usedMinutes ?? 0}',
-                  label: 'Minutos usados',
-                  detail: pass == null ? 'Sin bono activo' : 'Este bono activo',
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ClientMetricCard(
+                    icon: Icons.fitness_center_rounded,
+                    value: '${pass?.usedMinutes ?? 0}',
+                    label: 'Minutos usados',
+                    detail: pass == null
+                        ? 'Sin bono activo'
+                        : 'Este bono activo',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ClientMetricCard(
-                  icon: Icons.pending_actions_rounded,
-                  value: '${appointments.length}',
-                  label: 'Citas activas',
-                  detail: '$approvedCount aprobadas - $pendingCount pendientes',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ClientMetricCard(
+                    icon: Icons.pending_actions_rounded,
+                    value: '${appointments.length}',
+                    label: 'Citas activas',
+                    detail:
+                        '$approvedCount aprobadas\n$pendingCount pendientes',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 32),
           FocusSectionHeader(

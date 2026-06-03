@@ -545,7 +545,7 @@ class _PushNotificationsSwitch extends StatelessWidget {
               )
             : const Icon(Icons.notifications_active_outlined),
         title: Text(
-          'Notificaciones Push',
+          'Notificaciones',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.w700,
