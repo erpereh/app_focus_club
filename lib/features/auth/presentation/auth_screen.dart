@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../application/auth_scope.dart';
@@ -109,13 +110,15 @@ class _AuthScreenState extends State<AuthScreen> {
                     : null,
               ),
             ],
-            const SizedBox(height: 22),
-            _DividerLabel(label: 'o'),
-            const SizedBox(height: 18),
-            FocusGoogleButton(
-              isLoading: _isGoogleLoading,
-              onPressed: _isBusy ? null : _submitGoogle,
-            ),
+            if (_showGoogleSignInButton) ...[
+              const SizedBox(height: 22),
+              _DividerLabel(label: 'o'),
+              const SizedBox(height: 18),
+              FocusGoogleButton(
+                isLoading: _isGoogleLoading,
+                onPressed: _isBusy ? null : _submitGoogle,
+              ),
+            ],
           ],
         ),
       ),
@@ -272,6 +275,9 @@ class _AuthScreenState extends State<AuthScreen> {
       _isRegisterLoading ||
       _isGoogleLoading ||
       _isResendingVerification;
+
+  bool get _showGoogleSignInButton =>
+      defaultTargetPlatform != TargetPlatform.iOS;
 
   Future<void> _submitLogin() async {
     if (!_loginFormKey.currentState!.validate()) return;

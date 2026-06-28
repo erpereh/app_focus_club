@@ -3,6 +3,7 @@ import 'package:app_focus_club/features/auth/data/auth_repository.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -98,21 +99,41 @@ void main() {
     );
   });
 
+  testWidgets('hides google button only on iOS auth screen', (tester) async {
+    await _withTargetPlatform(TargetPlatform.iOS, () async {
+      await _pumpAuth(tester);
+
+      expect(find.text('Entrar'), findsOneWidget);
+      expect(find.text('Has olvidado tu contrasena?'), findsOneWidget);
+      expect(find.text('Registrarse'), findsOneWidget);
+      expect(find.text('Continuar con Google'), findsNothing);
+      expect(find.text('o'), findsNothing);
+
+      await tester.tap(find.text('Registrarse'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Crear Cuenta'), findsOneWidget);
+      expect(find.text('Continuar con Google'), findsNothing);
+    });
+  });
+
   testWidgets('google button opens complete profile flow and dashboard', (
     tester,
   ) async {
-    await _pumpAuth(tester);
+    await _withTargetPlatform(TargetPlatform.android, () async {
+      await _pumpAuth(tester);
 
-    await tester.ensureVisible(find.text('Continuar con Google'));
-    await tester.tap(find.text('Continuar con Google'));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Continuar con Google'));
+      await tester.tap(find.text('Continuar con Google'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Completa tu Perfil'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField).at(1), '612345678');
-    await tester.tap(find.text('Guardar y Continuar'));
-    await tester.pumpAndSettle();
+      expect(find.text('Completa tu Perfil'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField).at(1), '612345678');
+      await tester.tap(find.text('Guardar y Continuar'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Laura Perez'), findsOneWidget);
+      expect(find.text('Laura Perez'), findsOneWidget);
+    });
   });
 
   testWidgets('register form validates main fields', (tester) async {
@@ -722,6 +743,18 @@ void _setTestViewport(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Future<void> _withTargetPlatform(
+  TargetPlatform platform,
+  Future<void> Function() body,
+) async {
+  debugDefaultTargetPlatformOverride = platform;
+  try {
+    await body();
+  } finally {
+    debugDefaultTargetPlatformOverride = null;
+  }
 }
 
 Future<void> _pumpDashboard(
