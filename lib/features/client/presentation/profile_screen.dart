@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -21,9 +20,15 @@ import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({required this.state, super.key});
+  ProfileScreen({
+    required this.state,
+    super.key,
+    FirebasePushNotificationService? pushNotificationService,
+  }) : pushNotificationService =
+           pushNotificationService ?? FirebasePushNotificationService.instance;
 
   final ClientPortalState state;
+  final FirebasePushNotificationService pushNotificationService;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -285,7 +290,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       if (enabled) {
-        await FirebasePushNotificationService.instance.enableForUser(
+        await widget.pushNotificationService.enableForUser(
           uid: uid,
           repository: repository,
         );
@@ -295,7 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _statusType = FocusStatusType.success;
         });
       } else {
-        await FirebasePushNotificationService.instance.disableForUser(
+        await widget.pushNotificationService.disableForUser(
           uid: uid,
           repository: repository,
         );
@@ -305,18 +310,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _statusType = FocusStatusType.success;
         });
       }
-    } on PushNotificationPermissionDenied {
+    } on PushNotificationPermissionDenied catch (error) {
       if (!mounted) return;
       setState(() {
-        _statusMessage =
-            'Activa el permiso de notificaciones para recibir avisos.';
+        _statusMessage = _pushNotificationErrorMessage(error, enabled);
         _statusType = FocusStatusType.error;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        _statusMessage =
-            'No hemos podido actualizar las notificaciones. Intentalo de nuevo.';
+        _statusMessage = _pushNotificationErrorMessage(error, enabled);
         _statusType = FocusStatusType.error;
       });
     } finally {
@@ -432,6 +435,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'image/heic' => 'heic',
       _ => 'jpg',
     };
+  }
+
+  String _pushNotificationErrorMessage(Object error, bool enabling) {
+    if (enabling && defaultTargetPlatform == TargetPlatform.iOS) {
+      return 'No hemos podido activar las notificaciones. Revisa los permisos del iPhone e intentalo de nuevo.';
+    }
+    if (error is PushNotificationPermissionDenied) {
+      return 'Activa el permiso de notificaciones para recibir avisos.';
+    }
+    return 'No hemos podido actualizar las notificaciones. Intentalo de nuevo.';
   }
 }
 
