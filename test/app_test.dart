@@ -471,6 +471,27 @@ void main() {
     );
   });
 
+  test('maps deleteOwnAccount errors to Spanish messages', () {
+    expect(
+      deleteOwnAccountErrorMessage(
+        _FakeFunctionsException(
+          code: 'unauthenticated',
+          message: 'Authentication is required.',
+        ),
+      ),
+      'Tu sesion ha caducado. Vuelve a iniciar sesion.',
+    );
+    expect(
+      deleteOwnAccountErrorMessage(
+        _FakeFunctionsException(
+          code: 'unavailable',
+          message: 'Network unavailable.',
+        ),
+      ),
+      'No hay conexion. Revisa la red e intentalo de nuevo.',
+    );
+  });
+
   testWidgets('dashboard switches between appointment and pass history', (
     tester,
   ) async {
@@ -516,6 +537,120 @@ void main() {
 
     expect(find.text('Focus Club Vallecas'), findsOneWidget);
     expect(find.text('Entrar'), findsOneWidget);
+  });
+
+  testWidgets('profile delete account requires exact email confirmation', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester, viewportSize: const Size(800, 1300));
+
+    await tester.tap(find.text('Perfil').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('delete-account-button')),
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Zona de peligro'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('delete-account-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Eliminar cuenta definitivamente'), findsOneWidget);
+    expect(
+      find.textContaining('Esta accion eliminara tu cuenta'),
+      findsOneWidget,
+    );
+    final confirmButton = find.byKey(
+      const Key('confirm-delete-account-button'),
+    );
+    expect(tester.widget<FilledButton>(confirmButton).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('delete-account-email-field')),
+      'otro@email.com',
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(confirmButton).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('delete-account-email-field')),
+      'cliente@email.com',
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(confirmButton).onPressed, isNotNull);
+  });
+
+  testWidgets('profile delete account confirms and returns to auth', (
+    tester,
+  ) async {
+    final authRepository = _FakeAuthRepository();
+    final portalRepository = _fakePortalRepository();
+    await _pumpDashboard(
+      tester,
+      authRepository: authRepository,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1300),
+    );
+
+    await tester.tap(find.text('Perfil').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('delete-account-button')),
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byKey(const Key('delete-account-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('delete-account-email-field')),
+      'cliente@email.com',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirm-delete-account-button')));
+    await tester.pumpAndSettle();
+
+    expect(portalRepository.deleteOwnAccountCalls, 1);
+    expect(authRepository.currentSession, isNull);
+    expect(find.text('Focus Club Vallecas'), findsOneWidget);
+    expect(find.text('Entrar'), findsOneWidget);
+  });
+
+  testWidgets('profile delete account error stays on profile', (tester) async {
+    final portalRepository = _fakePortalRepository(
+      deleteOwnAccountFailure: _FakeFunctionsException(
+        code: 'unauthenticated',
+        message: 'Authentication is required.',
+      ),
+    );
+    await _pumpDashboard(
+      tester,
+      portalRepository: portalRepository,
+      viewportSize: const Size(800, 1300),
+    );
+
+    await tester.tap(find.text('Perfil').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('delete-account-button')),
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byKey(const Key('delete-account-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('delete-account-email-field')),
+      'cliente@email.com',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirm-delete-account-button')));
+    await tester.pumpAndSettle();
+
+    expect(portalRepository.deleteOwnAccountCalls, 1);
+    expect(find.text('Perfil'), findsWidgets);
+    expect(
+      find.text('Tu sesion ha caducado. Vuelve a iniciar sesion.'),
+      findsOneWidget,
+    );
   });
 }
 
@@ -609,6 +744,7 @@ FakePortalRepository _fakePortalRepository({
   SiteConfig? siteConfig,
   List<Appointment>? appointments,
   List<SlotOccupancy>? slotOccupancy,
+  Object? deleteOwnAccountFailure,
 }) {
   return FakePortalRepository(
     profile: const UserProfile(
@@ -690,6 +826,7 @@ FakePortalRepository _fakePortalRepository({
           maintenanceMode: false,
           sessionDuration: 60,
         ),
+    deleteOwnAccountFailure: deleteOwnAccountFailure,
   );
 }
 
@@ -759,11 +896,13 @@ Future<void> _withTargetPlatform(
 
 Future<void> _pumpDashboard(
   WidgetTester tester, {
+  _FakeAuthRepository? authRepository,
   FakePortalRepository? portalRepository,
   Size viewportSize = const Size(800, 1000),
 }) async {
   await _pumpAuth(
     tester,
+    authRepository: authRepository,
     portalRepository: portalRepository,
     viewportSize: viewportSize,
   );

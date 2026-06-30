@@ -15,6 +15,7 @@ import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/avatar_storage_repository.dart';
+import '../data/portal_repository.dart';
 import '../data/push_notification_service.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
@@ -45,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   FocusStatusType _statusType = FocusStatusType.success;
   bool _isSaving = false;
   bool _isSigningOut = false;
+  bool _isDeletingAccount = false;
   bool _isUpdatingPushNotifications = false;
 
   @override
@@ -160,6 +162,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 22),
+          _DangerZone(
+            isDeleting: _isDeletingAccount,
+            onDeleteAccount: profile == null || _isDeletingAccount
+                ? null
+                : () => _showDeleteAccountDialog(profile.email),
+          ),
         ],
       ),
     );
@@ -217,6 +226,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await authRepository.signOut();
     if (!mounted) return;
     navigator.pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
+  }
+
+  Future<void> _showDeleteAccountDialog(String email) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !_isDeletingAccount,
+      builder: (_) =>
+          _DeleteAccountDialog(email: email, onConfirm: _deleteOwnAccount),
+    );
+  }
+
+  Future<void> _deleteOwnAccount() async {
+    final portalRepository = PortalScope.of(context);
+    final authRepository = AuthScope.of(context);
+    final navigator = Navigator.of(context);
+
+    setState(() {
+      _isDeletingAccount = true;
+      _statusMessage = null;
+    });
+
+    try {
+      await portalRepository.deleteOwnAccount();
+      await FirebasePushNotificationService.instance.stop();
+      await authRepository.signOut();
+      if (!mounted) return;
+      navigator.pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = deleteOwnAccountErrorMessage(error);
+        _statusType = FocusStatusType.error;
+      });
+      rethrow;
+    } finally {
+      if (mounted) {
+        setState(() => _isDeletingAccount = false);
+      }
+    }
   }
 
   Future<void> _setPushNotificationsEnabled(bool enabled) async {
@@ -387,6 +435,175 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+class _DangerZone extends StatelessWidget {
+  const _DangerZone({required this.isDeleting, required this.onDeleteAccount});
+
+  final bool isDeleting;
+  final VoidCallback? onDeleteAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.38)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.danger,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Zona de peligro',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(color: AppTheme.danger),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Eliminar tu cuenta borrara el acceso y limpiara tus datos personales.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                key: const Key('delete-account-button'),
+                onPressed: onDeleteAccount,
+                icon: isDeleting
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_forever_rounded, size: 18),
+                label: Text(
+                  isDeleting ? 'Eliminando cuenta...' : 'Eliminar cuenta',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.danger,
+                  side: BorderSide(
+                    color: AppTheme.danger.withValues(alpha: 0.64),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog({required this.email, required this.onConfirm});
+
+  final String email;
+  final Future<void> Function() onConfirm;
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  bool _isSubmitting = false;
+
+  bool get _emailMatches => _emailController.text.trim() == widget.email;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Eliminar cuenta definitivamente'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Esta accion eliminara tu cuenta y no se puede deshacer. '
+              'Para confirmar, escribe tu email exacto.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              key: const Key('delete-account-email-field'),
+              controller: _emailController,
+              enabled: !_isSubmitting,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'Email de confirmacion',
+                hintText: widget.email,
+                prefixIcon: const Icon(Icons.alternate_email_rounded),
+              ),
+              validator: (value) {
+                if ((value ?? '').trim() != widget.email) {
+                  return 'Escribe tu email exacto para confirmar.';
+                }
+                return null;
+              },
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          key: const Key('confirm-delete-account-button'),
+          onPressed: _emailMatches && !_isSubmitting ? _submit : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTheme.danger,
+            foregroundColor: AppTheme.background,
+          ),
+          child: _isSubmitting
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.background,
+                  ),
+                )
+              : const Text('Eliminar definitivamente'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await widget.onConfirm();
+    } catch (_) {
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+}
+
 class _AvatarEditor extends StatelessWidget {
   const _AvatarEditor({
     required this.profile,
@@ -550,10 +767,6 @@ class _PushNotificationsSwitch extends StatelessWidget {
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.w700,
           ),
-        ),
-        subtitle: Text(
-          'Recibe avisos cuando una cita se apruebe o rechace.',
-          style: Theme.of(context).textTheme.bodySmall,
         ),
       ),
     );

@@ -22,6 +22,7 @@ abstract interface class PortalRepository {
   Stream<SiteConfig?> watchSiteConfig();
 
   Future<void> createAppointment(AppointmentRequest request);
+  Future<void> deleteOwnAccount();
   Future<void> setPushNotificationsEnabled({
     required String uid,
     required bool enabled,
@@ -167,6 +168,11 @@ class FirebasePortalRepository implements PortalRepository {
   }
 
   @override
+  Future<void> deleteOwnAccount() async {
+    await _functions.httpsCallable('deleteOwnAccount').call<Object?>();
+  }
+
+  @override
   Future<void> setPushNotificationsEnabled({
     required String uid,
     required bool enabled,
@@ -234,6 +240,18 @@ String appointmentRequestErrorMessage(Object error) {
   return 'No hemos podido enviar la solicitud. Intentalo de nuevo.';
 }
 
+String deleteOwnAccountErrorMessage(Object error) {
+  if (error is FirebaseFunctionsException) {
+    return switch (error.code) {
+      'unauthenticated' => 'Tu sesion ha caducado. Vuelve a iniciar sesion.',
+      'unavailable' || 'deadline-exceeded' =>
+        'No hay conexion. Revisa la red e intentalo de nuevo.',
+      _ => 'No hemos podido eliminar la cuenta. Intentalo de nuevo.',
+    };
+  }
+  return 'No hemos podido eliminar la cuenta. Intentalo de nuevo.';
+}
+
 class FakePortalRepository implements PortalRepository {
   FakePortalRepository({
     UserProfile? profile,
@@ -243,13 +261,15 @@ class FakePortalRepository implements PortalRepository {
     List<BlockedSlot> blockedSlots = const [],
     List<SlotOccupancy> slotOccupancy = const [],
     SiteConfig? siteConfig,
+    Object? deleteOwnAccountFailure,
   }) : _profile = profile,
        _appointments = appointments,
        _bonos = bonos,
        _trainers = trainers,
        _blockedSlots = blockedSlots,
        _slotOccupancy = slotOccupancy,
-       _siteConfig = siteConfig;
+       _siteConfig = siteConfig,
+       _deleteOwnAccountFailure = deleteOwnAccountFailure;
 
   final UserProfile? _profile;
   final List<Appointment> _appointments;
@@ -258,7 +278,9 @@ class FakePortalRepository implements PortalRepository {
   final List<BlockedSlot> _blockedSlots;
   final List<SlotOccupancy> _slotOccupancy;
   final SiteConfig? _siteConfig;
+  final Object? _deleteOwnAccountFailure;
   final List<AppointmentRequest> requests = [];
+  int deleteOwnAccountCalls = 0;
 
   @override
   Stream<UserProfile?> watchUserProfile(String uid) => Stream.value(_profile);
@@ -314,6 +336,13 @@ class FakePortalRepository implements PortalRepository {
   @override
   Future<void> createAppointment(AppointmentRequest request) async {
     requests.add(request);
+  }
+
+  @override
+  Future<void> deleteOwnAccount() async {
+    deleteOwnAccountCalls += 1;
+    final failure = _deleteOwnAccountFailure;
+    if (failure != null) throw failure;
   }
 
   @override
