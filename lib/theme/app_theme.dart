@@ -3,24 +3,24 @@ import 'package:flutter/material.dart';
 class AppTheme {
   const AppTheme._();
 
-  static const double radiusCard = 24;
+  static const double radiusCard = 28;
   static const double radiusControl = 999;
-  static const double radiusInput = 22;
+  static const double radiusInput = 20;
   static const double radiusBadge = 999;
 
-  static const Color background = Color(0xFF020403);
-  static const Color surface = Color(0xFF080D0B);
-  static const Color surfaceElevated = Color(0xFF121A17);
-  static const Color surfaceGlass = Color(0xED0C1411);
-  static const Color input = Color(0xFF0D1411);
-  static const Color emerald = Color(0xFF35BD70);
-  static const Color emeraldDark = Color(0xFF1C8353);
-  static const Color amber = Color(0xFFEAB85F);
-  static const Color danger = Color(0xFFF87171);
-  static const Color textPrimary = Color(0xFFF5FAF6);
-  static const Color textSecondary = Color(0xFFB1BBB6);
-  static const Color border = Color(0xFF17211D);
-  static const Color borderStrong = Color(0xFF2A3B34);
+  static const Color background = Color(0xFF050706);
+  static const Color surface = Color(0xFF0A0D0B);
+  static const Color surfaceElevated = Color(0xFF111612);
+  static const Color surfaceGlass = Color(0xE80E120F);
+  static const Color input = Color(0xFF171D19);
+  static const Color emerald = Color(0xFF65C987);
+  static const Color emeraldDark = Color(0xFF32875B);
+  static const Color amber = Color(0xFFD8B36A);
+  static const Color danger = Color(0xFFE07070);
+  static const Color textPrimary = Color(0xFFF4F1EA);
+  static const Color textSecondary = Color(0xFFAEB3AD);
+  static const Color border = Color(0xFF1E2420);
+  static const Color borderStrong = Color(0xFF303832);
 
   static ThemeData get dark {
     final colorScheme = ColorScheme.fromSeed(
@@ -46,7 +46,13 @@ class AppTheme {
         backgroundColor: Colors.transparent,
         foregroundColor: textPrimary,
         elevation: 0,
-        centerTitle: false,
+        centerTitle: true,
+        titleTextStyle: TextStyle(
+          color: textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.transparent,
@@ -71,7 +77,9 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: textPrimary,
-          side: const BorderSide(color: borderStrong),
+          side: BorderSide(color: borderStrong.withValues(alpha: 0.55)),
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusControl),
           ),
@@ -138,7 +146,7 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusCard),
-          side: const BorderSide(color: border),
+          side: BorderSide(color: border.withValues(alpha: 0.7)),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -168,19 +176,22 @@ class AppTheme {
         errorStyle: const TextStyle(color: danger),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
-          vertical: 17,
+          vertical: 16,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: const BorderSide(color: border),
+          borderSide: BorderSide(color: border.withValues(alpha: 0.64)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: const BorderSide(color: border),
+          borderSide: BorderSide(color: border.withValues(alpha: 0.64)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: BorderSide(color: emerald.withValues(alpha: 0.82)),
+          borderSide: BorderSide(
+            color: emerald.withValues(alpha: 0.64),
+            width: 1.2,
+          ),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
@@ -194,29 +205,35 @@ class AppTheme {
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           color: textPrimary,
-          fontSize: 34,
-          fontWeight: FontWeight.w900,
-          height: 1.05,
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+          height: 1.08,
         ),
         headlineMedium: TextStyle(
           color: textPrimary,
-          fontSize: 28,
+          fontSize: 27,
           fontWeight: FontWeight.w800,
           height: 1.12,
         ),
         titleMedium: TextStyle(
           color: textPrimary,
           fontSize: 18,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
         ),
         titleSmall: TextStyle(
           color: textPrimary,
           fontSize: 14,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
         bodyLarge: TextStyle(color: textSecondary, fontSize: 16, height: 1.45),
-        bodyMedium: TextStyle(color: textSecondary, fontSize: 14, height: 1.4),
+        bodyMedium: TextStyle(color: textSecondary, fontSize: 14, height: 1.42),
         labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        labelSmall: TextStyle(
+          color: textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
       ),
     );
   }

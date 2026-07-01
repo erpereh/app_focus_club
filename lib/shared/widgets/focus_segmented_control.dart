@@ -25,10 +25,10 @@ class FocusSegmentedControl<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.input.withValues(alpha: 0.86),
+        color: AppTheme.input.withValues(alpha: 0.52),
         borderRadius: BorderRadius.circular(AppTheme.radiusControl),
         border: Border.all(
-          color: AppTheme.borderStrong.withValues(alpha: 0.34),
+          color: AppTheme.borderStrong.withValues(alpha: 0.22),
         ),
       ),
       child: Padding(
@@ -50,20 +50,20 @@ class FocusSegmentedControl<T> extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppTheme.surfaceElevated.withValues(alpha: 0.94)
+                        ? AppTheme.surfaceElevated.withValues(alpha: 0.92)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(AppTheme.radiusControl),
                     border: Border.all(
                       color: isSelected
-                          ? AppTheme.emerald.withValues(alpha: 0.24)
+                          ? AppTheme.emerald.withValues(alpha: 0.12)
                           : Colors.transparent,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.22),
-                              blurRadius: 12,
-                              offset: const Offset(0, 5),
+                              color: Colors.black.withValues(alpha: 0.16),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ]
                         : null,

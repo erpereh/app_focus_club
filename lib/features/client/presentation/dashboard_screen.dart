@@ -64,14 +64,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 42),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 150),
         children: [
           _DashboardHeader(
             profile: profile,
             onOpenProfile: widget.onOpenProfile,
             onSignOut: () => _signOut(context),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
           FocusPrimaryButton(
             label: 'Reservar Sesion',
             onPressed: pass?.canBook == true ? widget.onOpenBooking : null,
@@ -83,7 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               type: FocusStatusType.warning,
             ),
           ],
-          const SizedBox(height: 30),
+          const SizedBox(height: 28),
           if (pass == null)
             const FocusEmptyState(
               title: 'Sin bono activo',
@@ -127,7 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 30),
           FocusSectionHeader(
             title: 'Mis Citas',
             actionLabel: 'Ver todas',
@@ -218,22 +218,22 @@ class _DashboardHeader extends StatelessWidget {
     return Row(
       children: [
         InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
           onTap: onOpenProfile,
           child: Tooltip(
             message: 'Abrir perfil',
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppTheme.surfaceElevated,
-                borderRadius: BorderRadius.circular(22),
+                color: AppTheme.surfaceGlass,
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: AppTheme.emerald.withValues(alpha: 0.34),
+                  color: AppTheme.borderStrong.withValues(alpha: 0.20),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.emerald.withValues(alpha: 0.08),
+                    color: Colors.black.withValues(alpha: 0.18),
                     blurRadius: 16,
-                    offset: const Offset(0, 8),
+                    offset: const Offset(0, 9),
                   ),
                 ],
               ),
@@ -267,7 +267,11 @@ class _DashboardHeader extends StatelessWidget {
         IconButton(
           tooltip: 'Salir',
           onPressed: onSignOut,
-          icon: const Icon(Icons.logout_rounded),
+          icon: const Icon(Icons.logout_rounded, size: 21),
+          style: IconButton.styleFrom(
+            backgroundColor: AppTheme.input.withValues(alpha: 0.50),
+            foregroundColor: AppTheme.textSecondary,
+          ),
         ),
       ],
     );
@@ -411,11 +415,12 @@ class _NextAppointmentCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppTheme.radiusCard),
       child: FocusGlassCard(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const FocusKicker('Proxima cita'),
-            const SizedBox(height: 9),
+            const SizedBox(height: 10),
             Text(
               appointment!.dateLabel,
               style: Theme.of(context).textTheme.headlineMedium,

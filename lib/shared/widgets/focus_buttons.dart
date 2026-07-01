@@ -23,19 +23,17 @@ class FocusPrimaryButton extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          gradient: const LinearGradient(
-            colors: [AppTheme.emerald, AppTheme.emeraldDark],
-          ),
+          color: AppTheme.emerald,
           boxShadow: [
             BoxShadow(
-              color: AppTheme.emerald.withValues(alpha: 0.1),
-              blurRadius: 14,
-              offset: const Offset(0, 7),
+              color: AppTheme.emerald.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 9),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
+              color: Colors.black.withValues(alpha: 0.18),
               blurRadius: 12,
-              offset: const Offset(0, 6),
+              offset: const Offset(0, 7),
             ),
           ],
         ),
@@ -88,9 +86,9 @@ class FocusGhostButton extends StatelessWidget {
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.58),
+          backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.52),
           side: BorderSide(
-            color: AppTheme.borderStrong.withValues(alpha: 0.58),
+            color: AppTheme.borderStrong.withValues(alpha: 0.32),
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
@@ -122,8 +120,10 @@ class FocusGoogleButton extends StatelessWidget {
         onPressed: isDisabled ? null : onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.input.withValues(alpha: 0.72),
-          side: BorderSide(color: AppTheme.borderStrong.withValues(alpha: 0.5)),
+          backgroundColor: AppTheme.input.withValues(alpha: 0.58),
+          side: BorderSide(
+            color: AppTheme.borderStrong.withValues(alpha: 0.32),
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
           ),

@@ -4,7 +4,6 @@ import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
-import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
@@ -204,17 +203,7 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            _StepCard(
-              title: 'Comentario opcional',
-              child: FocusTextField(
-                label: 'Comentario',
-                hint: 'Cuentanos si necesitas adaptar la sesion.',
-                controller: _commentController,
-                icon: Icons.notes_rounded,
-                minLines: 3,
-                maxLines: 5,
-              ),
-            ),
+            _CommentInputCard(controller: _commentController),
             const SizedBox(height: 22),
             FocusPrimaryButton(
               label: 'Enviar Solicitud',
@@ -337,6 +326,80 @@ class _StepCard extends StatelessWidget {
   }
 }
 
+class _CommentInputCard extends StatelessWidget {
+  const _CommentInputCard({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusGlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceElevated.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const SizedBox.square(
+                  dimension: 38,
+                  child: Icon(
+                    Icons.notes_rounded,
+                    color: AppTheme.emerald,
+                    size: 19,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Comentario opcional',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: controller,
+            minLines: 3,
+            maxLines: 5,
+            style: const TextStyle(color: AppTheme.textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Comentario opcional',
+              hintText: 'Cuentanos si necesitas adaptar la sesion.',
+              alignLabelWithHint: true,
+              prefixIcon: const Padding(
+                padding: EdgeInsets.only(bottom: 56),
+                child: Icon(Icons.edit_note_rounded, size: 20),
+              ),
+              filled: true,
+              fillColor: AppTheme.input.withValues(alpha: 0.80),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+                borderSide: BorderSide(
+                  color: AppTheme.borderStrong.withValues(alpha: 0.52),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+                borderSide: BorderSide(
+                  color: AppTheme.emerald.withValues(alpha: 0.62),
+                  width: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DurationOption extends StatelessWidget {
   const _DurationOption({
     required this.duration,
@@ -353,8 +416,8 @@ class _DurationOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = isSelected
-        ? AppTheme.emerald.withValues(alpha: 0.72)
-        : AppTheme.borderStrong.withValues(alpha: 0.76);
+        ? AppTheme.emerald.withValues(alpha: 0.32)
+        : AppTheme.borderStrong.withValues(alpha: 0.42);
     return Opacity(
       opacity: isEnabled ? 1 : 0.42,
       child: InkWell(
@@ -374,7 +437,7 @@ class _DurationOption extends StatelessWidget {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppTheme.emerald.withValues(alpha: 0.12),
+                      color: Colors.black.withValues(alpha: 0.22),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                     ),
@@ -481,14 +544,14 @@ class _SlotChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radiusInput),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.emerald.withValues(alpha: 0.34)
-                  : slot.color.withValues(alpha: 0.32),
+                  ? AppTheme.emerald.withValues(alpha: 0.24)
+                  : AppTheme.borderStrong.withValues(alpha: 0.24),
               width: isSelected ? 1.2 : 1,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppTheme.emerald.withValues(alpha: 0.12),
+                      color: Colors.black.withValues(alpha: 0.22),
                       blurRadius: 14,
                       offset: const Offset(0, 7),
                     ),
@@ -588,7 +651,7 @@ class _BookingCalendar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppTheme.radiusInput),
                   border: Border.all(
                     color: isSelected
-                        ? AppTheme.emerald.withValues(alpha: 0.34)
+                        ? AppTheme.emerald.withValues(alpha: 0.24)
                         : AppTheme.border,
                     width: isSelected ? 1.2 : 1,
                   ),

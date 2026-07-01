@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../auth/application/auth_scope.dart';
@@ -68,6 +70,7 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
     }
 
     return Scaffold(
+      extendBody: true,
       body: Stack(
         children: [
           Positioned.fill(
@@ -76,40 +79,37 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF06100D), AppTheme.background],
+                  colors: [Color(0xFF0A0D0B), AppTheme.background],
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 112),
-                child: ListenableBuilder(
-                  listenable: viewModel,
-                  builder: (context, _) {
-                    final state = viewModel.state;
-                    return IndexedStack(
-                      index: _selectedIndex,
-                      children: [
-                        DashboardScreen(
-                          state: state,
-                          onOpenAppointments: () => _selectTab(1),
-                          onOpenProfile: () => _selectTab(2),
-                          onOpenBooking: () => _openBooking(viewModel),
-                        ),
-                        AppointmentsScreen(
-                          state: state,
-                          onOpenBooking: () => _openBooking(viewModel),
-                        ),
-                        ProfileScreen(state: state),
-                      ],
-                    );
-                  },
-                ),
+              child: ListenableBuilder(
+                listenable: viewModel,
+                builder: (context, _) {
+                  final state = viewModel.state;
+                  return IndexedStack(
+                    index: _selectedIndex,
+                    children: [
+                      DashboardScreen(
+                        state: state,
+                        onOpenAppointments: () => _selectTab(1),
+                        onOpenProfile: () => _selectTab(2),
+                        onOpenBooking: () => _openBooking(viewModel),
+                      ),
+                      AppointmentsScreen(
+                        state: state,
+                        onOpenBooking: () => _openBooking(viewModel),
+                      ),
+                      ProfileScreen(state: state),
+                    ],
+                  );
+                },
               ),
             ),
           ),
           Positioned(
-            left: 22,
-            right: 22,
-            bottom: 20,
+            left: 18,
+            right: 18,
+            bottom: 0,
             child: SafeArea(
               top: false,
               child: _FloatingNavBar(
@@ -137,45 +137,54 @@ class _FloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.97),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(
-          color: AppTheme.borderStrong.withValues(alpha: 0.34),
-        ),
+        borderRadius: BorderRadius.circular(34),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.42),
-            blurRadius: 22,
-            offset: const Offset(0, 11),
+            color: Colors.black.withValues(alpha: 0.30),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
-        child: Row(
-          children: [
-            _FloatingNavItem(
-              label: 'Inicio',
-              icon: Icons.home_outlined,
-              selectedIcon: Icons.home_rounded,
-              isSelected: selectedIndex == 0,
-              onTap: () => onSelected(0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(34),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.58),
+              borderRadius: BorderRadius.circular(34),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            _FloatingNavItem(
-              label: 'Citas',
-              icon: Icons.event_note_outlined,
-              selectedIcon: Icons.event_note_rounded,
-              isSelected: selectedIndex == 1,
-              onTap: () => onSelected(1),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Row(
+                children: [
+                  _FloatingNavItem(
+                    label: 'Inicio',
+                    icon: Icons.home_outlined,
+                    selectedIcon: Icons.home_rounded,
+                    isSelected: selectedIndex == 0,
+                    onTap: () => onSelected(0),
+                  ),
+                  _FloatingNavItem(
+                    label: 'Citas',
+                    icon: Icons.event_note_outlined,
+                    selectedIcon: Icons.event_note_rounded,
+                    isSelected: selectedIndex == 1,
+                    onTap: () => onSelected(1),
+                  ),
+                  _FloatingNavItem(
+                    label: 'Perfil',
+                    icon: Icons.person_outline_rounded,
+                    selectedIcon: Icons.person_rounded,
+                    isSelected: selectedIndex == 2,
+                    onTap: () => onSelected(2),
+                  ),
+                ],
+              ),
             ),
-            _FloatingNavItem(
-              label: 'Perfil',
-              icon: Icons.person_outline_rounded,
-              selectedIcon: Icons.person_rounded,
-              isSelected: selectedIndex == 2,
-              onTap: () => onSelected(2),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -206,15 +215,16 @@ class _FloatingNavItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.surfaceElevated.withValues(alpha: 0.78)
+                ? AppTheme.emeraldDark.withValues(alpha: 0.16)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.emerald.withValues(alpha: 0.22)
+                  ? AppTheme.emerald.withValues(alpha: 0.12)
                   : Colors.transparent,
             ),
           ),
@@ -231,7 +241,7 @@ class _FloatingNavItem extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: isSelected ? AppTheme.emerald : AppTheme.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 ),
               ),
             ],

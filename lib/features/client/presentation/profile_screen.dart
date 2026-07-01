@@ -7,7 +7,6 @@ import '../../auth/data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../application/portal_scope.dart';
 import '../../../shared/widgets/focus_buttons.dart';
-import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
@@ -81,16 +80,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 42),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 150),
         children: [
-          Text('Mi Perfil', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 12),
-          Text(
-            'Actualiza tus datos de cliente.',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 30),
-          FocusGlassCard(
+          const _ProfileHeader(),
+          const SizedBox(height: 22),
+          _ProfileCard(
             child: Form(
               key: _formKey,
               child: Column(
@@ -448,6 +442,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mi Perfil',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Actualiza tus datos de cliente.',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: AppTheme.textSecondary.withValues(alpha: 0.88),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceGlass,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: AppTheme.borderStrong.withValues(alpha: 0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Padding(padding: const EdgeInsets.all(22), child: child),
+    );
+  }
+}
+
 class _DangerZone extends StatelessWidget {
   const _DangerZone({required this.isDeleting, required this.onDeleteAccount});
 
@@ -458,9 +507,9 @@ class _DangerZone extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.danger.withValues(alpha: 0.08),
+        color: AppTheme.danger.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.38)),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.18)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -639,73 +688,122 @@ class _AvatarEditor extends StatelessWidget {
     final hasAvatar = hasPreview || hasRemoteAvatar;
     return Column(
       children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: hasAvatar ? AppTheme.surfaceElevated : AppTheme.input,
-            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-            border: Border.all(
-              color: hasAvatar
-                  ? AppTheme.emerald.withValues(alpha: 0.34)
-                  : AppTheme.border,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.24),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: hasAvatar
+                    ? null
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppTheme.surfaceElevated, AppTheme.input],
+                      ),
+                color: hasAvatar ? AppTheme.surfaceElevated : null,
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: hasAvatar
+                      ? AppTheme.borderStrong.withValues(alpha: 0.28)
+                      : AppTheme.borderStrong.withValues(alpha: 0.24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.20),
+                    blurRadius: 22,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: SizedBox(
-            width: 92,
-            height: 92,
-            child: Center(
-              child: hasAvatar
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                      child: hasPreview
-                          ? Image.memory(
-                              previewBytes!,
-                              width: 92,
-                              height: 92,
-                              fit: BoxFit.cover,
-                            )
-                          : Image.network(
-                              profile!.photoUrl!,
-                              width: 92,
-                              height: 92,
-                              fit: BoxFit.cover,
-                            ),
-                    )
-                  : Text(
-                      profile?.displayInitials ?? '?',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            color: AppTheme.emerald,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
+              child: SizedBox(
+                width: 104,
+                height: 104,
+                child: Center(
+                  child: hasAvatar
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(31),
+                          child: hasPreview
+                              ? Image.memory(
+                                  previewBytes!,
+                                  width: 104,
+                                  height: 104,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.network(
+                                  profile!.photoUrl!,
+                                  width: 104,
+                                  height: 104,
+                                  fit: BoxFit.cover,
+                                ),
+                        )
+                      : Text(
+                          profile?.displayInitials ?? '?',
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: AppTheme.emerald,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                ),
+              ),
             ),
-          ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                border: Border.all(
+                  color: AppTheme.emerald.withValues(alpha: 0.20),
+                ),
+              ),
+              child: const SizedBox.square(
+                dimension: 30,
+                child: Icon(
+                  Icons.photo_camera_outlined,
+                  color: AppTheme.emerald,
+                  size: 16,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 22),
         FocusSectionHeader(title: 'Avatar'),
         const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onPickAvatar,
-                icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                label: const Text('Cambiar foto'),
+              child: SizedBox(
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: onPickAvatar,
+                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                  label: const Text('Cambiar foto'),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppTheme.input.withValues(alpha: 0.58),
+                    foregroundColor: AppTheme.textPrimary,
+                    side: BorderSide(
+                      color: AppTheme.borderStrong.withValues(alpha: 0.28),
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: hasAvatar ? onRemoveAvatar : null,
-                icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                label: const Text('Eliminar foto'),
+              child: SizedBox(
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: hasAvatar ? onRemoveAvatar : null,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  label: const Text('Eliminar foto'),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppTheme.input.withValues(alpha: 0.46),
+                    foregroundColor: AppTheme.textPrimary,
+                    side: BorderSide(
+                      color: AppTheme.borderStrong.withValues(alpha: 0.24),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -725,18 +823,47 @@ class _ReadonlyLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.input,
+        color: AppTheme.input.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(
+          color: AppTheme.borderStrong.withValues(alpha: 0.22),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        child: Row(
           children: [
-            Text(label, style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 5),
-            Text(value, style: Theme.of(context).textTheme.bodyMedium),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceElevated.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const SizedBox.square(
+                dimension: 38,
+                child: Icon(
+                  Icons.alternate_email_rounded,
+                  color: AppTheme.emerald,
+                  size: 19,
+                ),
+              ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: Theme.of(context).textTheme.labelSmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -759,26 +886,48 @@ class _PushNotificationsSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.input,
+        color: AppTheme.input.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(
+          color: enabled
+              ? AppTheme.emerald.withValues(alpha: 0.16)
+              : AppTheme.borderStrong.withValues(alpha: 0.22),
+        ),
       ),
       child: SwitchListTile(
         value: enabled,
         onChanged: onChanged,
         activeThumbColor: AppTheme.emerald,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        secondary: isUpdating
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.notifications_active_outlined),
+        activeTrackColor: AppTheme.emerald.withValues(alpha: 0.16),
+        inactiveThumbColor: AppTheme.textSecondary,
+        inactiveTrackColor: AppTheme.surfaceElevated,
+        contentPadding: const EdgeInsets.fromLTRB(14, 4, 10, 4),
+        secondary: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceElevated.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: SizedBox.square(
+            dimension: 38,
+            child: Center(
+              child: isUpdating
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.notifications_active_outlined,
+                      color: AppTheme.emerald,
+                      size: 20,
+                    ),
+            ),
+          ),
+        ),
         title: Text(
           'Notificaciones',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),

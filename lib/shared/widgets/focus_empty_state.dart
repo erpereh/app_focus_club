@@ -21,7 +21,16 @@ class FocusEmptyState extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          Icon(icon, color: AppTheme.textSecondary, size: 28),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppTheme.input.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: SizedBox.square(
+              dimension: 42,
+              child: Icon(icon, color: AppTheme.textSecondary, size: 22),
+            ),
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(

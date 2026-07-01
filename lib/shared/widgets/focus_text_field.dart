@@ -49,7 +49,12 @@ class _FocusTextFieldState extends State<FocusTextField> {
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.hint,
-        prefixIcon: widget.icon == null ? null : Icon(widget.icon, size: 20),
+        prefixIcon: widget.icon == null
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(widget.icon, size: 19),
+              ),
         suffixIcon: widget.obscureText
             ? IconButton(
                 tooltip: _isObscured

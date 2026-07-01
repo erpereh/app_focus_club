@@ -36,7 +36,7 @@ class ClientAppointmentCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppTheme.radiusCard),
       child: FocusGlassCard(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -59,7 +59,7 @@ class ClientAppointmentCard extends StatelessWidget {
                 FocusStatusBadge(label: statusLabel, color: statusColor),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             _InfoLine(
               icon: Icons.schedule_rounded,
               text: '$dateLabel - $timeLabel - $durationMinutes min',
@@ -96,21 +96,37 @@ class ClientMetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated.withValues(alpha: 0.46),
+        color: AppTheme.surfaceGlass.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: AppTheme.borderStrong.withValues(alpha: 0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: AppTheme.textSecondary, size: 21),
-            const SizedBox(height: 14),
-            const FocusKicker('Resumen'),
-            const SizedBox(height: 8),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.input.withValues(alpha: 0.62),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: SizedBox.square(
+                dimension: 40,
+                child: Icon(icon, color: AppTheme.textSecondary, size: 20),
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(value, style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(label, style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
             Text(detail, style: Theme.of(context).textTheme.bodyMedium),
@@ -134,11 +150,21 @@ class ClientPassCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.local_activity_outlined,
-                color: AppTheme.emerald,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppTheme.input.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const SizedBox.square(
+                  dimension: 40,
+                  child: Icon(
+                    Icons.local_activity_outlined,
+                    color: AppTheme.emerald,
+                    size: 21,
+                  ),
+                ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Mi Bono',
@@ -163,8 +189,8 @@ class ClientPassCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             child: LinearProgressIndicator(
               value: pass.progress,
-              minHeight: 9,
-              backgroundColor: AppTheme.input,
+              minHeight: 8,
+              backgroundColor: AppTheme.input.withValues(alpha: 0.86),
               color: AppTheme.emerald,
             ),
           ),
@@ -187,7 +213,7 @@ class PassHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FocusGlassCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
