@@ -8,9 +8,14 @@ import '../domain/support_conversation.dart';
 import 'support_chat_screen.dart';
 
 class NewSupportConversationScreen extends StatefulWidget {
-  const NewSupportConversationScreen({required this.uid, super.key});
+  const NewSupportConversationScreen({
+    required this.uid,
+    this.onConversationVisibilityChanged,
+    super.key,
+  });
 
   final String uid;
+  final SupportConversationVisibilityChanged? onConversationVisibilityChanged;
 
   @override
   State<NewSupportConversationScreen> createState() =>
@@ -60,6 +65,8 @@ class _NewSupportConversationScreenState
       MaterialPageRoute<void>(
         builder: (_) => SupportChatScreen(
           uid: widget.uid,
+          onConversationVisibilityChanged:
+              widget.onConversationVisibilityChanged,
           conversation: SupportConversation(
             id: conversationId,
             userId: widget.uid,

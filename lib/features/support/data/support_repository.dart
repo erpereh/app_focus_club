@@ -6,6 +6,7 @@ import '../domain/support_message.dart';
 
 abstract interface class SupportRepository {
   Stream<List<SupportConversation>> watchMyConversations(String userId);
+  Stream<SupportConversation?> watchConversation(String conversationId);
   Stream<List<SupportMessage>> watchMessages(String conversationId);
 
   Future<String> createConversation({
@@ -32,21 +33,36 @@ class FirebaseSupportRepository implements SupportRepository {
 
   @override
   Stream<List<SupportConversation>> watchMyConversations(String userId) {
-    return _firestore
+    final query = _firestore
         .collection('support_conversations')
         .where('userId', isEqualTo: userId)
-        .orderBy('lastMessageAt', descending: true)
+        .orderBy('lastMessageAt', descending: true);
+    return query.snapshots().map(
+      (snapshot) => snapshot.docs
+          .map(
+            (doc) => SupportConversation.fromMap(
+              doc.id,
+              Map<String, Object?>.from(doc.data()),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  @override
+  Stream<SupportConversation?> watchConversation(String conversationId) {
+    return _firestore
+        .collection('support_conversations')
+        .doc(conversationId)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => SupportConversation.fromMap(
-                  doc.id,
-                  Map<String, Object?>.from(doc.data()),
-                ),
-              )
-              .toList(growable: false),
-        );
+        .map((snapshot) {
+          final data = snapshot.data();
+          if (data == null) return null;
+          return SupportConversation.fromMap(
+            snapshot.id,
+            Map<String, Object?>.from(data),
+          );
+        });
   }
 
   @override
@@ -129,6 +145,8 @@ String supportErrorMessage(Object error) {
     return switch (error.code) {
       'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
       'permission-denied' => 'No tienes permisos para realizar esta acción.',
+      'failed-precondition' =>
+        'Esta conversación está cerrada. Abre una nueva conversación si necesitas más ayuda.',
       'unavailable' || 'deadline-exceeded' =>
         'No hay conexión. Revisa la red e inténtalo de nuevo.',
       _ => 'No hemos podido completar la acción. Inténtalo de nuevo.',
@@ -189,6 +207,16 @@ class FakeSupportRepository implements SupportRepository {
           .where((conversation) => conversation.userId == userId)
           .toList(),
     );
+  }
+
+  @override
+  Stream<SupportConversation?> watchConversation(String conversationId) {
+    final conversation = _conversations.where(
+      (item) => item.id == conversationId,
+    );
+    return conversation.isEmpty
+        ? const Stream.empty()
+        : Stream.value(conversation.first);
   }
 
   @override

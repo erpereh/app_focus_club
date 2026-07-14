@@ -6,16 +6,22 @@ import '../application/support_scope.dart';
 import '../data/support_repository.dart';
 import '../domain/support_conversation.dart';
 import '../domain/support_message.dart';
+import 'new_support_conversation_screen.dart';
+
+typedef SupportConversationVisibilityChanged =
+    void Function(String conversationId, bool isVisible);
 
 class SupportChatScreen extends StatefulWidget {
   const SupportChatScreen({
     required this.conversation,
     required this.uid,
+    this.onConversationVisibilityChanged,
     super.key,
   });
 
   final SupportConversation conversation;
   final String uid;
+  final SupportConversationVisibilityChanged? onConversationVisibilityChanged;
 
   @override
   State<SupportChatScreen> createState() => _SupportChatScreenState();
@@ -26,19 +32,35 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   SupportChatViewModel? _viewModel;
 
   @override
+  void initState() {
+    super.initState();
+    _notifyConversationVisibility(true);
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _viewModel ??= SupportChatViewModel(
       repository: SupportScope.of(context),
-      conversationId: widget.conversation.id,
+      conversation: widget.conversation,
     )..start();
   }
 
   @override
   void dispose() {
+    widget.onConversationVisibilityChanged?.call(widget.conversation.id, false);
     _messageController.dispose();
     _viewModel?.dispose();
     super.dispose();
+  }
+
+  void _notifyConversationVisibility(bool isVisible) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onConversationVisibilityChanged?.call(
+        widget.conversation.id,
+        isVisible,
+      );
+    });
   }
 
   Future<void> _send() async {
@@ -52,6 +74,18 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         SnackBar(content: Text(supportErrorMessage(viewModel.state.error!))),
       );
     }
+  }
+
+  void _openNewConversation() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => NewSupportConversationScreen(
+          uid: widget.uid,
+          onConversationVisibilityChanged:
+              widget.onConversationVisibilityChanged,
+        ),
+      ),
+    );
   }
 
   @override
@@ -76,18 +110,23 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           listenable: viewModel,
           builder: (context, _) {
             final state = viewModel.state;
+            final conversation = state.conversation ?? widget.conversation;
+            final isClosed = conversation.isClosed;
             return Column(
               children: [
-                if (widget.conversation.isClosed)
-                  const _ClosedConversationLabel(),
+                if (isClosed)
+                  _ClosedConversationNotice(
+                    onNewConversation: _openNewConversation,
+                  ),
                 Expanded(
                   child: _MessageList(state: state, uid: widget.uid),
                 ),
-                _Composer(
-                  controller: _messageController,
-                  isSending: state.isSending,
-                  onSend: _send,
-                ),
+                if (!isClosed)
+                  _Composer(
+                    controller: _messageController,
+                    isSending: state.isSending,
+                    onSend: _send,
+                  ),
               ],
             );
           },
@@ -97,26 +136,45 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   }
 }
 
-class _ClosedConversationLabel extends StatelessWidget {
-  const _ClosedConversationLabel();
+class _ClosedConversationNotice extends StatelessWidget {
+  const _ClosedConversationNotice({required this.onNewConversation});
+
+  final VoidCallback onNewConversation;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.input,
         borderRadius: BorderRadius.circular(AppTheme.radiusInput),
         border: Border.all(color: AppTheme.borderStrong),
       ),
-      child: Text(
-        'Conversación cerrada',
-        textAlign: TextAlign.center,
-        style: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(color: AppTheme.textSecondary),
+      child: Column(
+        children: [
+          Text(
+            'Esta conversaci\u00f3n est\u00e1 cerrada.',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: AppTheme.textPrimary),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Abre una nueva conversación si necesitas más ayuda.',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onNewConversation,
+            child: const Text('Nueva conversación'),
+          ),
+        ],
       ),
     );
   }

@@ -22,7 +22,16 @@ class SupportListScreen extends StatelessWidget {
   void _openNewConversation(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => NewSupportConversationScreen(uid: uid),
+        builder: (_) => NewSupportConversationScreen(
+          uid: uid,
+          onConversationVisibilityChanged: (conversationId, isVisible) {
+            if (isVisible) {
+              viewModel.setActiveConversationId(conversationId);
+            } else {
+              viewModel.clearActiveConversationId(conversationId);
+            }
+          },
+        ),
       ),
     );
   }
@@ -33,7 +42,17 @@ class SupportListScreen extends StatelessWidget {
   ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SupportChatScreen(conversation: conversation, uid: uid),
+        builder: (_) => SupportChatScreen(
+          conversation: conversation,
+          uid: uid,
+          onConversationVisibilityChanged: (conversationId, isVisible) {
+            if (isVisible) {
+              viewModel.setActiveConversationId(conversationId);
+            } else {
+              viewModel.clearActiveConversationId(conversationId);
+            }
+          },
+        ),
       ),
     );
   }
@@ -162,7 +181,7 @@ class _ConversationCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppTheme.radiusCard),
       child: FocusGlassCard(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(conversation.isClosed ? 14 : 18),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -189,16 +208,19 @@ class _ConversationCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    conversation.lastMessage.isEmpty
-                        ? 'Sin mensajes todavía'
-                        : conversation.lastMessage,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 11),
+                  if (!conversation.isClosed) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      conversation.lastMessage.isEmpty
+                          ? 'Sin mensajes todavía'
+                          : conversation.lastMessage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 11),
+                  ] else
+                    const SizedBox(height: 8),
                   Row(
                     children: [
                       _StatusPill(

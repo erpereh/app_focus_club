@@ -6,10 +6,22 @@ import 'package:app_focus_club/features/client/presentation/client_shell_screen.
 import 'package:app_focus_club/features/support/application/support_scope.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
 import 'package:app_focus_club/features/support/domain/support_conversation.dart';
+import 'package:app_focus_club/navigation/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('support message notification routes to the Chat tab', () {
+    expect(
+      AppRouter.dashboardTabForNotificationType('support_message'),
+      AppRouter.dashboardTabChat,
+    );
+    expect(
+      AppRouter.dashboardTabForNotificationType('appointment_status'),
+      AppRouter.dashboardTabAppointments,
+    );
+  });
+
   testWidgets(
     'shell adds Chat between appointments and profile with unread badge',
     (tester) async {
@@ -51,6 +63,10 @@ void main() {
       await tester.tap(find.text('Chat'));
       await tester.pumpAndSettle();
       expect(find.text('Mi bono'), findsOneWidget);
+
+      await tester.tap(find.text('Mi bono'));
+      await tester.pumpAndSettle();
+      expect(find.text('2'), findsNothing);
     },
   );
 }

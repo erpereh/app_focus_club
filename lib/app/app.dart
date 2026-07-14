@@ -76,12 +76,15 @@ class _FocusClubAppState extends State<FocusClubApp> {
   }
 
   void _openNotification(RemoteMessage? message) {
-    if (message?.data['type'] != 'appointment_status') return;
+    final dashboardTab = AppRouter.dashboardTabForNotificationType(
+      message?.data['type'],
+    );
+    if (dashboardTab == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(
         AppRouter.dashboard,
         (route) => false,
-        arguments: AppRouter.dashboardTabAppointments,
+        arguments: dashboardTab,
       );
     });
   }

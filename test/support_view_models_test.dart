@@ -53,12 +53,19 @@ void main() {
 
       expect(viewModel.state.unreadCustomerCount, 5);
       expect(viewModel.state.hasBadgeError, isFalse);
+      viewModel.setActiveConversationId('one');
+      expect(viewModel.state.unreadCustomerCount, 3);
+      viewModel.setActiveConversationId(null);
 
-      repository.conversations.addError(StateError('permission-denied'));
+      final streamError = StateError('permission-denied');
+      final streamStackTrace = StackTrace.current;
+      repository.conversations.addError(streamError, streamStackTrace);
       await Future<void>.delayed(Duration.zero);
 
       expect(viewModel.state.unreadCustomerCount, 0);
       expect(viewModel.state.hasBadgeError, isTrue);
+      expect(viewModel.state.error, same(streamError));
+      expect(viewModel.state.errorStackTrace, same(streamStackTrace));
       viewModel.dispose();
     },
   );
@@ -69,7 +76,7 @@ void main() {
       final repository = _SupportRepository();
       final viewModel = SupportChatViewModel(
         repository: repository,
-        conversationId: 'conversation-1',
+        conversation: _conversation(),
       )..start();
       await Future<void>.delayed(Duration.zero);
 
@@ -82,11 +89,67 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test(
+    'chat view model coalesces read receipts while the conversation is open',
+    () async {
+      final repository = _SupportRepository();
+      final viewModel = SupportChatViewModel(
+        repository: repository,
+        conversation: _conversation(unreadCustomerCount: 1),
+      )..start();
+      await Future<void>.delayed(Duration.zero);
+
+      repository.conversation.add(_conversation(unreadCustomerCount: 2));
+      repository.conversation.add(_conversation(unreadCustomerCount: 2));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.markedRead.length, lessThanOrEqualTo(2));
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'chat view model does not send a message for a closed conversation',
+    () async {
+      final repository = _SupportRepository();
+      final viewModel = SupportChatViewModel(
+        repository: repository,
+        conversation: _conversation(status: 'closed'),
+      );
+
+      expect(await viewModel.sendMessage('Necesito ayuda'), isFalse);
+      expect(repository.sentMessages, isEmpty);
+      viewModel.dispose();
+    },
+  );
+}
+
+SupportConversation _conversation({
+  int unreadCustomerCount = 0,
+  String status = 'open',
+}) {
+  return SupportConversation(
+    id: 'conversation-1',
+    userId: 'user-1',
+    userName: 'Laura',
+    userEmail: 'laura@example.com',
+    status: status,
+    subject: 'Cuenta',
+    lastMessage: '',
+    lastMessageAt: null,
+    lastMessageBy: '',
+    unreadAdminCount: 0,
+    unreadCustomerCount: unreadCustomerCount,
+    createdAt: null,
+    updatedAt: null,
+  );
 }
 
 class _SupportRepository implements SupportRepository {
   final conversations = StreamController<List<SupportConversation>>.broadcast();
   final messages = StreamController<List<SupportMessage>>.broadcast();
+  final conversation = StreamController<SupportConversation?>.broadcast();
   final markedRead = <String>[];
   final sentMessages = <({String conversationId, String text})>[];
 
@@ -112,6 +175,10 @@ class _SupportRepository implements SupportRepository {
   @override
   Stream<List<SupportConversation>> watchMyConversations(String userId) =>
       conversations.stream;
+
+  @override
+  Stream<SupportConversation?> watchConversation(String conversationId) =>
+      conversation.stream;
 
   @override
   Stream<List<SupportMessage>> watchMessages(String conversationId) =>

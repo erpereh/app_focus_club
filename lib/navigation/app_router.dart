@@ -18,6 +18,13 @@ class AppRouter {
   static const dashboard = '/dashboard';
 
   static const dashboardTabAppointments = 1;
+  static const dashboardTabChat = 2;
+
+  static int? dashboardTabForNotificationType(String? type) => switch (type) {
+    'appointment_status' => dashboardTabAppointments,
+    'support_message' => dashboardTabChat,
+    _ => null,
+  };
 
   static Route<void> onGenerateRoute(RouteSettings settings) {
     return MaterialPageRoute<void>(
@@ -38,6 +45,9 @@ class AppRouter {
   }
 
   static int _dashboardInitialTab(Object? arguments) {
-    return arguments == dashboardTabAppointments ? dashboardTabAppointments : 0;
+    return arguments == dashboardTabAppointments ||
+            arguments == dashboardTabChat
+        ? arguments as int
+        : 0;
   }
 }

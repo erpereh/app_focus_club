@@ -69,44 +69,85 @@ void main() {
     expect(find.text('Mi bono'), findsOneWidget);
   });
 
-  testWidgets('closed chat keeps the message composer enabled', (tester) async {
-    final repository = FakeSupportRepository();
+  testWidgets('closed conversation cards omit the message preview', (
+    tester,
+  ) async {
     const conversation = SupportConversation(
       id: 'conversation-1',
       userId: 'user-1',
       userName: 'Laura',
       userEmail: 'laura@example.com',
       status: 'closed',
-      subject: 'Cuenta',
-      lastMessage: '',
+      subject: 'Cuenta cerrada',
+      lastMessage: 'Este preview no debe mostrarse',
       lastMessageAt: null,
-      lastMessageBy: '',
+      lastMessageBy: 'admin',
       unreadAdminCount: 0,
       unreadCustomerCount: 0,
       createdAt: null,
       updatedAt: null,
     );
+    final repository = FakeSupportRepository(conversations: [conversation]);
+    final viewModel = SupportConversationsViewModel(
+      repository: repository,
+      uid: 'user-1',
+    )..start();
+    addTearDown(viewModel.dispose);
 
     await tester.pumpWidget(
       _SupportHarness(
         repository: repository,
-        child: const SupportChatScreen(
-          conversation: conversation,
-          uid: 'user-1',
-        ),
+        child: SupportListScreen(viewModel: viewModel, uid: 'user-1'),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Conversación cerrada'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '¿Podéis revisarlo?');
-    await tester.tap(find.byTooltip('Enviar mensaje'));
-    await tester.pumpAndSettle();
-
-    expect(repository.sentMessages, [
-      (conversationId: 'conversation-1', text: '¿Podéis revisarlo?'),
-    ]);
+    expect(find.text('Cuenta cerrada'), findsOneWidget);
+    expect(find.text('Cerrada'), findsOneWidget);
+    expect(find.text('Este preview no debe mostrarse'), findsNothing);
   });
+
+  testWidgets(
+    'closed chat hides the message composer and offers a new conversation',
+    (tester) async {
+      final repository = FakeSupportRepository();
+      const conversation = SupportConversation(
+        id: 'conversation-1',
+        userId: 'user-1',
+        userName: 'Laura',
+        userEmail: 'laura@example.com',
+        status: 'closed',
+        subject: 'Cuenta',
+        lastMessage: '',
+        lastMessageAt: null,
+        lastMessageBy: '',
+        unreadAdminCount: 0,
+        unreadCustomerCount: 0,
+        createdAt: null,
+        updatedAt: null,
+      );
+
+      await tester.pumpWidget(
+        _SupportHarness(
+          repository: repository,
+          child: const SupportChatScreen(
+            conversation: conversation,
+            uid: 'user-1',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Esta conversación está cerrada.'), findsOneWidget);
+      expect(
+        find.text('Abre una nueva conversación si necesitas más ayuda.'),
+        findsOneWidget,
+      );
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byTooltip('Enviar mensaje'), findsNothing);
+      expect(find.text('Nueva conversación'), findsOneWidget);
+    },
+  );
 }
 
 class _SupportHarness extends StatelessWidget {
