@@ -2,6 +2,7 @@ import 'package:app_focus_club/app/app.dart';
 import 'package:app_focus_club/features/auth/data/auth_repository.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
+import 'package:app_focus_club/features/support/data/support_repository.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ void main() {
       FocusClubApp(
         authRepository: _FakeAuthRepository(),
         portalRepository: _fakePortalRepository(),
+        supportRepository: FakeSupportRepository(),
       ),
     );
 
@@ -665,6 +667,7 @@ Future<void> _pumpAuth(
     FocusClubApp(
       authRepository: authRepository ?? _FakeAuthRepository(),
       portalRepository: portalRepository ?? _fakePortalRepository(),
+      supportRepository: FakeSupportRepository(),
     ),
   );
   await tester.pump(const Duration(milliseconds: 950));

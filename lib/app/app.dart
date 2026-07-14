@@ -7,6 +7,8 @@ import '../features/auth/application/auth_scope.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/client/application/portal_scope.dart';
 import '../features/client/data/portal_repository.dart';
+import '../features/support/application/support_scope.dart';
+import '../features/support/data/support_repository.dart';
 import '../navigation/app_router.dart';
 import '../theme/app_theme.dart';
 
@@ -15,13 +17,18 @@ class FocusClubApp extends StatefulWidget {
     super.key,
     AuthRepository? authRepository,
     PortalRepository? portalRepository,
+    SupportRepository? supportRepository,
   }) : authRepository = authRepository ?? FirebaseAuthRepository(),
        portalRepository = portalRepository ?? FirebasePortalRepository(),
+       supportRepository = supportRepository ?? FirebaseSupportRepository(),
        _enablePushNotificationNavigation =
-           authRepository == null && portalRepository == null;
+           authRepository == null &&
+           portalRepository == null &&
+           supportRepository == null;
 
   final AuthRepository authRepository;
   final PortalRepository portalRepository;
+  final SupportRepository supportRepository;
   final bool _enablePushNotificationNavigation;
 
   @override
@@ -53,13 +60,16 @@ class _FocusClubAppState extends State<FocusClubApp> {
       repository: widget.authRepository,
       child: PortalScope(
         repository: widget.portalRepository,
-        child: MaterialApp(
-          navigatorKey: AppRouter.navigatorKey,
-          title: 'Focus Club',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.dark,
-          initialRoute: AppRouter.splash,
-          onGenerateRoute: AppRouter.onGenerateRoute,
+        child: SupportScope(
+          repository: widget.supportRepository,
+          child: MaterialApp(
+            navigatorKey: AppRouter.navigatorKey,
+            title: 'Focus Club',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.dark,
+            initialRoute: AppRouter.splash,
+            onGenerateRoute: AppRouter.onGenerateRoute,
+          ),
         ),
       ),
     );
