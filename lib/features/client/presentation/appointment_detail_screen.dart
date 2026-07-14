@@ -1,51 +1,47 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_badge.dart';
+import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
+import '../application/client_portal_view_model.dart';
+import '../data/portal_repository.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
+import 'booking_screen.dart';
 
-class AppointmentDetailScreen extends StatelessWidget {
-  AppointmentDetailScreen({
-    required Appointment appointment,
-    String? trainerName,
+class AppointmentDetailScreen extends StatefulWidget {
+  const AppointmentDetailScreen({
+    required this.appointment,
+    required this.viewModel,
+    this.trainerName,
     super.key,
-  }) : id = appointment.id,
-       serviceType = appointment.serviceType,
-       durationMinutes = appointment.durationMinutes,
-       proposedDateLabel = appointment.dateLabel,
-       proposedTimeLabel = appointment.timeLabel,
-       statusLabel = appointmentStatusLabel(appointment.status),
-       statusColor = appointmentStatusColor(appointment.status),
-       statusDescription = appointmentStatusDescription(appointment.status),
-       isApproved = appointment.status == AppointmentStatus.approved,
-       createdAtLabel = appointment.createdAtLabel,
-       reason = appointment.reasonLabel,
-       assignedTrainer = trainerName ?? appointment.assignedTrainer,
-       sessionType = appointment.sessionType,
-       approvedDateLabel = appointment.approvedDateLabel,
-       approvedTimeLabel = appointment.approvedTimeLabel;
+  });
 
-  final String id;
-  final String serviceType;
-  final int durationMinutes;
-  final String proposedDateLabel;
-  final String proposedTimeLabel;
-  final String statusLabel;
-  final Color statusColor;
-  final String statusDescription;
-  final bool isApproved;
-  final String createdAtLabel;
-  final String? reason;
-  final String? assignedTrainer;
-  final String? sessionType;
-  final String? approvedDateLabel;
-  final String? approvedTimeLabel;
+  final Appointment appointment;
+  final ClientPortalViewModel viewModel;
+  final String? trainerName;
+
+  @override
+  State<AppointmentDetailScreen> createState() =>
+      _AppointmentDetailScreenState();
+}
+
+class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
+  bool _isCancelling = false;
+  String? _errorMessage;
 
   @override
   Widget build(BuildContext context) {
+    final appointment = widget.appointment;
+    final isApproved = appointment.status == AppointmentStatus.approved;
+    final assignedTrainer = widget.trainerName ?? appointment.assignedTrainer;
+    final canManage =
+        (appointment.status == AppointmentStatus.pending || isApproved) &&
+        (appointment.schedulingDateTime?.isAfter(DateTime.now()) ?? false);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalle de la Cita'),
@@ -69,16 +65,19 @@ class AppointmentDetailScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          serviceType,
+                          appointment.serviceType,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
-                      FocusStatusBadge(label: statusLabel, color: statusColor),
+                      FocusStatusBadge(
+                        label: appointmentStatusLabel(appointment.status),
+                        color: appointmentStatusColor(appointment.status),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    statusDescription,
+                      appointmentStatusDescription(appointment.status),
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                 ],
@@ -86,10 +85,10 @@ class AppointmentDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             _DetailGrid(
-              serviceType: serviceType,
-              durationMinutes: durationMinutes,
-              dateLabel: proposedDateLabel,
-              timeLabel: proposedTimeLabel,
+              serviceType: appointment.serviceType,
+              durationMinutes: appointment.durationMinutes,
+              dateLabel: appointment.dateLabel,
+              timeLabel: appointment.timeLabel,
             ),
             if (isApproved && assignedTrainer != null) ...[
               const SizedBox(height: 18),
@@ -101,20 +100,20 @@ class AppointmentDetailScreen extends StatelessWidget {
                     const SizedBox(height: 14),
                     _DetailLine(
                       label: 'Fecha',
-                      value: approvedDateLabel ?? proposedDateLabel,
+                        value: appointment.approvedDateLabel ?? appointment.dateLabel,
                     ),
                     _DetailLine(
                       label: 'Hora',
-                      value: approvedTimeLabel ?? proposedTimeLabel,
+                        value: appointment.approvedTimeLabel ?? appointment.timeLabel,
                     ),
-                    _DetailLine(label: 'Entrenador', value: assignedTrainer!),
-                    if (sessionType != null)
-                      _DetailLine(label: 'Tipo', value: sessionType!),
+                    _DetailLine(label: 'Entrenador', value: assignedTrainer),
+                    if (appointment.sessionType != null)
+                      _DetailLine(label: 'Tipo', value: appointment.sessionType!),
                   ],
                 ),
               ),
             ],
-            if (reason != null) ...[
+            if (appointment.reasonLabel != null) ...[
               const SizedBox(height: 18),
               FocusGlassCard(
                 child: Column(
@@ -122,7 +121,10 @@ class AppointmentDetailScreen extends StatelessWidget {
                   children: [
                     const FocusKicker('Tu comentario'),
                     const SizedBox(height: 12),
-                    Text(reason!, style: Theme.of(context).textTheme.bodyLarge),
+                    Text(
+                      appointment.reasonLabel!,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
                   ],
                 ),
               ),
@@ -133,18 +135,87 @@ class AppointmentDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _DetailLine(label: 'ID', value: id),
+                  _DetailLine(label: 'ID', value: appointment.id),
                   _DetailLine(
                     label: 'Fecha de solicitud',
-                    value: createdAtLabel,
+                    value: appointment.createdAtLabel,
                   ),
                 ],
               ),
             ),
+            if (canManage) ...[
+              const SizedBox(height: 22),
+              if (_errorMessage != null) ...[
+                FocusStatusMessage(
+                  message: _errorMessage!,
+                  type: FocusStatusType.error,
+                ),
+                const SizedBox(height: 14),
+              ],
+              FocusPrimaryButton(
+                label: 'Modificar cita',
+                onPressed: _isCancelling ? null : _openEdit,
+              ),
+              const SizedBox(height: 12),
+              FocusGhostButton(
+                label: 'Cancelar cita',
+                icon: Icons.cancel_outlined,
+                onPressed: _isCancelling ? null : _confirmCancel,
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openEdit() {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BookingScreen(
+          viewModel: widget.viewModel,
+          editingAppointment: widget.appointment,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmCancel() async {
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Cancelar esta cita?'),
+        content: const Text(
+          'Se devolverán los minutos a tu bono si corresponde.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Cancelar cita'),
+          ),
+        ],
+      ),
+    );
+    if (shouldCancel != true || !mounted) return;
+
+    setState(() {
+      _isCancelling = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.viewModel.cancelAppointment(widget.appointment.id);
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = appointmentMutationErrorMessage(error));
+      }
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
   }
 }
 

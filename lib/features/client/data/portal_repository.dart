@@ -22,6 +22,11 @@ abstract interface class PortalRepository {
   Stream<SiteConfig?> watchSiteConfig();
 
   Future<void> createAppointment(AppointmentRequest request);
+  Future<void> cancelOwnAppointment(String appointmentId);
+  Future<void> updateOwnAppointmentSlot({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  });
   Future<void> deleteOwnAccount();
   Future<void> setPushNotificationsEnabled({
     required String uid,
@@ -168,6 +173,24 @@ class FirebasePortalRepository implements PortalRepository {
   }
 
   @override
+  Future<void> cancelOwnAppointment(String appointmentId) async {
+    await _functions.httpsCallable('cancelOwnAppointment').call<Object?>({
+      'appointmentId': appointmentId,
+    });
+  }
+
+  @override
+  Future<void> updateOwnAppointmentSlot({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) async {
+    await _functions.httpsCallable('updateOwnAppointmentSlot').call<Object?>({
+      'appointmentId': appointmentId,
+      'preferredSlot': preferredSlot.toMap(),
+    });
+  }
+
+  @override
   Future<void> deleteOwnAccount() async {
     await _functions.httpsCallable('deleteOwnAccount').call<Object?>();
   }
@@ -240,6 +263,31 @@ String appointmentRequestErrorMessage(Object error) {
   return 'No hemos podido enviar la solicitud. Intentalo de nuevo.';
 }
 
+String appointmentMutationErrorMessage(Object error) {
+  if (error is FirebaseFunctionsException) {
+    final message = (error.message ?? '').toLowerCase();
+    return switch (error.code) {
+      'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
+      'not-found' => 'No hemos encontrado esta cita.',
+      'permission-denied' => 'No tienes permisos para modificar esta cita.',
+      'failed-precondition'
+          when message.contains('past') || message.contains('future') =>
+        'Esta cita ya no se puede modificar.',
+      'failed-precondition'
+          when message.contains('blocked') ||
+              message.contains('full') ||
+              message.contains('schedule') ||
+              message.contains('conflict') ||
+              message.contains('already has') =>
+        'Esta franja ya no está disponible.',
+      'unavailable' || 'deadline-exceeded' =>
+        'No hay conexión. Revisa la red e inténtalo de nuevo.',
+      _ => 'No hemos podido actualizar la cita. Inténtalo de nuevo.',
+    };
+  }
+  return 'No hemos podido actualizar la cita. Inténtalo de nuevo.';
+}
+
 String deleteOwnAccountErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
     return switch (error.code) {
@@ -280,6 +328,8 @@ class FakePortalRepository implements PortalRepository {
   final SiteConfig? _siteConfig;
   final Object? _deleteOwnAccountFailure;
   final List<AppointmentRequest> requests = [];
+  final List<String> cancelledAppointmentIds = [];
+  final List<({String appointmentId, TimeSlot preferredSlot})> slotUpdates = [];
   int deleteOwnAccountCalls = 0;
 
   @override
@@ -336,6 +386,19 @@ class FakePortalRepository implements PortalRepository {
   @override
   Future<void> createAppointment(AppointmentRequest request) async {
     requests.add(request);
+  }
+
+  @override
+  Future<void> cancelOwnAppointment(String appointmentId) async {
+    cancelledAppointmentIds.add(appointmentId);
+  }
+
+  @override
+  Future<void> updateOwnAppointmentSlot({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) async {
+    slotUpdates.add((appointmentId: appointmentId, preferredSlot: preferredSlot));
   }
 
   @override

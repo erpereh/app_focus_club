@@ -12,11 +12,13 @@ import 'appointment_detail_screen.dart';
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({
     required this.state,
+    required this.viewModel,
     required this.onOpenBooking,
     super.key,
   });
 
   final ClientPortalState state;
+  final ClientPortalViewModel viewModel;
   final VoidCallback onOpenBooking;
 
   @override
@@ -31,6 +33,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       MaterialPageRoute<void>(
         builder: (_) => AppointmentDetailScreen(
           appointment: appointment,
+          viewModel: widget.viewModel,
           trainerName: _trainerName(appointment.assignedTrainer),
         ),
       ),
@@ -87,9 +90,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _AppointmentsList(
                     tabIndex: _tabIndex,
-                    appointments: widget.state.appointments
-                        .where(_matchesSelectedTab)
-                        .toList(growable: false),
+                    appointments: _tabIndex == 0
+                        ? widget.state.activeAppointments
+                        : widget.state.historyAppointments,
                     inactiveBonos: widget.state.inactiveBonos,
                     onOpenDetail: _openDetail,
                     trainerNameFor: _trainerName,
@@ -98,15 +101,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         ],
       ),
     );
-  }
-
-  bool _matchesSelectedTab(Appointment appointment) {
-    return switch (_tabIndex) {
-      0 =>
-        appointment.status == AppointmentStatus.pending ||
-            appointment.status == AppointmentStatus.approved,
-      _ => appointment.status == AppointmentStatus.rejected,
-    };
   }
 
   String? _trainerName(String? trainerId) {
@@ -153,10 +147,10 @@ class _AppointmentsList extends StatelessWidget {
         else if (appointments.isEmpty)
           FocusEmptyState(
             title: tabIndex == 0
-                ? 'Sin citas activas'
+                ? 'Sin próximas citas'
                 : 'Sin historial de citas',
             description: tabIndex == 0
-                ? 'Tus citas pendientes o aprobadas apareceran aqui.'
+                ? 'Tus citas pendientes o aprobadas futuras aparecerán aquí.'
                 : 'Las citas anteriores apareceran aqui.',
             icon: Icons.event_busy_rounded,
           )

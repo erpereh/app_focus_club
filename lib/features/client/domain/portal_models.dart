@@ -1,7 +1,8 @@
 enum AppointmentStatus {
   pending,
   approved,
-  rejected;
+  rejected,
+  cancelled;
 
   static AppointmentStatus fromWire(String value) {
     return AppointmentStatus.values.firstWhere(
@@ -119,6 +120,8 @@ class Appointment {
     this.sessionType,
     this.trainerNotes,
     this.updatedAt,
+    this.legacyDate,
+    this.legacyTime,
   });
 
   final String id;
@@ -137,6 +140,8 @@ class Appointment {
   final String? trainerNotes;
   final String createdAt;
   final String? updatedAt;
+  final String? legacyDate;
+  final String? legacyTime;
 
   factory Appointment.fromMap(String id, Map<String, Object?> map) {
     final rawSlots = (map['preferredSlots'] as List<Object?>? ?? const []);
@@ -165,6 +170,8 @@ class Appointment {
       trainerNotes: map['trainerNotes'] as String?,
       createdAt: stringifyDate(map['createdAt']) ?? '',
       updatedAt: stringifyDate(map['updatedAt']),
+      legacyDate: map['date'] as String?,
+      legacyTime: map['time'] as String?,
     );
   }
 
@@ -188,7 +195,43 @@ class Appointment {
     };
   }
 
-  TimeSlot? get schedulingSlot => approvedSlot ?? preferredSlots.firstOrNull;
+  TimeSlot? get schedulingSlot {
+    final legacySlot = legacyDate == null || legacyTime == null
+        ? null
+        : TimeSlot(date: legacyDate!, time: legacyTime!);
+    return switch (status) {
+      AppointmentStatus.approved =>
+        approvedSlot ?? preferredSlots.firstOrNull ?? legacySlot,
+      AppointmentStatus.pending => preferredSlots.firstOrNull ?? legacySlot,
+      AppointmentStatus.rejected || AppointmentStatus.cancelled =>
+        approvedSlot ?? preferredSlots.firstOrNull ?? legacySlot,
+    };
+  }
+
+  DateTime? get schedulingDateTime => appointmentSlotDateTime(schedulingSlot);
+}
+
+DateTime? appointmentSlotDateTime(TimeSlot? slot) {
+  if (slot == null) return null;
+  final dateMatch = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(slot.date);
+  final timeMatch = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(slot.time);
+  if (dateMatch == null || timeMatch == null) return null;
+
+  final year = int.parse(dateMatch.group(1)!);
+  final month = int.parse(dateMatch.group(2)!);
+  final day = int.parse(dateMatch.group(3)!);
+  final hour = int.parse(timeMatch.group(1)!);
+  final minute = int.parse(timeMatch.group(2)!);
+  if (month < 1 || month > 12 || hour > 23 || minute > 59) return null;
+
+  final parsed = DateTime(year, month, day, hour, minute);
+  return parsed.year == year &&
+          parsed.month == month &&
+          parsed.day == day &&
+          parsed.hour == hour &&
+          parsed.minute == minute
+      ? parsed
+      : null;
 }
 
 class Bono {

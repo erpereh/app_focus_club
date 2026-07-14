@@ -7,12 +7,18 @@ import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
+import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({required this.viewModel, super.key});
+  const BookingScreen({
+    required this.viewModel,
+    this.editingAppointment,
+    super.key,
+  });
 
   final ClientPortalViewModel viewModel;
+  final Appointment? editingAppointment;
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -20,16 +26,34 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   final _commentController = TextEditingController();
-  int _selectedDuration = 45;
-  String _selectedDate = buildBookingDates().first;
+  late int _selectedDuration;
+  late String _selectedDate;
   BookingSlotState? _selectedSlot;
   String? _statusMessage;
   FocusStatusType _statusType = FocusStatusType.success;
   bool _isSubmitting = false;
 
+  bool get _isEditing => widget.editingAppointment != null;
+
   @override
   void initState() {
     super.initState();
+    final editingSlot = widget.editingAppointment?.schedulingSlot;
+    final isFutureEditingSlot =
+        editingSlot != null &&
+        (appointmentSlotDateTime(editingSlot)?.isAfter(DateTime.now()) ?? false);
+    _selectedDuration = widget.editingAppointment?.durationMinutes ?? 45;
+    _selectedDate = isFutureEditingSlot
+        ? editingSlot.date
+        : buildBookingDates().first;
+    if (isFutureEditingSlot) {
+      _selectedSlot = BookingSlotState(
+        slot: editingSlot,
+        label: 'Disponible',
+        color: AppTheme.emerald,
+        isEnabled: true,
+      );
+    }
     widget.viewModel.addListener(_handlePortalChange);
   }
 
@@ -53,11 +77,20 @@ class _BookingScreenState extends State<BookingScreen> {
     final state = widget.viewModel.state;
     final activeBono = state.activeBono;
     final siteConfig = state.siteConfig;
-    final dates = buildBookingDates();
-    final canBook =
-        activeBono?.canBook == true &&
-        siteConfig != null &&
-        _selectedDuration <= (activeBono?.minutosRestantes ?? 0);
+    final editingSlot = widget.editingAppointment?.schedulingSlot;
+    final dates = {
+      ...buildBookingDates(),
+      if (_isEditing &&
+          editingSlot != null &&
+          (appointmentSlotDateTime(editingSlot)?.isAfter(DateTime.now()) ??
+              false))
+        editingSlot.date,
+    }.toList(growable: false)..sort();
+    final canBook = _isEditing
+        ? siteConfig != null
+        : activeBono?.canBook == true &&
+              siteConfig != null &&
+              _selectedDuration <= (activeBono?.minutosRestantes ?? 0);
     final slots = siteConfig == null
         ? const <BookingSlotState>[]
         : buildBookingSlotsForDate(date: _selectedDate, siteConfig: siteConfig)
@@ -69,6 +102,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   blockedSlots: state.blockedSlots,
                   occupancy: state.slotOccupancy,
                   activeAppointments: state.activeAppointments,
+                  excludedAppointmentId: widget.editingAppointment?.id,
                 ),
               )
               .toList(growable: false);
@@ -82,7 +116,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reservar Sesion'),
+          title: Text(_isEditing ? 'Modificar cita' : 'Reservar Sesion'),
         leading: IconButton(
           tooltip: 'Cancelar',
           onPressed: () => Navigator.of(context).pop(),
@@ -103,13 +137,21 @@ class _BookingScreenState extends State<BookingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    activeBono == null
+                    _isEditing
+                        ? 'La duración de esta cita se mantiene en $_selectedDuration min.'
+                        : activeBono == null
                         ? 'No hay bono activo disponible para reservar.'
                         : '${activeBono.minutosRestantes} minutos disponibles en tu bono.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
-                  LayoutBuilder(
+                  if (_isEditing)
+                    Text(
+                      'Duración fija: $_selectedDuration min',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    )
+                  else
+                    LayoutBuilder(
                     builder: (context, constraints) {
                       final useGrid = constraints.maxWidth >= 420;
                       final options = [30, 45, 60]
@@ -203,10 +245,21 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            _CommentInputCard(controller: _commentController),
-            const SizedBox(height: 22),
+            if (_isEditing &&
+                widget.editingAppointment?.status == AppointmentStatus.approved) ...[
+              const FocusStatusMessage(
+                message:
+                    'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
+                type: FocusStatusType.warning,
+              ),
+              const SizedBox(height: 18),
+            ],
+            if (!_isEditing) ...[
+              _CommentInputCard(controller: _commentController),
+              const SizedBox(height: 22),
+            ],
             FocusPrimaryButton(
-              label: 'Enviar Solicitud',
+              label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
               isLoading: _isSubmitting,
               onPressed: canSubmit && !_isSubmitting ? _submit : null,
             ),
@@ -235,11 +288,11 @@ class _BookingScreenState extends State<BookingScreen> {
       _showError('No hemos podido cargar la configuracion horaria del centro.');
       return;
     }
-    if (activeBono == null) {
+    if (!_isEditing && activeBono == null) {
       _showError('No tienes un bono activo disponible.');
       return;
     }
-    if (activeBono.minutosRestantes < _selectedDuration) {
+    if (!_isEditing && activeBono!.minutosRestantes < _selectedDuration) {
       _showError('No tienes minutos suficientes para esta sesion.');
       return;
     }
@@ -254,6 +307,7 @@ class _BookingScreenState extends State<BookingScreen> {
       blockedSlots: state.blockedSlots,
       occupancy: state.slotOccupancy,
       activeAppointments: state.activeAppointments,
+      excludedAppointmentId: widget.editingAppointment?.id,
     );
     if (!latestSlot.isEnabled) {
       _showError(_messageForDisabledSlot(latestSlot));
@@ -266,21 +320,39 @@ class _BookingScreenState extends State<BookingScreen> {
       _statusMessage = null;
     });
     try {
-      await widget.viewModel.createAppointment(
-        durationMinutes: _selectedDuration,
-        preferredSlot: latestSlot.slot,
-        reason: _commentController.text.trim(),
-      );
+      if (_isEditing) {
+        await widget.viewModel.updateAppointmentSlot(
+          appointmentId: widget.editingAppointment!.id,
+          preferredSlot: latestSlot.slot,
+        );
+      } else {
+        await widget.viewModel.createAppointment(
+          durationMinutes: _selectedDuration,
+          preferredSlot: latestSlot.slot,
+          reason: _commentController.text.trim(),
+        );
+      }
       if (!mounted) return;
       setState(() {
-        _statusMessage = 'Solicitud Enviada';
+        _statusMessage = _isEditing ? 'Cambios guardados' : 'Solicitud Enviada';
         _statusType = FocusStatusType.success;
       });
       await Future<void>.delayed(const Duration(milliseconds: 900));
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        final navigator = Navigator.of(context);
+        if (_isEditing) {
+          navigator.popUntil((route) => route.isFirst);
+        } else {
+          navigator.pop();
+        }
+      }
     } catch (error) {
       if (!mounted) return;
-      _showError(appointmentRequestErrorMessage(error));
+      _showError(
+        _isEditing
+            ? appointmentMutationErrorMessage(error)
+            : appointmentRequestErrorMessage(error),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

@@ -184,6 +184,15 @@ class _RecordingPortalRepository implements PortalRepository {
   Future<void> createAppointment(AppointmentRequest request) async {}
 
   @override
+  Future<void> cancelOwnAppointment(String appointmentId) async {}
+
+  @override
+  Future<void> updateOwnAppointmentSlot({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) async {}
+
+  @override
   Future<void> deleteOwnAccount() async {}
 
   @override

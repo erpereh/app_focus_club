@@ -35,6 +35,7 @@ String appointmentStatusLabel(AppointmentStatus status) {
     AppointmentStatus.pending => 'Pendiente',
     AppointmentStatus.approved => 'Aprobada',
     AppointmentStatus.rejected => 'Rechazada',
+    AppointmentStatus.cancelled => 'Cancelada',
   };
 }
 
@@ -43,6 +44,7 @@ Color appointmentStatusColor(AppointmentStatus status) {
     AppointmentStatus.pending => AppTheme.amber,
     AppointmentStatus.approved => AppTheme.emerald,
     AppointmentStatus.rejected => AppTheme.danger,
+    AppointmentStatus.cancelled => AppTheme.textSecondary,
   };
 }
 
@@ -54,6 +56,7 @@ String appointmentStatusDescription(AppointmentStatus status) {
       'Cita aprobada. Revisa los datos confirmados antes de acudir.',
     AppointmentStatus.rejected =>
       'Solicitud rechazada. La informacion queda disponible en tu historial.',
+    AppointmentStatus.cancelled => 'Esta cita ha sido cancelada.',
   };
 }
 
@@ -181,6 +184,7 @@ BookingSlotState bookingSlotState({
   required Iterable<BlockedSlot> blockedSlots,
   required Iterable<SlotOccupancy> occupancy,
   required Iterable<Appointment> activeAppointments,
+  String? excludedAppointmentId,
   DateTime? now,
 }) {
   final current = now ?? DateTime.now();
@@ -219,8 +223,9 @@ BookingSlotState bookingSlotState({
   }
   if (overlapsActiveAppointment(
     start: slot,
-    durationMinutes: durationMinutes,
-    appointments: activeAppointments,
+      durationMinutes: durationMinutes,
+      appointments: activeAppointments,
+      excludedAppointmentId: excludedAppointmentId,
   )) {
     return BookingSlotState(
       slot: slot,

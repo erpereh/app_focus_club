@@ -104,12 +104,14 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
                       children: [
                         DashboardScreen(
                           state: state,
+                          viewModel: viewModel,
                           onOpenAppointments: () => _selectTab(1),
                           onOpenProfile: () => _selectTab(3),
                           onOpenBooking: () => _openBooking(viewModel),
                         ),
                         AppointmentsScreen(
                           state: state,
+                          viewModel: viewModel,
                           onOpenBooking: () => _openBooking(viewModel),
                         ),
                         SupportListScreen(

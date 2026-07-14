@@ -165,10 +165,9 @@ void main() {
 
     await tester.tap(find.text('Citas').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.text('Lunes, 20 abr - 09:30 - 10:15 - 45 min'),
-    );
-    await tester.tap(find.text('Lunes, 20 abr - 09:30 - 10:15 - 45 min'));
+    final pendingAppointment = find.textContaining('09:30 - 10:15 - 45 min');
+    await tester.ensureVisible(pendingAppointment);
+    await tester.tap(pendingAppointment);
     await tester.pumpAndSettle();
 
     expect(find.text('Detalle de la Cita'), findsOneWidget);
@@ -759,7 +758,7 @@ FakePortalRepository _fakePortalRepository({
       isTrainer: false,
       createdAt: '2026-04-01T10:00:00.000Z',
     ),
-    appointments: appointments ?? _defaultAppointments,
+    appointments: appointments ?? _defaultAppointments(),
     bonos: const [
       Bono(
         id: 'active-bono',
@@ -833,8 +832,11 @@ FakePortalRepository _fakePortalRepository({
   );
 }
 
-const _defaultAppointments = [
-  Appointment(
+List<Appointment> _defaultAppointments() {
+  final firstDate = _wireDate(_todayDate().add(const Duration(days: 3)));
+  final secondDate = _wireDate(_todayDate().add(const Duration(days: 6)));
+  return [
+    Appointment(
     id: 'FC-1042',
     userId: 'test-user',
     name: 'Laura Perez',
@@ -842,16 +844,16 @@ const _defaultAppointments = [
     phone: '+34612345678',
     serviceType: 'Bono Mensual de Entrenamiento',
     durationMinutes: 60,
-    preferredSlots: [TimeSlot(date: '2026-04-17', time: '18:00')],
+    preferredSlots: [TimeSlot(date: firstDate, time: '18:00')],
     reason: 'Trabajo de fuerza y movilidad de cadera.',
     status: AppointmentStatus.approved,
     createdAt: '2026-04-10T10:00:00.000Z',
-    approvedSlot: TimeSlot(date: '2026-04-17', time: '18:00'),
+    approvedSlot: TimeSlot(date: firstDate, time: '18:00'),
     assignedTrainer: 'trainer-marta',
     sessionType: 'Entrenamiento personal',
     updatedAt: '2026-04-10T10:05:00.000Z',
-  ),
-  Appointment(
+    ),
+    Appointment(
     id: 'FC-1047',
     userId: 'test-user',
     name: 'Laura Perez',
@@ -859,12 +861,13 @@ const _defaultAppointments = [
     phone: '+34612345678',
     serviceType: 'Bono Mensual de Entrenamiento',
     durationMinutes: 45,
-    preferredSlots: [TimeSlot(date: '2026-04-20', time: '09:30')],
+    preferredSlots: [TimeSlot(date: secondDate, time: '09:30')],
     reason: 'Preferencia por trabajo de tren superior.',
     status: AppointmentStatus.pending,
     createdAt: '2026-04-12T10:00:00.000Z',
-  ),
-];
+    ),
+  ];
+}
 
 const _defaultSlotOccupancy = [
   SlotOccupancy(

@@ -74,6 +74,7 @@ bool overlapsActiveAppointment({
   required TimeSlot start,
   required int durationMinutes,
   required Iterable<Appointment> appointments,
+  String? excludedAppointmentId,
 }) {
   final requestedKeys = expandInternalSlots(
     start,
@@ -83,8 +84,9 @@ bool overlapsActiveAppointment({
   return appointments
       .where(
         (appointment) =>
-            appointment.status == AppointmentStatus.pending ||
-            appointment.status == AppointmentStatus.approved,
+            appointment.id != excludedAppointmentId &&
+            (appointment.status == AppointmentStatus.pending ||
+                appointment.status == AppointmentStatus.approved),
       )
       .any((appointment) {
         final slot = appointment.schedulingSlot;

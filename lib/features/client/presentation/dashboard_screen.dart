@@ -19,6 +19,7 @@ import 'appointment_detail_screen.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.state,
+    required this.viewModel,
     required this.onOpenAppointments,
     required this.onOpenProfile,
     required this.onOpenBooking,
@@ -26,6 +27,7 @@ class DashboardScreen extends StatefulWidget {
   });
 
   final ClientPortalState state;
+  final ClientPortalViewModel viewModel;
   final VoidCallback onOpenAppointments;
   final VoidCallback onOpenProfile;
   final VoidCallback onOpenBooking;
@@ -42,6 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute<void>(
         builder: (_) => AppointmentDetailScreen(
           appointment: appointment,
+          viewModel: widget.viewModel,
           trainerName: _trainerName(appointment.assignedTrainer),
         ),
       ),
@@ -160,7 +163,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           _HistoryPreview(
             tabIndex: _historyTabIndex,
-            appointments: state.rejectedAppointments,
+            appointments: state.historyAppointments,
             passes: state.inactiveBonos,
             trainerNameFor: _trainerName,
             onTabChanged: (index) => setState(() => _historyTabIndex = index),

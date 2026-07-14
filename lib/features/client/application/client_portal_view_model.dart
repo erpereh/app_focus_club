@@ -33,19 +33,27 @@ class ClientPortalState {
   final bool isLoading;
 
   List<Appointment> get activeAppointments {
+    final now = DateTime.now();
     return appointments
         .where(
           (appointment) =>
-              appointment.status == AppointmentStatus.pending ||
-              appointment.status == AppointmentStatus.approved,
+              (appointment.status == AppointmentStatus.pending ||
+                  appointment.status == AppointmentStatus.approved) &&
+              (appointment.schedulingDateTime?.isAfter(now) ?? false),
         )
         .toList(growable: false);
   }
 
-  List<Appointment> get rejectedAppointments {
+  List<Appointment> get historyAppointments {
+    final now = DateTime.now();
     return appointments
         .where(
-          (appointment) => appointment.status == AppointmentStatus.rejected,
+          (appointment) =>
+              appointment.status == AppointmentStatus.rejected ||
+              appointment.status == AppointmentStatus.cancelled ||
+              ((appointment.status == AppointmentStatus.pending ||
+                      appointment.status == AppointmentStatus.approved) &&
+                  !(appointment.schedulingDateTime?.isAfter(now) ?? false)),
         )
         .toList(growable: false);
   }
@@ -159,6 +167,20 @@ class ClientPortalViewModel extends ChangeNotifier {
         preferredSlot: preferredSlot,
         reason: reason,
       ),
+    );
+  }
+
+  Future<void> cancelAppointment(String appointmentId) {
+    return _repository.cancelOwnAppointment(appointmentId);
+  }
+
+  Future<void> updateAppointmentSlot({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) {
+    return _repository.updateOwnAppointmentSlot(
+      appointmentId: appointmentId,
+      preferredSlot: preferredSlot,
     );
   }
 
