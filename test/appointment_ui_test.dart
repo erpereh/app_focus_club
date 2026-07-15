@@ -119,17 +119,13 @@ void main() {
     );
     final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid')
       ..start();
-    tester.view.physicalSize = const Size(320, 900);
+    tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      AppTextSizeScope(
-        textSize: AppTextSize.large,
-        onChanged: (_) {},
-        child: MaterialApp(home: BookingScreen(viewModel: viewModel)),
-      ),
+      _LargeTextHarness(child: BookingScreen(viewModel: viewModel)),
     );
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -900));
@@ -142,6 +138,50 @@ void main() {
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
     expect(delegate.crossAxisCount, 3);
     viewModel.dispose();
+  });
+
+  testWidgets('large text adapts appointment detail and cancel dialog', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = FakePortalRepository();
+    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid');
+    final appointment = _appointment(
+      status: AppointmentStatus.approved,
+      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+    );
+
+    await tester.pumpWidget(
+      _LargeTextHarness(
+        child: AppointmentDetailScreen(
+          appointment: appointment,
+          viewModel: viewModel,
+        ),
+      ),
+    );
+
+    final serviceLabel = tester.getTopLeft(find.text('Servicio'));
+    final serviceValue = tester.getTopLeft(
+      find.text('Bono Mensual de Entrenamiento').last,
+    );
+    expect(serviceValue.dy, greaterThan(serviceLabel.dy));
+
+    await tester.scrollUntilVisible(
+      find.text('Cancelar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Cancelar cita'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<AlertDialog>(find.byType(AlertDialog)).scrollable,
+      true,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('editing keeps duration fixed and updates the selected slot', (
@@ -191,6 +231,27 @@ void main() {
     await tester.pumpAndSettle();
     viewModel.dispose();
   });
+}
+
+class _LargeTextHarness extends StatelessWidget {
+  const _LargeTextHarness({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppTextSizeScope(
+      textSize: AppTextSize.large,
+      onChanged: (_) {},
+      child: MaterialApp(
+        builder: (context, appChild) => AppTextSizing.applyGlobally(
+          context,
+          child: appChild ?? const SizedBox.shrink(),
+        ),
+        home: child,
+      ),
+    );
+  }
 }
 
 Bono _bono() {

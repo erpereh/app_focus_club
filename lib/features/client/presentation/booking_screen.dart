@@ -116,166 +116,163 @@ class _BookingScreenState extends State<BookingScreen> {
         : null;
     final canSubmit = canBook && selectedSlot != null;
 
-    return AppTextSizing.region(
-      context,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(_isEditing ? 'Modificar cita' : 'Reservar Sesion'),
-          leading: IconButton(
-            tooltip: 'Cancelar',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Modificar cita' : 'Reservar Sesion'),
+        leading: IconButton(
+          tooltip: 'Cancelar',
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close_rounded),
         ),
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
-            children: [
-              if (_statusMessage != null) ...[
-                FocusStatusMessage(message: _statusMessage!, type: _statusType),
-                const SizedBox(height: 18),
-              ],
-              _StepCard(
-                title: 'Duracion',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+          children: [
+            if (_statusMessage != null) ...[
+              FocusStatusMessage(message: _statusMessage!, type: _statusType),
+              const SizedBox(height: 18),
+            ],
+            _StepCard(
+              title: 'Duracion',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isEditing
+                        ? 'La duración de esta cita se mantiene en $_selectedDuration min.'
+                        : activeBono == null
+                        ? 'No hay bono activo disponible para reservar.'
+                        : '${activeBono.minutosRestantes} minutos disponibles en tu bono.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  if (_isEditing)
                     Text(
-                      _isEditing
-                          ? 'La duración de esta cita se mantiene en $_selectedDuration min.'
-                          : activeBono == null
-                          ? 'No hay bono activo disponible para reservar.'
-                          : '${activeBono.minutosRestantes} minutos disponibles en tu bono.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    if (_isEditing)
-                      Text(
-                        'Duración fija: $_selectedDuration min',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      )
-                    else
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final useGrid = constraints.maxWidth >= 420;
-                          final options = [30, 45, 60]
-                              .map((duration) {
-                                final isEnabled =
-                                    activeBono != null &&
-                                    duration <= activeBono.minutosRestantes;
-                                return _DurationOption(
-                                  duration: duration,
-                                  isSelected: _selectedDuration == duration,
-                                  isEnabled: isEnabled,
-                                  onTap: isEnabled
-                                      ? () => setState(() {
-                                          _selectedDuration = duration;
-                                          _selectedSlot = null;
-                                        })
-                                      : null,
-                                );
-                              })
-                              .toList(growable: false);
+                      'Duración fija: $_selectedDuration min',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    )
+                  else
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final useGrid = constraints.maxWidth >= 420;
+                        final options = [30, 45, 60]
+                            .map((duration) {
+                              final isEnabled =
+                                  activeBono != null &&
+                                  duration <= activeBono.minutosRestantes;
+                              return _DurationOption(
+                                duration: duration,
+                                isSelected: _selectedDuration == duration,
+                                isEnabled: isEnabled,
+                                onTap: isEnabled
+                                    ? () => setState(() {
+                                        _selectedDuration = duration;
+                                        _selectedSlot = null;
+                                      })
+                                    : null,
+                              );
+                            })
+                            .toList(growable: false);
 
-                          if (!useGrid) {
-                            return Column(
-                              children: [
-                                for (final option in options) ...[
-                                  option,
-                                  if (option != options.last)
-                                    const SizedBox(height: 10),
-                                ],
-                              ],
-                            );
-                          }
-                          return Row(
+                        if (!useGrid) {
+                          return Column(
                             children: [
                               for (final option in options) ...[
-                                Expanded(child: option),
+                                option,
                                 if (option != options.last)
-                                  const SizedBox(width: 10),
+                                  const SizedBox(height: 10),
                               ],
                             ],
                           );
-                        },
-                      ),
-                  ],
-                ),
+                        }
+                        return Row(
+                          children: [
+                            for (final option in options) ...[
+                              Expanded(child: option),
+                              if (option != options.last)
+                                const SizedBox(width: 10),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                ],
               ),
-              const SizedBox(height: 18),
-              _StepCard(
-                title: 'Fecha',
-                child: _BookingCalendar(
-                  selectedDate: _selectedDate,
-                  dates: dates,
-                  onSelected: (date) => setState(() {
-                    _selectedDate = date;
-                    _selectedSlot = null;
-                  }),
-                ),
+            ),
+            const SizedBox(height: 18),
+            _StepCard(
+              title: 'Fecha',
+              child: _BookingCalendar(
+                selectedDate: _selectedDate,
+                dates: dates,
+                onSelected: (date) => setState(() {
+                  _selectedDate = date;
+                  _selectedSlot = null;
+                }),
               ),
-              const SizedBox(height: 18),
-              _StepCard(
-                title: 'Franja horaria',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const _SlotLegend(),
+            ),
+            const SizedBox(height: 18),
+            _StepCard(
+              title: 'Franja horaria',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SlotLegend(),
+                  const SizedBox(height: 16),
+                  if (!canBook)
+                    const FocusStatusMessage(
+                      message:
+                          'Necesitas un bono activo y la configuracion horaria del centro para seleccionar una franja.',
+                      type: FocusStatusType.warning,
+                    )
+                  else
+                    _SlotGrid(
+                      slots: slots,
+                      selectedSlot: selectedSlot,
+                      onSelected: (slot) =>
+                          setState(() => _selectedSlot = slot),
+                    ),
+                  if (selectedSlot != null) ...[
                     const SizedBox(height: 16),
-                    if (!canBook)
-                      const FocusStatusMessage(
-                        message:
-                            'Necesitas un bono activo y la configuracion horaria del centro para seleccionar una franja.',
-                        type: FocusStatusType.warning,
-                      )
-                    else
-                      _SlotGrid(
-                        slots: slots,
-                        selectedSlot: selectedSlot,
-                        onSelected: (slot) =>
-                            setState(() => _selectedSlot = slot),
+                    Text(
+                      'Elegida: ${selectedSlot.slot.dateLabel} a las ${selectedSlot.slot.time}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.emerald,
+                        fontWeight: FontWeight.w800,
                       ),
-                    if (selectedSlot != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        'Elegida: ${selectedSlot.slot.dateLabel} a las ${selectedSlot.slot.time}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.emerald,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            if (_isEditing &&
+                widget.editingAppointment?.status ==
+                    AppointmentStatus.approved) ...[
+              const FocusStatusMessage(
+                message:
+                    'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
+                type: FocusStatusType.warning,
               ),
               const SizedBox(height: 18),
-              if (_isEditing &&
-                  widget.editingAppointment?.status ==
-                      AppointmentStatus.approved) ...[
-                const FocusStatusMessage(
-                  message:
-                      'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
-                  type: FocusStatusType.warning,
-                ),
-                const SizedBox(height: 18),
-              ],
-              if (!_isEditing) ...[
-                _CommentInputCard(controller: _commentController),
-                const SizedBox(height: 22),
-              ],
-              FocusPrimaryButton(
-                label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
-                isLoading: _isSubmitting,
-                onPressed: canSubmit && !_isSubmitting ? _submit : null,
-              ),
-              const SizedBox(height: 12),
-              FocusGhostButton(
-                label: 'Cancelar',
-                onPressed: () => Navigator.of(context).pop(),
-                icon: Icons.close_rounded,
-              ),
             ],
-          ),
+            if (!_isEditing) ...[
+              _CommentInputCard(controller: _commentController),
+              const SizedBox(height: 22),
+            ],
+            FocusPrimaryButton(
+              label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
+              isLoading: _isSubmitting,
+              onPressed: canSubmit && !_isSubmitting ? _submit : null,
+            ),
+            const SizedBox(height: 12),
+            FocusGhostButton(
+              label: 'Cancelar',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: Icons.close_rounded,
+            ),
+          ],
         ),
       ),
     );

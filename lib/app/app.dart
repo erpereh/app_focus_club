@@ -74,6 +74,10 @@ class _FocusClubAppState extends State<FocusClubApp> {
               title: 'Focus Club',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.dark,
+              builder: (context, child) => AppTextSizing.applyGlobally(
+                context,
+                child: child ?? const SizedBox.shrink(),
+              ),
               initialRoute: AppRouter.splash,
               onGenerateRoute: AppRouter.onGenerateRoute,
             ),

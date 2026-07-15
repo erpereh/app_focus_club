@@ -7,6 +7,7 @@ import 'package:app_focus_club/features/support/application/support_scope.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
 import 'package:app_focus_club/features/support/domain/support_conversation.dart';
 import 'package:app_focus_club/navigation/app_router.dart';
+import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -69,6 +70,66 @@ void main() {
       expect(find.text('2'), findsNothing);
     },
   );
+
+  testWidgets('large text keeps narrow bottom navigation readable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      AuthScope(
+        repository: _AuthRepository(),
+        child: PortalScope(
+          repository: FakePortalRepository(),
+          child: SupportScope(
+            repository: FakeSupportRepository(),
+            child: const _LargeTextHarness(child: ClientShellScreen()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final navItem = find
+        .ancestor(
+          of: find.text('Inicio'),
+          matching: find.byType(AnimatedContainer),
+        )
+        .first;
+    expect(
+      tester.widget<AnimatedContainer>(navItem).constraints?.minHeight,
+      60,
+    );
+    expect(tester.getSize(navItem).height, greaterThanOrEqualTo(60));
+    expect(find.text('Inicio'), findsOneWidget);
+    expect(find.text('Citas'), findsOneWidget);
+    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Perfil'), findsOneWidget);
+  });
+}
+
+class _LargeTextHarness extends StatelessWidget {
+  const _LargeTextHarness({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppTextSizeScope(
+      textSize: AppTextSize.large,
+      onChanged: (_) {},
+      child: MaterialApp(
+        builder: (context, appChild) => AppTextSizing.applyGlobally(
+          context,
+          child: appChild ?? const SizedBox.shrink(),
+        ),
+        home: child,
+      ),
+    );
+  }
 }
 
 class _AuthRepository implements AuthRepository {

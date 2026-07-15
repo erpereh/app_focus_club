@@ -3,6 +3,7 @@ import 'package:app_focus_club/features/auth/data/auth_repository.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
+import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -527,29 +528,76 @@ void main() {
     expect(find.text('Perfil actualizado correctamente.'), findsOneWidget);
   });
 
-  testWidgets('profile changes important text size for the current session', (
+  testWidgets('profile changes text size globally for the current session', (
     tester,
   ) async {
-    await _pumpDashboard(tester, viewportSize: const Size(800, 1300));
+    await _pumpDashboard(tester, viewportSize: const Size(390, 844));
 
     final passTime = find.byKey(const Key('pass-available-time'));
-    final defaultFontSize = tester.widget<Text>(passTime).style!.fontSize!;
+    final defaultScale = _effectiveFontSize(tester, passTime);
 
     await tester.tap(find.text('Perfil').last);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('text-size-large')),
       300,
-      scrollable: find.byType(Scrollable).last,
+      scrollable: _profileScrollable(),
     );
+    await tester.ensureVisible(find.byKey(const Key('text-size-large')));
+    await tester.pumpAndSettle();
     expect(find.text('Tamaño de texto'), findsOneWidget);
     await tester.tap(find.byKey(const Key('text-size-large')));
     await tester.pumpAndSettle();
 
+    expect(
+      _effectiveFontSize(tester, find.text('Tamaño de texto')),
+      closeTo(defaultScale * 1.15, 0.001),
+    );
+    expect(
+      _effectiveFontSize(tester, find.text('Chat').last),
+      closeTo(defaultScale * 1.15, 0.001),
+    );
+
     await tester.tap(find.text('Inicio').last);
     await tester.pumpAndSettle();
-    final largeFontSize = tester.widget<Text>(passTime).style!.fontSize!;
-    expect(largeFontSize, greaterThan(defaultFontSize));
+    expect(
+      _effectiveFontSize(tester, passTime),
+      closeTo(defaultScale * 1.15, 0.001),
+    );
+
+    await tester.tap(find.text('Chat').last);
+    await tester.pumpAndSettle();
+    expect(
+      _effectiveFontSize(tester, find.text('Nueva conversación').first),
+      closeTo(defaultScale * 1.15, 0.001),
+    );
+  });
+
+  testWidgets('large text stacks dashboard metrics on a narrow screen', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester, viewportSize: const Size(320, 568));
+
+    tester
+        .widget<AppTextSizeScope>(find.byType(AppTextSizeScope))
+        .onChanged(AppTextSize.large);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Minutos usados'),
+      250,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    final usedMinutes = tester.getTopLeft(find.text('Minutos usados'));
+    final activeAppointments = tester.getTopLeft(find.text('Citas activas'));
+    expect(activeAppointments.dx, usedMinutes.dx);
+    expect(activeAppointments.dy, greaterThan(usedMinutes.dy));
   });
 
   testWidgets('profile logout returns to auth', (tester) async {
@@ -919,6 +967,19 @@ void _setTestViewport(
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+double _effectiveFontSize(WidgetTester tester, Finder finder) {
+  return MediaQuery.textScalerOf(tester.element(finder)).scale(20);
+}
+
+Finder _profileScrollable() {
+  return find
+      .descendant(
+        of: find.byType(ListView).last,
+        matching: find.byType(Scrollable),
+      )
+      .first;
+}
+
 Future<void> _withTargetPlatform(
   TargetPlatform platform,
   Future<void> Function() body,
@@ -953,6 +1014,8 @@ class _FakeFunctionsException extends FirebaseFunctionsException {
 Future<void> _login(WidgetTester tester) async {
   await tester.enterText(find.byType(TextFormField).at(0), 'cliente@email.com');
   await tester.enterText(find.byType(TextFormField).at(1), 'Focus1234');
+  await tester.ensureVisible(find.text('Entrar'));
+  await tester.pumpAndSettle();
   await tester.tap(find.text('Entrar'));
   await tester.pumpAndSettle();
 }

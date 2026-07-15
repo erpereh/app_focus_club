@@ -3,12 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('large text scales only opted-in styles and component extents', (
+  testWidgets('large text multiplies the system scaler globally', (
     tester,
   ) async {
-    await tester.pumpWidget(const MaterialApp(home: _TextSizeHarness()));
+    await tester.pumpWidget(
+      const MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(1.25)),
+        child: MaterialApp(home: _TextSizeHarness()),
+      ),
+    );
 
-    expect(_fontSize(tester), 20);
+    expect(_scaledFontSize(tester, const Key('themed-text')), 25);
+    expect(_scaledFontSize(tester, const Key('explicit-text')), 25);
     expect(
       tester.widget<SizedBox>(find.byKey(const Key('slot-extent'))).height,
       88,
@@ -21,7 +27,14 @@ void main() {
     await tester.tap(find.byKey(const Key('use-large-text')));
     await tester.pump();
 
-    expect(_fontSize(tester), 23);
+    expect(
+      _scaledFontSize(tester, const Key('themed-text')),
+      closeTo(28.75, 0.001),
+    );
+    expect(
+      _scaledFontSize(tester, const Key('explicit-text')),
+      closeTo(28.75, 0.001),
+    );
     expect(
       tester.widget<SizedBox>(find.byKey(const Key('slot-extent'))).height,
       100,
@@ -33,11 +46,9 @@ void main() {
   });
 }
 
-double? _fontSize(WidgetTester tester) {
-  return tester
-      .widget<Text>(find.byKey(const Key('important-text')))
-      .style
-      ?.fontSize;
+double _scaledFontSize(WidgetTester tester, Key key) {
+  final context = tester.element(find.byKey(key));
+  return MediaQuery.textScalerOf(context).scale(20);
 }
 
 class _TextSizeHarness extends StatefulWidget {
@@ -56,30 +67,36 @@ class _TextSizeHarnessState extends State<_TextSizeHarness> {
       textSize: _textSize,
       onChanged: (value) => setState(() => _textSize = value),
       child: Builder(
-        builder: (context) => Column(
-          children: [
-            Text(
-              'Importante',
-              key: const Key('important-text'),
-              style: AppTextSizing.scaled(
-                context,
-                const TextStyle(fontSize: 20),
+        builder: (context) => AppTextSizing.applyGlobally(
+          context,
+          child: Column(
+            children: [
+              Text(
+                'Tema',
+                key: const Key('themed-text'),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-            ),
-            SizedBox(
-              key: const Key('slot-extent'),
-              height: AppTextSizing.slotExtent(context),
-            ),
-            SizedBox(
-              key: const Key('date-extent'),
-              height: AppTextSizing.dateExtent(context),
-            ),
-            TextButton(
-              key: const Key('use-large-text'),
-              onPressed: () => AppTextSizeScope.set(context, AppTextSize.large),
-              child: const Text('Grande'),
-            ),
-          ],
+              const Text(
+                'Explícito',
+                key: Key('explicit-text'),
+                style: TextStyle(fontSize: 20),
+              ),
+              SizedBox(
+                key: const Key('slot-extent'),
+                height: AppTextSizing.slotExtent(context),
+              ),
+              SizedBox(
+                key: const Key('date-extent'),
+                height: AppTextSizing.dateExtent(context),
+              ),
+              TextButton(
+                key: const Key('use-large-text'),
+                onPressed: () =>
+                    AppTextSizeScope.set(context, AppTextSize.large),
+                child: const Text('Grande'),
+              ),
+            ],
+          ),
         ),
       ),
     );

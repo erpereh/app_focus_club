@@ -6,6 +6,7 @@ import '../../auth/application/auth_scope.dart';
 import '../application/client_portal_view_model.dart';
 import '../application/portal_scope.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/app_text_size.dart';
 import '../../support/application/support_conversations_view_model.dart';
 import '../../support/application/support_scope.dart';
 import '../../support/presentation/support_list_screen.dart';
@@ -246,6 +247,7 @@ class _FloatingNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final badgeExtent = AppTextSizing.isLarge(context) ? 18.0 : 14.0;
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -253,7 +255,9 @@ class _FloatingNavItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          constraints: const BoxConstraints(minHeight: 52),
+          constraints: BoxConstraints(
+            minHeight: AppTextSizing.navigationItemMinHeight(context),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           decoration: BoxDecoration(
             color: isSelected
@@ -289,8 +293,10 @@ class _FloatingNavItem extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: SizedBox(
-                          width: badgeCount! > 9 ? 18 : 14,
-                          height: 14,
+                          width: badgeCount! > 9
+                              ? badgeExtent + 4
+                              : badgeExtent,
+                          height: badgeExtent,
                           child: Center(
                             child: Text(
                               badgeCount! > 99 ? '99+' : '$badgeCount',

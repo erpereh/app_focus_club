@@ -459,12 +459,12 @@ class _TextSizeSetting extends StatelessWidget {
         Text('Tamaño de texto', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         Text(
-          'Aumenta los textos principales de Inicio, citas y reserva.',
+          'Aumenta el tamaño de texto en toda la aplicación.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 52,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
           child: SegmentedButton<AppTextSize>(
             segments: const [
               ButtonSegment(
@@ -571,11 +571,13 @@ class _DangerZone extends StatelessWidget {
                   size: 20,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  'Zona de peligro',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(color: AppTheme.danger),
+                Expanded(
+                  child: Text(
+                    'Zona de peligro',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleSmall?.copyWith(color: AppTheme.danger),
+                  ),
                 ),
               ],
             ),
@@ -585,8 +587,8 @@ class _DangerZone extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 48,
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
               child: OutlinedButton.icon(
                 key: const Key('delete-account-button'),
                 onPressed: onDeleteAccount,
@@ -640,7 +642,10 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Eliminar cuenta definitivamente'),
+      actionsOverflowDirection: VerticalDirection.down,
+      actionsOverflowButtonSpacing: 8,
       content: Form(
         key: _formKey,
         child: Column(
@@ -816,44 +821,66 @@ class _AvatarEditor extends StatelessWidget {
         const SizedBox(height: 22),
         FocusSectionHeader(title: 'Avatar'),
         const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 46,
-                child: OutlinedButton.icon(
-                  onPressed: onPickAvatar,
-                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                  label: const Text('Cambiar foto'),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: AppTheme.input.withValues(alpha: 0.58),
-                    foregroundColor: AppTheme.textPrimary,
-                    side: BorderSide(
-                      color: AppTheme.borderStrong.withValues(alpha: 0.28),
-                    ),
-                  ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final changeButton = OutlinedButton.icon(
+              onPressed: onPickAvatar,
+              icon: const Icon(Icons.photo_camera_outlined, size: 18),
+              label: const Text('Cambiar foto'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppTheme.input.withValues(alpha: 0.58),
+                foregroundColor: AppTheme.textPrimary,
+                side: BorderSide(
+                  color: AppTheme.borderStrong.withValues(alpha: 0.28),
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: SizedBox(
-                height: 46,
-                child: OutlinedButton.icon(
-                  onPressed: hasAvatar ? onRemoveAvatar : null,
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  label: const Text('Eliminar foto'),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: AppTheme.input.withValues(alpha: 0.46),
-                    foregroundColor: AppTheme.textPrimary,
-                    side: BorderSide(
-                      color: AppTheme.borderStrong.withValues(alpha: 0.24),
-                    ),
-                  ),
+            );
+            final removeButton = OutlinedButton.icon(
+              onPressed: hasAvatar ? onRemoveAvatar : null,
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Eliminar foto'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppTheme.input.withValues(alpha: 0.46),
+                foregroundColor: AppTheme.textPrimary,
+                side: BorderSide(
+                  color: AppTheme.borderStrong.withValues(alpha: 0.24),
                 ),
               ),
-            ),
-          ],
+            );
+            if (constraints.maxWidth < 300) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: changeButton,
+                  ),
+                  const SizedBox(height: 10),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: removeButton,
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: changeButton,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: removeButton,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );

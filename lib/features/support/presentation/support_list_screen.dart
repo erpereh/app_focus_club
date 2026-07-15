@@ -204,7 +204,7 @@ class _ConversationCard extends StatelessWidget {
                     conversation.subject.isEmpty
                         ? 'Conversación con Focus Club'
                         : conversation.subject,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),

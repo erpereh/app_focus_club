@@ -40,24 +40,38 @@ class ClientAppointmentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final heading = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const FocusKicker('Cita'),
+                    const SizedBox(height: 6),
+                    Text(
+                      serviceType,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ],
+                );
+                final badge = FocusStatusBadge(
+                  label: statusLabel,
+                  color: statusColor,
+                );
+                if (constraints.maxWidth < 280) {
+                  return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const FocusKicker('Cita'),
-                      const SizedBox(height: 6),
-                      Text(
-                        serviceType,
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    ],
-                  ),
-                ),
-                FocusStatusBadge(label: statusLabel, color: statusColor),
-              ],
+                    children: [heading, const SizedBox(height: 10), badge],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: heading),
+                    const SizedBox(width: 10),
+                    badge,
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             _InfoLine(

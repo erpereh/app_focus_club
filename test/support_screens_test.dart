@@ -5,6 +5,7 @@ import 'package:app_focus_club/features/support/domain/support_conversation.dart
 import 'package:app_focus_club/features/support/presentation/support_chat_screen.dart';
 import 'package:app_focus_club/features/support/presentation/support_list_screen.dart';
 import 'package:app_focus_club/features/support/presentation/new_support_conversation_screen.dart';
+import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -148,19 +149,93 @@ void main() {
       expect(find.text('Nueva conversación'), findsOneWidget);
     },
   );
+
+  testWidgets('large text adapts support cards, chat and form at 320px', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const subject = 'Consulta detallada sobre mi bono mensual';
+    const conversation = SupportConversation(
+      id: 'conversation-1',
+      userId: 'user-1',
+      userName: 'Laura',
+      userEmail: 'laura@example.com',
+      status: 'open',
+      subject: subject,
+      lastMessage: 'Necesito ayuda para entender los minutos disponibles.',
+      lastMessageAt: null,
+      lastMessageBy: 'user-1',
+      unreadAdminCount: 0,
+      unreadCustomerCount: 1,
+      createdAt: null,
+      updatedAt: null,
+    );
+    final repository = FakeSupportRepository(conversations: [conversation]);
+    final viewModel = SupportConversationsViewModel(
+      repository: repository,
+      uid: 'user-1',
+    )..start();
+    addTearDown(viewModel.dispose);
+
+    await tester.pumpWidget(
+      _SupportHarness(
+        repository: repository,
+        largeText: true,
+        child: SupportListScreen(viewModel: viewModel, uid: 'user-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Text>(find.text(subject)).maxLines, 2);
+    await tester.tap(find.text(subject));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Enviar mensaje'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      _SupportHarness(
+        repository: repository,
+        largeText: true,
+        child: const NewSupportConversationScreen(uid: 'user-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Asunto'), findsOneWidget);
+    expect(find.text('Mensaje'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _SupportHarness extends StatelessWidget {
-  const _SupportHarness({required this.repository, required this.child});
+  const _SupportHarness({
+    required this.repository,
+    required this.child,
+    this.largeText = false,
+  });
 
   final SupportRepository repository;
   final Widget child;
+  final bool largeText;
 
   @override
   Widget build(BuildContext context) {
     return SupportScope(
       repository: repository,
-      child: MaterialApp(home: Scaffold(body: child)),
+      child: AppTextSizeScope(
+        textSize: largeText ? AppTextSize.large : AppTextSize.defaultSize,
+        onChanged: (_) {},
+        child: MaterialApp(
+          builder: (context, appChild) => AppTextSizing.applyGlobally(
+            context,
+            child: appChild ?? const SizedBox.shrink(),
+          ),
+          home: Scaffold(body: child),
+        ),
+      ),
     );
   }
 }

@@ -6,7 +6,6 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_badge.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
-import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
 import '../domain/portal_models.dart';
@@ -43,138 +42,146 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         (appointment.status == AppointmentStatus.pending || isApproved) &&
         (appointment.schedulingDateTime?.isAfter(DateTime.now()) ?? false);
 
-    return AppTextSizing.region(
-      context,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Detalle de la Cita'),
-          titleSpacing: 0,
-          leading: IconButton(
-            tooltip: 'Volver a mis citas',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Detalle de la Cita'),
+        titleSpacing: 0,
+        leading: IconButton(
+          tooltip: 'Volver a mis citas',
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_rounded),
         ),
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
-            children: [
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+          children: [
+            FocusGlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final title = Text(
+                        appointment.serviceType,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      );
+                      final badge = FocusStatusBadge(
+                        label: appointmentStatusLabel(appointment.status),
+                        color: appointmentStatusColor(appointment.status),
+                      );
+                      if (constraints.maxWidth < 280) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [title, const SizedBox(height: 10), badge],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: title),
+                          const SizedBox(width: 10),
+                          badge,
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    appointmentStatusDescription(appointment.status),
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            _DetailGrid(
+              serviceType: appointment.serviceType,
+              durationMinutes: appointment.durationMinutes,
+              dateLabel: appointment.dateLabel,
+              timeLabel: appointment.timeLabel,
+            ),
+            if (isApproved && assignedTrainer != null) ...[
+              const SizedBox(height: 18),
               FocusGlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            appointment.serviceType,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        FocusStatusBadge(
-                          label: appointmentStatusLabel(appointment.status),
-                          color: appointmentStatusColor(appointment.status),
-                        ),
-                      ],
+                    const FocusKicker('Cita confirmada'),
+                    const SizedBox(height: 14),
+                    _DetailLine(
+                      label: 'Fecha',
+                      value:
+                          appointment.approvedDateLabel ??
+                          appointment.dateLabel,
                     ),
-                    const SizedBox(height: 16),
+                    _DetailLine(
+                      label: 'Hora',
+                      value:
+                          appointment.approvedTimeLabel ??
+                          appointment.timeLabel,
+                    ),
+                    _DetailLine(label: 'Entrenador', value: assignedTrainer),
+                    if (appointment.sessionType != null)
+                      _DetailLine(
+                        label: 'Tipo',
+                        value: appointment.sessionType!,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            if (appointment.reasonLabel != null) ...[
+              const SizedBox(height: 18),
+              FocusGlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const FocusKicker('Tu comentario'),
+                    const SizedBox(height: 12),
                     Text(
-                      appointmentStatusDescription(appointment.status),
+                      appointment.reasonLabel!,
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
-              _DetailGrid(
-                serviceType: appointment.serviceType,
-                durationMinutes: appointment.durationMinutes,
-                dateLabel: appointment.dateLabel,
-                timeLabel: appointment.timeLabel,
-              ),
-              if (isApproved && assignedTrainer != null) ...[
-                const SizedBox(height: 18),
-                FocusGlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const FocusKicker('Cita confirmada'),
-                      const SizedBox(height: 14),
-                      _DetailLine(
-                        label: 'Fecha',
-                        value:
-                            appointment.approvedDateLabel ??
-                            appointment.dateLabel,
-                      ),
-                      _DetailLine(
-                        label: 'Hora',
-                        value:
-                            appointment.approvedTimeLabel ??
-                            appointment.timeLabel,
-                      ),
-                      _DetailLine(label: 'Entrenador', value: assignedTrainer),
-                      if (appointment.sessionType != null)
-                        _DetailLine(
-                          label: 'Tipo',
-                          value: appointment.sessionType!,
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-              if (appointment.reasonLabel != null) ...[
-                const SizedBox(height: 18),
-                FocusGlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const FocusKicker('Tu comentario'),
-                      const SizedBox(height: 12),
-                      Text(
-                        appointment.reasonLabel!,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 18),
-              FocusGlassCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _DetailLine(label: 'ID', value: appointment.id),
-                    _DetailLine(
-                      label: 'Fecha de solicitud',
-                      value: appointment.createdAtLabel,
-                    ),
-                  ],
-                ),
-              ),
-              if (canManage) ...[
-                const SizedBox(height: 22),
-                if (_errorMessage != null) ...[
-                  FocusStatusMessage(
-                    message: _errorMessage!,
-                    type: FocusStatusType.error,
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                FocusPrimaryButton(
-                  label: 'Modificar cita',
-                  onPressed: _isCancelling ? null : _openEdit,
-                ),
-                const SizedBox(height: 12),
-                FocusGhostButton(
-                  label: 'Cancelar cita',
-                  icon: Icons.cancel_outlined,
-                  onPressed: _isCancelling ? null : _confirmCancel,
-                ),
-              ],
             ],
-          ),
+            const SizedBox(height: 18),
+            FocusGlassCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DetailLine(label: 'ID', value: appointment.id),
+                  _DetailLine(
+                    label: 'Fecha de solicitud',
+                    value: appointment.createdAtLabel,
+                  ),
+                ],
+              ),
+            ),
+            if (canManage) ...[
+              const SizedBox(height: 22),
+              if (_errorMessage != null) ...[
+                FocusStatusMessage(
+                  message: _errorMessage!,
+                  type: FocusStatusType.error,
+                ),
+                const SizedBox(height: 14),
+              ],
+              FocusPrimaryButton(
+                label: 'Modificar cita',
+                onPressed: _isCancelling ? null : _openEdit,
+              ),
+              const SizedBox(height: 12),
+              FocusGhostButton(
+                label: 'Cancelar cita',
+                icon: Icons.cancel_outlined,
+                onPressed: _isCancelling ? null : _confirmCancel,
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -195,6 +202,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         title: const Text('¿Cancelar esta cita?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -280,23 +288,33 @@ class _DetailLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final labelText = Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium,
+          );
+          final valueText = Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w800,
             ),
-          ),
-        ],
+          );
+          if (constraints.maxWidth < 280) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [labelText, const SizedBox(height: 4), valueText],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 120, child: labelText),
+              Expanded(child: valueText),
+            ],
+          );
+        },
       ),
     );
   }

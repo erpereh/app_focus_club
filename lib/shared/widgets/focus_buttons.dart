@@ -37,25 +37,27 @@ class FocusPrimaryButton extends StatelessWidget {
             ),
           ],
         ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              disabledBackgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+              ),
+              onPressed: isDisabled ? null : onPressed,
+              child: isLoading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.background,
+                      ),
+                    )
+                  : Text(label),
             ),
-            onPressed: isDisabled ? null : onPressed,
-            child: isLoading
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppTheme.background,
-                    ),
-                  )
-                : Text(label),
           ),
         ),
       ),
@@ -77,21 +79,23 @@ class FocusGhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon ?? Icons.arrow_back_rounded, size: 18),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.52),
-          side: BorderSide(
-            color: AppTheme.borderStrong.withValues(alpha: 0.32),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon ?? Icons.arrow_back_rounded, size: 18),
+          label: Text(label),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.textPrimary,
+            backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.52),
+            side: BorderSide(
+              color: AppTheme.borderStrong.withValues(alpha: 0.32),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+            ),
           ),
         ),
       ),
@@ -113,37 +117,44 @@ class FocusGoogleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDisabled = onPressed == null || isLoading;
 
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: OutlinedButton(
-        onPressed: isDisabled ? null : onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.input.withValues(alpha: 0.58),
-          side: BorderSide(
-            color: AppTheme.borderStrong.withValues(alpha: 0.32),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 50),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: isDisabled ? null : onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.textPrimary,
+            backgroundColor: AppTheme.input.withValues(alpha: 0.58),
+            side: BorderSide(
+              color: AppTheme.borderStrong.withValues(alpha: 0.32),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+            ),
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          ),
-        ),
-        child: isLoading
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppTheme.textPrimary,
+          child: isLoading
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.textPrimary,
+                  ),
+                )
+              : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _GoogleGlyph(),
+                    SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Continuar con Google',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ),
-              )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _GoogleGlyph(),
-                  SizedBox(width: 10),
-                  Text('Continuar con Google'),
-                ],
-              ),
+        ),
       ),
     );
   }
