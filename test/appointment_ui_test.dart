@@ -3,6 +3,7 @@ import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:app_focus_club/features/client/presentation/appointment_detail_screen.dart';
 import 'package:app_focus_club/features/client/presentation/booking_screen.dart';
+import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,28 +36,32 @@ void main() {
     expect(find.text('Cancelar cita'), findsOneWidget);
   });
 
-  testWidgets('past and cancelled appointments do not expose appointment actions', (
-    tester,
-  ) async {
-    final repository = FakePortalRepository();
-    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid');
-    final appointment = _appointment(
-      status: AppointmentStatus.cancelled,
-      date: _wireDate(DateTime.now().subtract(const Duration(days: 1))),
-    );
+  testWidgets(
+    'past and cancelled appointments do not expose appointment actions',
+    (tester) async {
+      final repository = FakePortalRepository();
+      final viewModel = ClientPortalViewModel(
+        repository: repository,
+        uid: 'uid',
+      );
+      final appointment = _appointment(
+        status: AppointmentStatus.cancelled,
+        date: _wireDate(DateTime.now().subtract(const Duration(days: 1))),
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppointmentDetailScreen(
-          appointment: appointment,
-          viewModel: viewModel,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: appointment,
+            viewModel: viewModel,
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('Modificar cita'), findsNothing);
-    expect(find.text('Cancelar cita'), findsNothing);
-  });
+      expect(find.text('Modificar cita'), findsNothing);
+      expect(find.text('Cancelar cita'), findsNothing);
+    },
+  );
 
   testWidgets('cancelling an appointment calls the repository action', (
     tester,
@@ -85,10 +90,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('¿Cancelar esta cita?'), findsOneWidget);
+    final backButton = find.widgetWithText(OutlinedButton, 'Volver');
+    final cancelButton = find.widgetWithText(FilledButton, 'Cancelar cita');
+    expect(backButton, findsOneWidget);
+    expect(cancelButton, findsOneWidget);
+    expect(tester.getSize(backButton).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(cancelButton).height, greaterThanOrEqualTo(48));
+    expect(
+      tester.getSize(backButton).width,
+      tester.getSize(cancelButton).width,
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Cancelar cita'));
     await tester.pumpAndSettle();
 
     expect(repository.cancelledAppointmentIds, [appointment.id]);
+  });
+
+  testWidgets('booking time slots always use three columns', (tester) async {
+    final repository = FakePortalRepository(
+      bonos: [_bono()],
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 20,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      ),
+    );
+    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid')
+      ..start();
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      AppTextSizeScope(
+        textSize: AppTextSize.large,
+        onChanged: (_) {},
+        child: MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+
+    final gridFinder = find.byKey(const Key('booking-slot-grid'));
+    expect(gridFinder, findsOneWidget);
+    final grid = tester.widget<GridView>(gridFinder);
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3);
+    viewModel.dispose();
   });
 
   testWidgets('editing keeps duration fixed and updates the selected slot', (
@@ -138,6 +191,22 @@ void main() {
     await tester.pumpAndSettle();
     viewModel.dispose();
   });
+}
+
+Bono _bono() {
+  return const Bono(
+    id: 'bono-id',
+    userId: 'uid',
+    tamano: 240,
+    minutosTotales: 240,
+    minutosRestantes: 240,
+    fechaAsignacion: '2030-05-01',
+    fechaExpiracion: '2030-06-01',
+    estado: BonoStatus.activo,
+    historial: [],
+    asignadoPor: 'admin',
+    createdAt: '2030-05-01T10:00:00.000Z',
+  );
 }
 
 Appointment _appointment({

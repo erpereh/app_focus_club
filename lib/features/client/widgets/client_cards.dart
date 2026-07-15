@@ -181,7 +181,8 @@ class ClientPassCard extends StatelessWidget {
           Text(pass.nameLabel, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           Text(
-            '${pass.minutosRestantes} min disponibles',
+            pass.availableTimeLabel,
+            key: const Key('pass-available-time'),
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
@@ -196,7 +197,7 @@ class ClientPassCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${pass.usedMinutes} de ${pass.minutosTotales} minutos usados - ${pass.expiresAtLabel}',
+            '${pass.minutesLabel} - ${pass.expiresAtLabel}',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],

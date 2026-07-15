@@ -256,7 +256,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('20:30'), findsOneWidget);
-    expect(find.text('No cabe'), findsWidgets);
+    expect(find.text('No disponible'), findsWidgets);
     await tester.tap(find.text('20:30'));
     await tester.pumpAndSettle();
 
@@ -468,7 +468,7 @@ void main() {
           message: 'Slot does not fit schedule.',
         ),
       ),
-      'Esta franja no cabe en el horario disponible.',
+      'Esta franja no está disponible para esta duración o restricción.',
     );
   });
 
@@ -527,6 +527,31 @@ void main() {
     expect(find.text('Perfil actualizado correctamente.'), findsOneWidget);
   });
 
+  testWidgets('profile changes important text size for the current session', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester, viewportSize: const Size(800, 1300));
+
+    final passTime = find.byKey(const Key('pass-available-time'));
+    final defaultFontSize = tester.widget<Text>(passTime).style!.fontSize!;
+
+    await tester.tap(find.text('Perfil').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('text-size-large')),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Tamaño de texto'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('text-size-large')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Inicio').last);
+    await tester.pumpAndSettle();
+    final largeFontSize = tester.widget<Text>(passTime).style!.fontSize!;
+    expect(largeFontSize, greaterThan(defaultFontSize));
+  });
+
   testWidgets('profile logout returns to auth', (tester) async {
     await _pumpDashboard(tester);
 
@@ -549,9 +574,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('delete-account-button')),
-      500,
+      800,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -200));
+    await tester.pumpAndSettle();
     expect(find.text('Zona de peligro'), findsOneWidget);
     await tester.tap(find.byKey(const Key('delete-account-button')));
     await tester.pumpAndSettle();
@@ -597,9 +624,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('delete-account-button')),
-      500,
+      800,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -200));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('delete-account-button')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -633,9 +662,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('delete-account-button')),
-      500,
+      800,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -200));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('delete-account-button')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -837,34 +868,34 @@ List<Appointment> _defaultAppointments() {
   final secondDate = _wireDate(_todayDate().add(const Duration(days: 6)));
   return [
     Appointment(
-    id: 'FC-1042',
-    userId: 'test-user',
-    name: 'Laura Perez',
-    email: 'cliente@email.com',
-    phone: '+34612345678',
-    serviceType: 'Bono Mensual de Entrenamiento',
-    durationMinutes: 60,
-    preferredSlots: [TimeSlot(date: firstDate, time: '18:00')],
-    reason: 'Trabajo de fuerza y movilidad de cadera.',
-    status: AppointmentStatus.approved,
-    createdAt: '2026-04-10T10:00:00.000Z',
-    approvedSlot: TimeSlot(date: firstDate, time: '18:00'),
-    assignedTrainer: 'trainer-marta',
-    sessionType: 'Entrenamiento personal',
-    updatedAt: '2026-04-10T10:05:00.000Z',
+      id: 'FC-1042',
+      userId: 'test-user',
+      name: 'Laura Perez',
+      email: 'cliente@email.com',
+      phone: '+34612345678',
+      serviceType: 'Bono Mensual de Entrenamiento',
+      durationMinutes: 60,
+      preferredSlots: [TimeSlot(date: firstDate, time: '18:00')],
+      reason: 'Trabajo de fuerza y movilidad de cadera.',
+      status: AppointmentStatus.approved,
+      createdAt: '2026-04-10T10:00:00.000Z',
+      approvedSlot: TimeSlot(date: firstDate, time: '18:00'),
+      assignedTrainer: 'trainer-marta',
+      sessionType: 'Entrenamiento personal',
+      updatedAt: '2026-04-10T10:05:00.000Z',
     ),
     Appointment(
-    id: 'FC-1047',
-    userId: 'test-user',
-    name: 'Laura Perez',
-    email: 'cliente@email.com',
-    phone: '+34612345678',
-    serviceType: 'Bono Mensual de Entrenamiento',
-    durationMinutes: 45,
-    preferredSlots: [TimeSlot(date: secondDate, time: '09:30')],
-    reason: 'Preferencia por trabajo de tren superior.',
-    status: AppointmentStatus.pending,
-    createdAt: '2026-04-12T10:00:00.000Z',
+      id: 'FC-1047',
+      userId: 'test-user',
+      name: 'Laura Perez',
+      email: 'cliente@email.com',
+      phone: '+34612345678',
+      serviceType: 'Bono Mensual de Entrenamiento',
+      durationMinutes: 45,
+      preferredSlots: [TimeSlot(date: secondDate, time: '09:30')],
+      reason: 'Preferencia por trabajo de tren superior.',
+      status: AppointmentStatus.pending,
+      createdAt: '2026-04-12T10:00:00.000Z',
     ),
   ];
 }

@@ -4,6 +4,7 @@ import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
+import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../domain/portal_models.dart';
 import '../widgets/client_cards.dart';
@@ -42,63 +43,66 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Citas',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Consulta tus solicitudes activas e historial.',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 26),
-                FocusPrimaryButton(
-                  label: 'Reservar Sesion',
-                  onPressed: widget.onOpenBooking,
-                ),
-                const SizedBox(height: 24),
-                FocusSegmentedControl(
-                  options: const [
-                    FocusSegmentOption(value: 0, label: 'Proximas'),
-                    FocusSegmentOption(value: 1, label: 'Historial'),
-                  ],
-                  selectedValue: _tabIndex,
-                  onChanged: (value) => setState(() => _tabIndex = value),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: widget.state.error != null
-                ? _AppointmentsList(
-                    tabIndex: _tabIndex,
-                    appointments: const [],
-                    error:
-                        'No hemos podido cargar tus citas. Intentalo de nuevo en unos minutos.',
-                    onOpenDetail: _openDetail,
-                    trainerNameFor: _trainerName,
-                  )
-                : widget.state.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _AppointmentsList(
-                    tabIndex: _tabIndex,
-                    appointments: _tabIndex == 0
-                        ? widget.state.activeAppointments
-                        : widget.state.historyAppointments,
-                    inactiveBonos: widget.state.inactiveBonos,
-                    onOpenDetail: _openDetail,
-                    trainerNameFor: _trainerName,
+    return AppTextSizing.region(
+      context,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Citas',
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
-          ),
-        ],
+                  const SizedBox(height: 10),
+                  Text(
+                    'Consulta tus solicitudes activas e historial.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 26),
+                  FocusPrimaryButton(
+                    label: 'Reservar Sesion',
+                    onPressed: widget.onOpenBooking,
+                  ),
+                  const SizedBox(height: 24),
+                  FocusSegmentedControl(
+                    options: const [
+                      FocusSegmentOption(value: 0, label: 'Proximas'),
+                      FocusSegmentOption(value: 1, label: 'Historial'),
+                    ],
+                    selectedValue: _tabIndex,
+                    onChanged: (value) => setState(() => _tabIndex = value),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: widget.state.error != null
+                  ? _AppointmentsList(
+                      tabIndex: _tabIndex,
+                      appointments: const [],
+                      error:
+                          'No hemos podido cargar tus citas. Intentalo de nuevo en unos minutos.',
+                      onOpenDetail: _openDetail,
+                      trainerNameFor: _trainerName,
+                    )
+                  : widget.state.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _AppointmentsList(
+                      tabIndex: _tabIndex,
+                      appointments: _tabIndex == 0
+                          ? widget.state.activeAppointments
+                          : widget.state.historyAppointments,
+                      inactiveBonos: widget.state.inactiveBonos,
+                      onOpenDetail: _openDetail,
+                      trainerNameFor: _trainerName,
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

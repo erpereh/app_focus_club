@@ -7,6 +7,7 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/app_text_size.dart';
 import '../../auth/application/auth_scope.dart';
 import '../../../navigation/app_router.dart';
 import '../application/client_portal_view_model.dart';
@@ -57,7 +58,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final profile = state.profile;
     final pass = state.activeBono;
     final appointments = state.activeAppointments;
-    final nextAppointment = _nextAppointment(appointments);
+    final dashboardAppointments = state.dashboardAppointments;
+    final nextAppointment = dashboardAppointments.firstOrNull;
     final pendingCount = appointments
         .where((item) => item.status == AppointmentStatus.pending)
         .length;
@@ -65,112 +67,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .where((item) => item.status == AppointmentStatus.approved)
         .length;
 
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 150),
-        children: [
-          _DashboardHeader(
-            profile: profile,
-            onOpenProfile: widget.onOpenProfile,
-            onSignOut: () => _signOut(context),
-          ),
-          const SizedBox(height: 24),
-          FocusPrimaryButton(
-            label: 'Reservar Sesion',
-            onPressed: pass?.canBook == true ? widget.onOpenBooking : null,
-          ),
-          if (pass?.canBook != true) ...[
-            const SizedBox(height: 18),
-            const FocusStatusMessage(
-              message: 'No tienes minutos disponibles para reservar ahora.',
-              type: FocusStatusType.warning,
+    return AppTextSizing.region(
+      context,
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 150),
+          children: [
+            _DashboardHeader(
+              profile: profile,
+              onOpenProfile: widget.onOpenProfile,
+              onSignOut: () => _signOut(context),
             ),
-          ],
-          const SizedBox(height: 28),
-          if (pass == null)
-            const FocusEmptyState(
-              title: 'Sin bono activo',
-              description: 'Cuando tengas un bono activo, aparecera aqui.',
-              icon: Icons.local_activity_outlined,
-            )
-          else
-            ClientPassCard(pass: pass),
-          const SizedBox(height: 22),
-          _NextAppointmentCard(
-            appointment: nextAppointment,
-            onTap: nextAppointment == null
-                ? null
-                : () => _openDetail(context, nextAppointment),
-          ),
-          const SizedBox(height: 22),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ClientMetricCard(
-                    icon: Icons.fitness_center_rounded,
-                    value: '${pass?.usedMinutes ?? 0}',
-                    label: 'Minutos usados',
-                    detail: pass == null
-                        ? 'Sin bono activo'
-                        : 'Este bono activo',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ClientMetricCard(
-                    icon: Icons.pending_actions_rounded,
-                    value: '${appointments.length}',
-                    label: 'Citas activas',
-                    detail:
-                        '$approvedCount aprobadas\n$pendingCount pendientes',
-                  ),
-                ),
-              ],
+            const SizedBox(height: 24),
+            FocusPrimaryButton(
+              label: 'Reservar Sesion',
+              onPressed: pass?.canBook == true ? widget.onOpenBooking : null,
             ),
-          ),
-          const SizedBox(height: 30),
-          FocusSectionHeader(
-            title: 'Mis Citas',
-            actionLabel: 'Ver todas',
-            onAction: widget.onOpenAppointments,
-          ),
-          const SizedBox(height: 16),
-          if (appointments.isEmpty)
-            const FocusEmptyState(
-              title: 'Sin citas activas',
-              description: 'Tus citas pendientes o aprobadas apareceran aqui.',
-              icon: Icons.event_busy_rounded,
-            )
-          else
-            ...appointments.map(
-              (appointment) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: ClientAppointmentCard(
-                  appointment: appointment,
-                  trainerName: _trainerName(appointment.assignedTrainer),
-                  onTap: () => _openDetail(context, appointment),
-                ),
+            if (pass?.canBook != true) ...[
+              const SizedBox(height: 18),
+              const FocusStatusMessage(
+                message: 'No tienes minutos disponibles para reservar ahora.',
+                type: FocusStatusType.warning,
+              ),
+            ],
+            const SizedBox(height: 28),
+            if (pass == null)
+              const FocusEmptyState(
+                title: 'Sin bono activo',
+                description: 'Cuando tengas un bono activo, aparecera aqui.',
+                icon: Icons.local_activity_outlined,
+              )
+            else
+              ClientPassCard(pass: pass),
+            const SizedBox(height: 22),
+            _NextAppointmentCard(
+              appointment: nextAppointment,
+              onTap: nextAppointment == null
+                  ? null
+                  : () => _openDetail(context, nextAppointment),
+            ),
+            const SizedBox(height: 22),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ClientMetricCard(
+                      icon: Icons.fitness_center_rounded,
+                      value: '${pass?.usedMinutes ?? 0}',
+                      label: 'Minutos usados',
+                      detail: pass == null
+                          ? 'Sin bono activo'
+                          : 'Este bono activo',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ClientMetricCard(
+                      icon: Icons.pending_actions_rounded,
+                      value: '${appointments.length}',
+                      label: 'Citas activas',
+                      detail:
+                          '$approvedCount aprobadas\n$pendingCount pendientes',
+                    ),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(height: 20),
-          FocusSectionHeader(
-            title: 'Historial',
-            actionLabel: 'Abrir citas',
-            onAction: widget.onOpenAppointments,
-          ),
-          const SizedBox(height: 16),
-          _HistoryPreview(
-            tabIndex: _historyTabIndex,
-            appointments: state.historyAppointments,
-            passes: state.inactiveBonos,
-            trainerNameFor: _trainerName,
-            onTabChanged: (index) => setState(() => _historyTabIndex = index),
-            onOpenAppointment: (appointment) =>
-                _openDetail(context, appointment),
-          ),
-        ],
+            const SizedBox(height: 30),
+            FocusSectionHeader(
+              title: 'Mis Citas',
+              actionLabel: 'Ver todas',
+              onAction: widget.onOpenAppointments,
+            ),
+            const SizedBox(height: 16),
+            if (dashboardAppointments.isEmpty)
+              const FocusEmptyState(
+                title: 'Sin citas activas',
+                description:
+                    'Tus citas pendientes o aprobadas apareceran aqui.',
+                icon: Icons.event_busy_rounded,
+              )
+            else
+              ...dashboardAppointments.map(
+                (appointment) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ClientAppointmentCard(
+                    appointment: appointment,
+                    trainerName: _trainerName(appointment.assignedTrainer),
+                    onTap: () => _openDetail(context, appointment),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 20),
+            FocusSectionHeader(
+              title: 'Historial',
+              actionLabel: 'Abrir citas',
+              onAction: widget.onOpenAppointments,
+            ),
+            const SizedBox(height: 16),
+            _HistoryPreview(
+              tabIndex: _historyTabIndex,
+              appointments: state.historyAppointments,
+              passes: state.inactiveBonos,
+              trainerNameFor: _trainerName,
+              onTabChanged: (index) => setState(() => _historyTabIndex = index),
+              onOpenAppointment: (appointment) =>
+                  _openDetail(context, appointment),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -181,18 +187,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (trainer.id == trainerId) return trainer.name;
     }
     return trainerId;
-  }
-
-  Appointment? _nextAppointment(List<Appointment> appointments) {
-    final sorted = appointments.toList(growable: false)
-      ..sort((a, b) => _slotDateTime(a).compareTo(_slotDateTime(b)));
-    return sorted.firstOrNull;
-  }
-
-  DateTime _slotDateTime(Appointment appointment) {
-    final slot = appointment.schedulingSlot;
-    return DateTime.tryParse('${slot?.date ?? ''}T${slot?.time ?? ''}:00') ??
-        DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   Future<void> _signOut(BuildContext context) async {

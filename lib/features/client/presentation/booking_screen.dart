@@ -5,6 +5,7 @@ import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
 import '../domain/portal_models.dart';
@@ -41,7 +42,8 @@ class _BookingScreenState extends State<BookingScreen> {
     final editingSlot = widget.editingAppointment?.schedulingSlot;
     final isFutureEditingSlot =
         editingSlot != null &&
-        (appointmentSlotDateTime(editingSlot)?.isAfter(DateTime.now()) ?? false);
+        (appointmentSlotDateTime(editingSlot)?.isAfter(DateTime.now()) ??
+            false);
     _selectedDuration = widget.editingAppointment?.durationMinutes ?? 45;
     _selectedDate = isFutureEditingSlot
         ? editingSlot.date
@@ -114,162 +116,166 @@ class _BookingScreenState extends State<BookingScreen> {
         : null;
     final canSubmit = canBook && selectedSlot != null;
 
-    return Scaffold(
-      appBar: AppBar(
+    return AppTextSizing.region(
+      context,
+      child: Scaffold(
+        appBar: AppBar(
           title: Text(_isEditing ? 'Modificar cita' : 'Reservar Sesion'),
-        leading: IconButton(
-          tooltip: 'Cancelar',
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close_rounded),
+          leading: IconButton(
+            tooltip: 'Cancelar',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close_rounded),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
-          children: [
-            if (_statusMessage != null) ...[
-              FocusStatusMessage(message: _statusMessage!, type: _statusType),
-              const SizedBox(height: 18),
-            ],
-            _StepCard(
-              title: 'Duracion',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _isEditing
-                        ? 'La duración de esta cita se mantiene en $_selectedDuration min.'
-                        : activeBono == null
-                        ? 'No hay bono activo disponible para reservar.'
-                        : '${activeBono.minutosRestantes} minutos disponibles en tu bono.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  if (_isEditing)
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+            children: [
+              if (_statusMessage != null) ...[
+                FocusStatusMessage(message: _statusMessage!, type: _statusType),
+                const SizedBox(height: 18),
+              ],
+              _StepCard(
+                title: 'Duracion',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'Duración fija: $_selectedDuration min',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    )
-                  else
-                    LayoutBuilder(
-                    builder: (context, constraints) {
-                      final useGrid = constraints.maxWidth >= 420;
-                      final options = [30, 45, 60]
-                          .map((duration) {
-                            final isEnabled =
-                                activeBono != null &&
-                                duration <= activeBono.minutosRestantes;
-                            return _DurationOption(
-                              duration: duration,
-                              isSelected: _selectedDuration == duration,
-                              isEnabled: isEnabled,
-                              onTap: isEnabled
-                                  ? () => setState(() {
-                                      _selectedDuration = duration;
-                                      _selectedSlot = null;
-                                    })
-                                  : null,
-                            );
-                          })
-                          .toList(growable: false);
-
-                      if (!useGrid) {
-                        return Column(
-                          children: [
-                            for (final option in options) ...[
-                              option,
-                              if (option != options.last)
-                                const SizedBox(height: 10),
-                            ],
-                          ],
-                        );
-                      }
-                      return Row(
-                        children: [
-                          for (final option in options) ...[
-                            Expanded(child: option),
-                            if (option != options.last)
-                              const SizedBox(width: 10),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            _StepCard(
-              title: 'Fecha',
-              child: _BookingCalendar(
-                selectedDate: _selectedDate,
-                dates: dates,
-                onSelected: (date) => setState(() {
-                  _selectedDate = date;
-                  _selectedSlot = null;
-                }),
-              ),
-            ),
-            const SizedBox(height: 18),
-            _StepCard(
-              title: 'Franja horaria',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _SlotLegend(),
-                  const SizedBox(height: 16),
-                  if (!canBook)
-                    const FocusStatusMessage(
-                      message:
-                          'Necesitas un bono activo y la configuracion horaria del centro para seleccionar una franja.',
-                      type: FocusStatusType.warning,
-                    )
-                  else
-                    _SlotGrid(
-                      slots: slots,
-                      selectedSlot: selectedSlot,
-                      onSelected: (slot) =>
-                          setState(() => _selectedSlot = slot),
+                      _isEditing
+                          ? 'La duración de esta cita se mantiene en $_selectedDuration min.'
+                          : activeBono == null
+                          ? 'No hay bono activo disponible para reservar.'
+                          : '${activeBono.minutosRestantes} minutos disponibles en tu bono.',
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                  if (selectedSlot != null) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      'Elegida: ${selectedSlot.slot.dateLabel} a las ${selectedSlot.slot.time}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.emerald,
-                        fontWeight: FontWeight.w800,
+                    if (_isEditing)
+                      Text(
+                        'Duración fija: $_selectedDuration min',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      )
+                    else
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final useGrid = constraints.maxWidth >= 420;
+                          final options = [30, 45, 60]
+                              .map((duration) {
+                                final isEnabled =
+                                    activeBono != null &&
+                                    duration <= activeBono.minutosRestantes;
+                                return _DurationOption(
+                                  duration: duration,
+                                  isSelected: _selectedDuration == duration,
+                                  isEnabled: isEnabled,
+                                  onTap: isEnabled
+                                      ? () => setState(() {
+                                          _selectedDuration = duration;
+                                          _selectedSlot = null;
+                                        })
+                                      : null,
+                                );
+                              })
+                              .toList(growable: false);
+
+                          if (!useGrid) {
+                            return Column(
+                              children: [
+                                for (final option in options) ...[
+                                  option,
+                                  if (option != options.last)
+                                    const SizedBox(height: 10),
+                                ],
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              for (final option in options) ...[
+                                Expanded(child: option),
+                                if (option != options.last)
+                                  const SizedBox(width: 10),
+                              ],
+                            ],
+                          );
+                        },
                       ),
-                    ),
                   ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            if (_isEditing &&
-                widget.editingAppointment?.status == AppointmentStatus.approved) ...[
-              const FocusStatusMessage(
-                message:
-                    'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
-                type: FocusStatusType.warning,
+                ),
               ),
               const SizedBox(height: 18),
+              _StepCard(
+                title: 'Fecha',
+                child: _BookingCalendar(
+                  selectedDate: _selectedDate,
+                  dates: dates,
+                  onSelected: (date) => setState(() {
+                    _selectedDate = date;
+                    _selectedSlot = null;
+                  }),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _StepCard(
+                title: 'Franja horaria',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _SlotLegend(),
+                    const SizedBox(height: 16),
+                    if (!canBook)
+                      const FocusStatusMessage(
+                        message:
+                            'Necesitas un bono activo y la configuracion horaria del centro para seleccionar una franja.',
+                        type: FocusStatusType.warning,
+                      )
+                    else
+                      _SlotGrid(
+                        slots: slots,
+                        selectedSlot: selectedSlot,
+                        onSelected: (slot) =>
+                            setState(() => _selectedSlot = slot),
+                      ),
+                    if (selectedSlot != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Elegida: ${selectedSlot.slot.dateLabel} a las ${selectedSlot.slot.time}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.emerald,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              if (_isEditing &&
+                  widget.editingAppointment?.status ==
+                      AppointmentStatus.approved) ...[
+                const FocusStatusMessage(
+                  message:
+                      'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
+                  type: FocusStatusType.warning,
+                ),
+                const SizedBox(height: 18),
+              ],
+              if (!_isEditing) ...[
+                _CommentInputCard(controller: _commentController),
+                const SizedBox(height: 22),
+              ],
+              FocusPrimaryButton(
+                label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
+                isLoading: _isSubmitting,
+                onPressed: canSubmit && !_isSubmitting ? _submit : null,
+              ),
+              const SizedBox(height: 12),
+              FocusGhostButton(
+                label: 'Cancelar',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icons.close_rounded,
+              ),
             ],
-            if (!_isEditing) ...[
-              _CommentInputCard(controller: _commentController),
-              const SizedBox(height: 22),
-            ],
-            FocusPrimaryButton(
-              label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
-              isLoading: _isSubmitting,
-              onPressed: canSubmit && !_isSubmitting ? _submit : null,
-            ),
-            const SizedBox(height: 12),
-            FocusGhostButton(
-              label: 'Cancelar',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Icons.close_rounded,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -368,7 +374,8 @@ class _BookingScreenState extends State<BookingScreen> {
   String _messageForDisabledSlot(BookingSlotState slot) {
     return switch (slot.label) {
       'Pasado' => 'Elige una franja futura.',
-      'No cabe' => 'Esta franja no cabe en el horario disponible.',
+      'No disponible' =>
+        'Esta franja no está disponible para esta duración o restricción.',
       'Bloqueado' => 'Esta franja ya no esta disponible.',
       'Completo' => 'Esta franja esta completa.',
       'Tu sesion' => 'Ya tienes una sesion en esa franja.',
@@ -558,20 +565,16 @@ class _SlotGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = switch (constraints.maxWidth) {
-          < 340 => 2,
-          < 560 => 3,
-          _ => 4,
-        };
         return GridView.builder(
+          key: const Key('booking-slot-grid'),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: slots.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
+            crossAxisCount: 3,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            mainAxisExtent: 74,
+            mainAxisExtent: AppTextSizing.slotExtent(context),
           ),
           itemBuilder: (context, index) {
             final slot = slots[index];
@@ -631,7 +634,7 @@ class _SlotChip extends StatelessWidget {
                 : null,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -646,7 +649,7 @@ class _SlotChip extends StatelessWidget {
                 Text(
                   isSelected ? 'Elegida' : slot.label,
                   textAlign: TextAlign.center,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: isSelected ? AppTheme.textPrimary : slot.color,
@@ -702,7 +705,7 @@ class _BookingCalendar extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
-          childAspectRatio: 1.48,
+          mainAxisExtent: AppTextSizing.dateExtent(context),
           children: dates.map((date) {
             final dateTime = DateTime.tryParse(date);
             final weekday = dateTime == null
@@ -804,7 +807,7 @@ class _SlotLegend extends StatelessWidget {
       children: const [
         _LegendItem(color: AppTheme.emerald, label: 'Disponible'),
         _LegendItem(color: AppTheme.amber, label: 'Casi lleno'),
-        _LegendItem(color: AppTheme.textSecondary, label: 'No cabe'),
+        _LegendItem(color: AppTheme.textSecondary, label: 'No disponible'),
         _LegendItem(color: AppTheme.danger, label: 'Completo'),
       ],
     );

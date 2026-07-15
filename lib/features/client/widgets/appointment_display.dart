@@ -6,6 +6,15 @@ import '../domain/portal_models.dart';
 
 const portalServiceLabel = 'Bono Mensual de Entrenamiento';
 
+String formatMinutesDuration(int minutes) {
+  if (minutes <= 0) return '0min';
+  final hours = minutes ~/ 60;
+  final remainingMinutes = minutes % 60;
+  if (hours == 0) return '${remainingMinutes}min';
+  if (remainingMinutes == 0) return '${hours}h';
+  return '${hours}h ${remainingMinutes}min';
+}
+
 extension PortalAppointmentDisplay on Appointment {
   String get dateLabel => _formatDate(schedulingSlot?.date);
 
@@ -77,7 +86,12 @@ extension PortalUserDisplay on UserProfile {
 }
 
 extension PortalBonoDisplay on Bono {
-  String get nameLabel => portalServiceLabel;
+  String get nameLabel {
+    final totalLabel = formatMinutesDuration(minutosTotales);
+    return minutosTotales > 0
+        ? '$portalServiceLabel $totalLabel'
+        : portalServiceLabel;
+  }
 
   int get usedMinutes => minutosTotales - minutosRestantes;
 
@@ -103,7 +117,11 @@ extension PortalBonoDisplay on Bono {
     return '$start - $end';
   }
 
-  String get minutesLabel => '$usedMinutes de $minutosTotales minutos usados';
+  String get availableTimeLabel =>
+      '${formatMinutesDuration(minutosRestantes)} disponibles';
+
+  String get minutesLabel =>
+      '${formatMinutesDuration(usedMinutes)} de ${formatMinutesDuration(minutosTotales)} usados';
 }
 
 String bonoStatusLabel(BonoStatus status) {
@@ -204,7 +222,7 @@ BookingSlotState bookingSlotState({
   )) {
     return BookingSlotState(
       slot: slot,
-      label: 'No cabe',
+      label: 'No disponible',
       color: AppTheme.textSecondary,
       isEnabled: false,
     );
@@ -223,9 +241,9 @@ BookingSlotState bookingSlotState({
   }
   if (overlapsActiveAppointment(
     start: slot,
-      durationMinutes: durationMinutes,
-      appointments: activeAppointments,
-      excludedAppointmentId: excludedAppointmentId,
+    durationMinutes: durationMinutes,
+    appointments: activeAppointments,
+    excludedAppointmentId: excludedAppointmentId,
   )) {
     return BookingSlotState(
       slot: slot,

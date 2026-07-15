@@ -6,6 +6,7 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_badge.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
 import '../domain/portal_models.dart';
@@ -42,128 +43,138 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         (appointment.status == AppointmentStatus.pending || isApproved) &&
         (appointment.schedulingDateTime?.isAfter(DateTime.now()) ?? false);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalle de la Cita'),
-        titleSpacing: 0,
-        leading: IconButton(
-          tooltip: 'Volver a mis citas',
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
+    return AppTextSizing.region(
+      context,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Detalle de la Cita'),
+          titleSpacing: 0,
+          leading: IconButton(
+            tooltip: 'Volver a mis citas',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
-          children: [
-            FocusGlassCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          appointment.serviceType,
-                          style: Theme.of(context).textTheme.titleMedium,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+            children: [
+              FocusGlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            appointment.serviceType,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                         ),
-                      ),
-                      FocusStatusBadge(
-                        label: appointmentStatusLabel(appointment.status),
-                        color: appointmentStatusColor(appointment.status),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                      appointmentStatusDescription(appointment.status),
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            _DetailGrid(
-              serviceType: appointment.serviceType,
-              durationMinutes: appointment.durationMinutes,
-              dateLabel: appointment.dateLabel,
-              timeLabel: appointment.timeLabel,
-            ),
-            if (isApproved && assignedTrainer != null) ...[
-              const SizedBox(height: 18),
-              FocusGlassCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const FocusKicker('Cita confirmada'),
-                    const SizedBox(height: 14),
-                    _DetailLine(
-                      label: 'Fecha',
-                        value: appointment.approvedDateLabel ?? appointment.dateLabel,
+                        FocusStatusBadge(
+                          label: appointmentStatusLabel(appointment.status),
+                          color: appointmentStatusColor(appointment.status),
+                        ),
+                      ],
                     ),
-                    _DetailLine(
-                      label: 'Hora',
-                        value: appointment.approvedTimeLabel ?? appointment.timeLabel,
-                    ),
-                    _DetailLine(label: 'Entrenador', value: assignedTrainer),
-                    if (appointment.sessionType != null)
-                      _DetailLine(label: 'Tipo', value: appointment.sessionType!),
-                  ],
-                ),
-              ),
-            ],
-            if (appointment.reasonLabel != null) ...[
-              const SizedBox(height: 18),
-              FocusGlassCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const FocusKicker('Tu comentario'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     Text(
-                      appointment.reasonLabel!,
+                      appointmentStatusDescription(appointment.status),
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ],
                 ),
               ),
-            ],
-            const SizedBox(height: 18),
-            FocusGlassCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _DetailLine(label: 'ID', value: appointment.id),
-                  _DetailLine(
-                    label: 'Fecha de solicitud',
-                    value: appointment.createdAtLabel,
+              const SizedBox(height: 18),
+              _DetailGrid(
+                serviceType: appointment.serviceType,
+                durationMinutes: appointment.durationMinutes,
+                dateLabel: appointment.dateLabel,
+                timeLabel: appointment.timeLabel,
+              ),
+              if (isApproved && assignedTrainer != null) ...[
+                const SizedBox(height: 18),
+                FocusGlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const FocusKicker('Cita confirmada'),
+                      const SizedBox(height: 14),
+                      _DetailLine(
+                        label: 'Fecha',
+                        value:
+                            appointment.approvedDateLabel ??
+                            appointment.dateLabel,
+                      ),
+                      _DetailLine(
+                        label: 'Hora',
+                        value:
+                            appointment.approvedTimeLabel ??
+                            appointment.timeLabel,
+                      ),
+                      _DetailLine(label: 'Entrenador', value: assignedTrainer),
+                      if (appointment.sessionType != null)
+                        _DetailLine(
+                          label: 'Tipo',
+                          value: appointment.sessionType!,
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            if (canManage) ...[
-              const SizedBox(height: 22),
-              if (_errorMessage != null) ...[
-                FocusStatusMessage(
-                  message: _errorMessage!,
-                  type: FocusStatusType.error,
                 ),
-                const SizedBox(height: 14),
               ],
-              FocusPrimaryButton(
-                label: 'Modificar cita',
-                onPressed: _isCancelling ? null : _openEdit,
+              if (appointment.reasonLabel != null) ...[
+                const SizedBox(height: 18),
+                FocusGlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const FocusKicker('Tu comentario'),
+                      const SizedBox(height: 12),
+                      Text(
+                        appointment.reasonLabel!,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              FocusGlassCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DetailLine(label: 'ID', value: appointment.id),
+                    _DetailLine(
+                      label: 'Fecha de solicitud',
+                      value: appointment.createdAtLabel,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              FocusGhostButton(
-                label: 'Cancelar cita',
-                icon: Icons.cancel_outlined,
-                onPressed: _isCancelling ? null : _confirmCancel,
-              ),
+              if (canManage) ...[
+                const SizedBox(height: 22),
+                if (_errorMessage != null) ...[
+                  FocusStatusMessage(
+                    message: _errorMessage!,
+                    type: FocusStatusType.error,
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                FocusPrimaryButton(
+                  label: 'Modificar cita',
+                  onPressed: _isCancelling ? null : _openEdit,
+                ),
+                const SizedBox(height: 12),
+                FocusGhostButton(
+                  label: 'Cancelar cita',
+                  icon: Icons.cancel_outlined,
+                  onPressed: _isCancelling ? null : _confirmCancel,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -185,19 +196,28 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('¿Cancelar esta cita?'),
-        content: const Text(
-          'Se devolverán los minutos a tu bono si corresponde.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Se devolverán los minutos a tu bono si corresponde.'),
+            const SizedBox(height: 22),
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Volver'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+                foregroundColor: AppTheme.background,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: const Text('Cancelar cita'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Volver'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Cancelar cita'),
-          ),
-        ],
       ),
     );
     if (shouldCancel != true || !mounted) return;

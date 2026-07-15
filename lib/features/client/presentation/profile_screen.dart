@@ -11,6 +11,7 @@ import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/avatar_storage_repository.dart';
 import '../data/portal_repository.dart';
@@ -161,6 +162,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 22),
+          const FocusSectionHeader(title: 'Ajustes'),
+          const SizedBox(height: 14),
+          const _ProfileCard(child: _TextSizeSetting()),
           const SizedBox(height: 22),
           _DangerZone(
             isDeleting: _isDeletingAccount,
@@ -439,6 +444,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return 'Activa el permiso de notificaciones para recibir avisos.';
     }
     return 'No hemos podido actualizar las notificaciones. Intentalo de nuevo.';
+  }
+}
+
+class _TextSizeSetting extends StatelessWidget {
+  const _TextSizeSetting();
+
+  @override
+  Widget build(BuildContext context) {
+    final current = AppTextSizeScope.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Tamaño de texto', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        Text(
+          'Aumenta los textos principales de Inicio, citas y reserva.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 52,
+          child: SegmentedButton<AppTextSize>(
+            segments: const [
+              ButtonSegment(
+                value: AppTextSize.defaultSize,
+                label: Text('Predeterminado', key: Key('text-size-default')),
+              ),
+              ButtonSegment(
+                value: AppTextSize.large,
+                label: Text('Grande', key: Key('text-size-large')),
+              ),
+            ],
+            selected: {current},
+            showSelectedIcon: false,
+            expandedInsets: EdgeInsets.zero,
+            onSelectionChanged: (selection) {
+              AppTextSizeScope.set(context, selection.single);
+            },
+          ),
+        ),
+      ],
+    );
   }
 }
 

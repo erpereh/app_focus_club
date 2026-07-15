@@ -2,10 +2,34 @@ import 'package:app_focus_club/features/client/application/client_portal_view_mo
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_availability.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
+import 'package:app_focus_club/features/client/widgets/appointment_display.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('human friendly minute formatting', () {
+    test('formats minutes as compact hours and minutes', () {
+      expect(formatMinutesDuration(0), '0min');
+      expect(formatMinutesDuration(30), '30min');
+      expect(formatMinutesDuration(60), '1h');
+      expect(formatMinutesDuration(90), '1h 30min');
+      expect(formatMinutesDuration(150), '2h 30min');
+      expect(formatMinutesDuration(240), '4h');
+    });
+
+    test('bono labels use the real total and remaining minutes', () {
+      final fourHourBono = _bono(total: 240, remaining: 150);
+      final eightHourBono = _bono(total: 480, remaining: 300);
+
+      expect(fourHourBono.nameLabel, 'Bono Mensual de Entrenamiento 4h');
+      expect(fourHourBono.availableTimeLabel, '2h 30min disponibles');
+      expect(fourHourBono.minutesLabel, '1h 30min de 4h usados');
+      expect(eightHourBono.nameLabel, 'Bono Mensual de Entrenamiento 8h');
+      expect(eightHourBono.availableTimeLabel, '5h disponibles');
+      expect(eightHourBono.minutesLabel, '3h de 8h usados');
+    });
+  });
+
   group('appointment compatibility', () {
     test('parses cancelled status', () {
       expect(AppointmentStatus.fromWire('cancelled').name, 'cancelled');
@@ -27,7 +51,10 @@ void main() {
         'createdAt': '2030-05-01T10:00:00.000Z',
       });
 
-      expect(appointment.schedulingSlot, const TimeSlot(date: '2030-05-20', time: '10:30'));
+      expect(
+        appointment.schedulingSlot,
+        const TimeSlot(date: '2030-05-20', time: '10:30'),
+      );
     });
   });
 
@@ -52,41 +79,80 @@ void main() {
     expect(state.activeAppointments.map((item) => item.id), ['future']);
   });
 
-  test('history contains rejected, cancelled, past and invalid appointments', () {
+  test('dashboard appointments are sorted and limited to the nearest two', () {
     final now = DateTime.now();
     final state = ClientPortalState(
       appointments: [
         _appointment(
-          id: 'future',
-          date: _wireDate(now.add(const Duration(days: 1))),
+          id: 'third',
+          date: _wireDate(now.add(const Duration(days: 3))),
           time: '10:00',
         ),
         _appointment(
-          id: 'past',
-          date: _wireDate(now.subtract(const Duration(days: 1))),
-          time: '10:00',
-        ),
-        _appointment(
-          id: 'rejected',
+          id: 'first',
           date: _wireDate(now.add(const Duration(days: 1))),
-          time: '11:00',
-          status: AppointmentStatus.rejected,
+          time: '09:00',
         ),
         _appointment(
           id: 'cancelled',
           date: _wireDate(now.add(const Duration(days: 1))),
-          time: '12:00',
+          time: '08:00',
           status: AppointmentStatus.cancelled,
         ),
-        _appointment(id: 'invalid', date: 'invalid', time: '10:00'),
+        _appointment(
+          id: 'second',
+          date: _wireDate(now.add(const Duration(days: 2))),
+          time: '11:00',
+        ),
       ],
     );
 
-    expect(
-      state.historyAppointments.map((item) => item.id),
-      ['past', 'rejected', 'cancelled', 'invalid'],
-    );
+    expect(state.dashboardAppointments.map((appointment) => appointment.id), [
+      'first',
+      'second',
+    ]);
   });
+
+  test(
+    'history contains rejected, cancelled, past and invalid appointments',
+    () {
+      final now = DateTime.now();
+      final state = ClientPortalState(
+        appointments: [
+          _appointment(
+            id: 'future',
+            date: _wireDate(now.add(const Duration(days: 1))),
+            time: '10:00',
+          ),
+          _appointment(
+            id: 'past',
+            date: _wireDate(now.subtract(const Duration(days: 1))),
+            time: '10:00',
+          ),
+          _appointment(
+            id: 'rejected',
+            date: _wireDate(now.add(const Duration(days: 1))),
+            time: '11:00',
+            status: AppointmentStatus.rejected,
+          ),
+          _appointment(
+            id: 'cancelled',
+            date: _wireDate(now.add(const Duration(days: 1))),
+            time: '12:00',
+            status: AppointmentStatus.cancelled,
+          ),
+          _appointment(id: 'invalid', date: 'invalid', time: '10:00'),
+        ],
+      );
+
+      expect(state.historyAppointments.map((item) => item.id), [
+        'past',
+        'rejected',
+        'cancelled',
+        'invalid',
+      ]);
+    },
+  );
 
   test('availability ignores the appointment being edited', () {
     const appointment = Appointment(
@@ -145,6 +211,22 @@ void main() {
       'Esta franja ya no está disponible.',
     );
   });
+}
+
+Bono _bono({required int total, required int remaining}) {
+  return Bono(
+    id: 'bono-$total',
+    userId: 'uid',
+    tamano: total,
+    minutosTotales: total,
+    minutosRestantes: remaining,
+    fechaAsignacion: '2030-05-01',
+    fechaExpiracion: '2030-06-01',
+    estado: BonoStatus.activo,
+    historial: const [],
+    asignadoPor: 'admin',
+    createdAt: '2030-05-01T10:00:00.000Z',
+  );
 }
 
 class _FakeFunctionsException extends FirebaseFunctionsException {

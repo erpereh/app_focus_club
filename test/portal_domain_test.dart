@@ -95,7 +95,7 @@ void main() {
       );
 
       expect(state.isEnabled, isFalse);
-      expect(state.label, 'No cabe');
+      expect(state.label, 'No disponible');
     });
 
     test(

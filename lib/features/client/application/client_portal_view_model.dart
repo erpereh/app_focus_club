@@ -44,6 +44,18 @@ class ClientPortalState {
         .toList(growable: false);
   }
 
+  List<Appointment> get dashboardAppointments {
+    final sorted = activeAppointments.toList(growable: false)
+      ..sort((a, b) {
+        final aDate = a.schedulingDateTime;
+        final bDate = b.schedulingDateTime;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return aDate.compareTo(bDate);
+      });
+    return sorted.take(2).toList(growable: false);
+  }
+
   List<Appointment> get historyAppointments {
     final now = DateTime.now();
     return appointments

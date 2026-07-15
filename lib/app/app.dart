@@ -11,6 +11,7 @@ import '../features/support/application/support_scope.dart';
 import '../features/support/data/support_repository.dart';
 import '../navigation/app_router.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_text_size.dart';
 
 class FocusClubApp extends StatefulWidget {
   FocusClubApp({
@@ -37,6 +38,7 @@ class FocusClubApp extends StatefulWidget {
 
 class _FocusClubAppState extends State<FocusClubApp> {
   StreamSubscription<RemoteMessage>? _notificationOpenSubscription;
+  AppTextSize _textSize = AppTextSize.defaultSize;
 
   @override
   void initState() {
@@ -62,13 +64,19 @@ class _FocusClubAppState extends State<FocusClubApp> {
         repository: widget.portalRepository,
         child: SupportScope(
           repository: widget.supportRepository,
-          child: MaterialApp(
-            navigatorKey: AppRouter.navigatorKey,
-            title: 'Focus Club',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.dark,
-            initialRoute: AppRouter.splash,
-            onGenerateRoute: AppRouter.onGenerateRoute,
+          child: AppTextSizeScope(
+            textSize: _textSize,
+            onChanged: (value) {
+              if (value != _textSize) setState(() => _textSize = value);
+            },
+            child: MaterialApp(
+              navigatorKey: AppRouter.navigatorKey,
+              title: 'Focus Club',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.dark,
+              initialRoute: AppRouter.splash,
+              onGenerateRoute: AppRouter.onGenerateRoute,
+            ),
           ),
         ),
       ),

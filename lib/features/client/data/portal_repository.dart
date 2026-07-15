@@ -245,7 +245,7 @@ String appointmentRequestErrorMessage(Object error) {
       'failed-precondition' when message.contains('future') =>
         'Elige una franja futura.',
       'failed-precondition' when message.contains('fit schedule') =>
-        'Esta franja no cabe en el horario disponible.',
+        'Esta franja no está disponible para esta duración o restricción.',
       'failed-precondition' when message.contains('blocked') =>
         'Esta franja ya no esta disponible.',
       'failed-precondition' when message.contains('full') =>
@@ -398,7 +398,10 @@ class FakePortalRepository implements PortalRepository {
     required String appointmentId,
     required TimeSlot preferredSlot,
   }) async {
-    slotUpdates.add((appointmentId: appointmentId, preferredSlot: preferredSlot));
+    slotUpdates.add((
+      appointmentId: appointmentId,
+      preferredSlot: preferredSlot,
+    ));
   }
 
   @override
