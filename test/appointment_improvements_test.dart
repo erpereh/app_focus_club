@@ -28,6 +28,16 @@ void main() {
       expect(eightHourBono.availableTimeLabel, '5h disponibles');
       expect(eightHourBono.minutesLabel, '3h de 8h usados');
     });
+
+    test('bono package size wins over an inconsistent legacy total', () {
+      final bono = _bono(total: 480, remaining: 150, size: 240);
+
+      expect(bono.displayTotalMinutes, 240);
+      expect(bono.nameLabel, 'Bono Mensual de Entrenamiento 4h');
+      expect(bono.availableTimeLabel, '2h 30min disponibles');
+      expect(bono.minutesLabel, '1h 30min de 4h usados');
+      expect(bono.usedMinutes, 90);
+    });
   });
 
   group('appointment compatibility', () {
@@ -77,6 +87,69 @@ void main() {
     );
 
     expect(state.activeAppointments.map((item) => item.id), ['future']);
+  });
+
+  test('appointment moves from upcoming to history when its time passes', () {
+    final state = ClientPortalState(
+      appointments: [
+        _appointment(id: 'current', date: '2030-05-20', time: '10:00'),
+      ],
+    );
+
+    expect(
+      state.activeAppointmentsAt(DateTime(2030, 5, 20, 9, 59)).single.id,
+      'current',
+    );
+    expect(
+      state.historyAppointmentsAt(DateTime(2030, 5, 20, 9, 59)),
+      isEmpty,
+    );
+    expect(
+      state.activeAppointmentsAt(DateTime(2030, 5, 20, 10, 1)),
+      isEmpty,
+    );
+    expect(
+      state.historyAppointmentsAt(DateTime(2030, 5, 20, 10, 1)).single.id,
+      'current',
+    );
+  });
+
+  test('dashboard advances to the next appointment after the first passes', () {
+    final state = ClientPortalState(
+      appointments: [
+        _appointment(id: 'first', date: '2030-05-20', time: '10:00'),
+        _appointment(id: 'second', date: '2030-05-20', time: '11:00'),
+      ],
+    );
+
+    expect(
+      state.dashboardAppointmentsAt(DateTime(2030, 5, 20, 9, 30)).first.id,
+      'first',
+    );
+    expect(
+      state.dashboardAppointmentsAt(DateTime(2030, 5, 20, 10, 30)).first.id,
+      'second',
+    );
+  });
+
+  test('past appointments expose a derived completed or missed label', () {
+    final approved = _appointment(
+      id: 'approved',
+      date: '2030-05-20',
+      time: '10:00',
+      status: AppointmentStatus.approved,
+    );
+    final pending = _appointment(
+      id: 'pending',
+      date: '2030-05-20',
+      time: '10:00',
+    );
+    final now = DateTime(2030, 5, 20, 10, 1);
+
+    expect(appointmentDisplayStatusLabel(approved, now: now), 'Realizada');
+    expect(appointmentDisplayStatusLabel(pending, now: now), 'No realizada');
+    expect(approved.status, AppointmentStatus.approved);
+    expect(pending.status, AppointmentStatus.pending);
   });
 
   test('dashboard appointments are sorted and limited to the nearest two', () {
@@ -146,9 +219,9 @@ void main() {
       );
 
       expect(state.historyAppointments.map((item) => item.id), [
-        'past',
-        'rejected',
         'cancelled',
+        'rejected',
+        'past',
         'invalid',
       ]);
     },
@@ -213,11 +286,15 @@ void main() {
   });
 }
 
-Bono _bono({required int total, required int remaining}) {
+Bono _bono({
+  required int total,
+  required int remaining,
+  int? size,
+}) {
   return Bono(
     id: 'bono-$total',
     userId: 'uid',
-    tamano: total,
+    tamano: size ?? total,
     minutosTotales: total,
     minutosRestantes: remaining,
     fechaAsignacion: '2030-05-01',
