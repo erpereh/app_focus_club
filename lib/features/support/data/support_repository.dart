@@ -3,6 +3,10 @@ import 'package:cloud_functions/cloud_functions.dart';
 
 import '../domain/support_conversation.dart';
 import '../domain/support_message.dart';
+import '../domain/customer_suggestion_request.dart';
+
+const supportFunctionsRegion = 'europe-west1';
+const customerSuggestionCallableName = 'submitCustomerSuggestion';
 
 abstract interface class SupportRepository {
   Stream<List<SupportConversation>> watchMyConversations(String userId);
@@ -18,6 +22,10 @@ abstract interface class SupportRepository {
     required String text,
   });
   Future<void> markRead({required String conversationId});
+  Future<String> submitCustomerSuggestion({
+    String? subject,
+    required String message,
+  });
 }
 
 class FirebaseSupportRepository implements SupportRepository {
@@ -26,7 +34,8 @@ class FirebaseSupportRepository implements SupportRepository {
     FirebaseFunctions? functions,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _functions =
-           functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
+           functions ??
+           FirebaseFunctions.instanceFor(region: supportFunctionsRegion);
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
@@ -117,10 +126,31 @@ class FirebaseSupportRepository implements SupportRepository {
       {'conversationId': conversationId},
     );
   }
+
+  @override
+  Future<String> submitCustomerSuggestion({
+    String? subject,
+    required String message,
+  }) async {
+    final request = CustomerSuggestionRequest(
+      subject: subject,
+      message: message,
+    );
+    final result = await _functions
+        .httpsCallable(customerSuggestionCallableName)
+        .call<Object?>(request.toPayload());
+    final suggestionId = extractCustomerSuggestionId(result.data);
+    if (suggestionId == null) throw const SuggestionProtocolException();
+    return suggestionId;
+  }
 }
 
 class SupportProtocolException implements Exception {
   const SupportProtocolException();
+}
+
+class SuggestionProtocolException implements Exception {
+  const SuggestionProtocolException();
 }
 
 String? extractSupportConversationId(Object? value) {
@@ -135,6 +165,30 @@ String? extractSupportConversationId(Object? value) {
     }
   }
   return null;
+}
+
+String? extractCustomerSuggestionId(Object? value) {
+  if (value is! Map<Object?, Object?> || value['success'] != true) return null;
+  final suggestionId = value['suggestionId'];
+  if (suggestionId is! String) return null;
+  final normalized = suggestionId.trim();
+  return normalized.isEmpty ? null : normalized;
+}
+
+String suggestionErrorMessage(Object error) {
+  if (error is FirebaseFunctionsException) {
+    return switch (error.code) {
+      'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
+      'invalid-argument' =>
+        'La sugerencia no es válida. Revisa el mensaje e inténtalo de nuevo.',
+      'resource-exhausted' =>
+        'Has enviado varias sugerencias seguidas. Espera un momento antes de volver a intentarlo.',
+      'unavailable' || 'deadline-exceeded' =>
+        'No hay conexión. Revisa la red e inténtalo de nuevo.',
+      _ => 'No hemos podido enviar tu sugerencia. Inténtalo de nuevo.',
+    };
+  }
+  return 'No hemos podido enviar tu sugerencia. Inténtalo de nuevo.';
 }
 
 String supportErrorMessage(Object error) {
@@ -160,17 +214,22 @@ class FakeSupportRepository implements SupportRepository {
     List<SupportConversation> conversations = const [],
     Map<String, List<SupportMessage>> messages = const {},
     this.createConversationId = 'conversation-1',
+    this.suggestionId = 'suggestion-1',
     this.failure,
+    this.suggestionFailure,
   }) : _conversations = conversations,
        _messages = messages;
 
   final List<SupportConversation> _conversations;
   final Map<String, List<SupportMessage>> _messages;
   final String createConversationId;
+  final String suggestionId;
   final Object? failure;
+  final Object? suggestionFailure;
   final createdConversations = <({String subject, String initialMessage})>[];
   final sentMessages = <({String conversationId, String text})>[];
   final markedRead = <String>[];
+  final submittedSuggestions = <({String? subject, String message})>[];
 
   @override
   Future<String> createConversation({
@@ -198,6 +257,24 @@ class FakeSupportRepository implements SupportRepository {
   }) async {
     if (failure != null) throw failure!;
     sentMessages.add((conversationId: conversationId, text: text));
+  }
+
+  @override
+  Future<String> submitCustomerSuggestion({
+    String? subject,
+    required String message,
+  }) async {
+    final error = suggestionFailure ?? failure;
+    if (error != null) throw error;
+    final request = CustomerSuggestionRequest(
+      subject: subject,
+      message: message,
+    );
+    submittedSuggestions.add((
+      subject: request.normalizedSubject,
+      message: request.normalizedMessage,
+    ));
+    return suggestionId;
   }
 
   @override

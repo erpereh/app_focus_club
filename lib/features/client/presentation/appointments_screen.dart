@@ -4,6 +4,7 @@ import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
+import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../domain/portal_models.dart';
 import '../widgets/client_cards.dart';
@@ -42,7 +43,13 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final listBottomPadding =
+        MediaQuery.paddingOf(context).bottom +
+        AppTextSizing.navigationItemMinHeight(context) +
+        12 +
+        28;
     return SafeArea(
+      bottom: false,
       child: Column(
         children: [
           Padding(
@@ -83,6 +90,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     appointments: const [],
                     error:
                         'No hemos podido cargar tus citas. Intentalo de nuevo en unos minutos.',
+                    bottomPadding: listBottomPadding,
                     onOpenDetail: _openDetail,
                     trainerNameFor: _trainerName,
                   )
@@ -94,6 +102,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                         ? widget.state.activeAppointments
                         : widget.state.historyAppointments,
                     inactiveBonos: widget.state.inactiveBonos,
+                    bottomPadding: listBottomPadding,
                     onOpenDetail: _openDetail,
                     trainerNameFor: _trainerName,
                   ),
@@ -116,6 +125,7 @@ class _AppointmentsList extends StatelessWidget {
   const _AppointmentsList({
     required this.tabIndex,
     required this.appointments,
+    required this.bottomPadding,
     required this.onOpenDetail,
     required this.trainerNameFor,
     this.inactiveBonos = const [],
@@ -124,6 +134,7 @@ class _AppointmentsList extends StatelessWidget {
 
   final int tabIndex;
   final List<Appointment> appointments;
+  final double bottomPadding;
   final List<Bono> inactiveBonos;
   final ValueChanged<Appointment> onOpenDetail;
   final String? Function(String? trainerId) trainerNameFor;
@@ -132,7 +143,8 @@ class _AppointmentsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 42),
+      key: const Key('appointments-list'),
+      padding: EdgeInsets.fromLTRB(20, 6, 20, bottomPadding),
       children: [
         FocusSectionHeader(
           title: tabIndex == 0 ? 'Proximas' : 'Historial de citas',

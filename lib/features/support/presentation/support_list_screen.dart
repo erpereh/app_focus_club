@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
+import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../theme/app_theme.dart';
+import '../application/suggestion_view_model.dart';
 import '../application/support_conversations_view_model.dart';
+import '../application/support_scope.dart';
 import '../domain/support_conversation.dart';
 import 'new_support_conversation_screen.dart';
+import 'suggestion_form.dart';
 import 'support_chat_screen.dart';
 
-class SupportListScreen extends StatelessWidget {
+class SupportListScreen extends StatefulWidget {
   const SupportListScreen({
     required this.viewModel,
     required this.uid,
@@ -18,6 +22,36 @@ class SupportListScreen extends StatelessWidget {
 
   final SupportConversationsViewModel viewModel;
   final String uid;
+
+  @override
+  State<SupportListScreen> createState() => _SupportListScreenState();
+}
+
+class _SupportListScreenState extends State<SupportListScreen> {
+  final _suggestionFormKey = GlobalKey<FormState>();
+  final _subjectController = TextEditingController();
+  final _messageController = TextEditingController();
+  SuggestionViewModel? _suggestionViewModel;
+  int _sectionIndex = 0;
+
+  SupportConversationsViewModel get viewModel => widget.viewModel;
+  String get uid => widget.uid;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _suggestionViewModel ??= SuggestionViewModel(
+      repository: SupportScope.of(context),
+    );
+  }
+
+  @override
+  void dispose() {
+    _suggestionViewModel?.dispose();
+    _subjectController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
 
   void _openNewConversation(BuildContext context) {
     Navigator.of(context).push(
@@ -59,6 +93,45 @@ class SupportListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final suggestionViewModel = _suggestionViewModel;
+    if (suggestionViewModel == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+            child: FocusSegmentedControl<int>(
+              options: const [
+                FocusSegmentOption(value: 0, label: 'Chat'),
+                FocusSegmentOption(value: 1, label: 'Sugerencias'),
+              ],
+              selectedValue: _sectionIndex,
+              onChanged: (value) => setState(() => _sectionIndex = value),
+            ),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _sectionIndex,
+              children: [
+                _buildChat(context),
+                SuggestionForm(
+                  viewModel: suggestionViewModel,
+                  subjectController: _subjectController,
+                  messageController: _messageController,
+                  formKey: _suggestionFormKey,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChat(BuildContext context) {
     return SafeArea(
       child: ListenableBuilder(
         listenable: viewModel,

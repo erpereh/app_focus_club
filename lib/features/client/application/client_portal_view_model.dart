@@ -57,6 +57,24 @@ class ClientPortalState {
   List<Appointment> get dashboardAppointments =>
       dashboardAppointmentsAt(DateTime.now());
 
+  List<Appointment> dashboardHistoryAppointmentsAt(DateTime now) {
+    final result = appointments
+        .where(
+          (appointment) =>
+              (appointment.status == AppointmentStatus.pending ||
+                  appointment.status == AppointmentStatus.approved) &&
+              (appointment.schedulingDateTime?.isAfter(now) == false),
+        )
+        .toList();
+    result.sort(
+      (a, b) => b.schedulingDateTime!.compareTo(a.schedulingDateTime!),
+    );
+    return List.unmodifiable(result.take(2));
+  }
+
+  List<Appointment> get dashboardHistoryAppointments =>
+      dashboardHistoryAppointmentsAt(DateTime.now());
+
   List<Appointment> historyAppointmentsAt(DateTime now) {
     final result = appointments
         .where(

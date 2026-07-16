@@ -10,6 +10,103 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('support selector preserves suggestion draft and submits it', (
+    tester,
+  ) async {
+    final repository = FakeSupportRepository();
+    final viewModel = SupportConversationsViewModel(
+      repository: repository,
+      uid: 'user-1',
+    )..start();
+    addTearDown(viewModel.dispose);
+
+    await tester.pumpWidget(
+      _SupportHarness(
+        repository: repository,
+        child: SupportListScreen(viewModel: viewModel, uid: 'user-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No tienes conversaciones todavía'), findsOneWidget);
+    await tester.tap(find.text('Sugerencias'));
+    await tester.pumpAndSettle();
+    expect(find.text('Buzón de sugerencias'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('suggestion-subject')),
+      'Horarios',
+    );
+    await tester.enterText(
+      find.byKey(const Key('suggestion-message')),
+      'Me gustaría ampliar los horarios.',
+    );
+    await tester.tap(find.text('Chat').first);
+    await tester.pumpAndSettle();
+    expect(find.text('No tienes conversaciones todavía'), findsOneWidget);
+    await tester.tap(find.text('Sugerencias'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Horarios'), findsOneWidget);
+    expect(find.text('Me gustaría ampliar los horarios.'), findsOneWidget);
+    await tester.ensureVisible(find.text('Enviar sugerencia'));
+    await tester.tap(find.text('Enviar sugerencia'));
+    await tester.pumpAndSettle();
+
+    expect(repository.submittedSuggestions, [
+      (subject: 'Horarios', message: 'Me gustaría ampliar los horarios.'),
+    ]);
+    expect(find.text('Gracias. Hemos recibido tu sugerencia.'), findsOneWidget);
+    expect(find.text('Horarios'), findsNothing);
+    expect(find.text('Me gustaría ampliar los horarios.'), findsNothing);
+  });
+
+  testWidgets('suggestion form rejects empty messages and preserves errors', (
+    tester,
+  ) async {
+    final repository = FakeSupportRepository(
+      suggestionFailure: StateError('failed'),
+    );
+    final viewModel = SupportConversationsViewModel(
+      repository: repository,
+      uid: 'user-1',
+    )..start();
+    addTearDown(viewModel.dispose);
+
+    await tester.pumpWidget(
+      _SupportHarness(
+        repository: repository,
+        child: SupportListScreen(viewModel: viewModel, uid: 'user-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sugerencias'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Enviar sugerencia'));
+    await tester.tap(find.text('Enviar sugerencia'));
+    await tester.pumpAndSettle();
+    expect(find.text('Escribe al menos 3 caracteres.'), findsOneWidget);
+    expect(repository.submittedSuggestions, isEmpty);
+
+    await tester.enterText(find.byKey(const Key('suggestion-subject')), 'Tema');
+    await tester.enterText(
+      find.byKey(const Key('suggestion-message')),
+      'Una sugerencia válida',
+    );
+    await tester.ensureVisible(find.text('Enviar sugerencia'));
+    await tester.tap(find.text('Enviar sugerencia'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No hemos podido enviar tu sugerencia. Inténtalo de nuevo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Tema'), findsOneWidget);
+    expect(find.text('Una sugerencia válida'), findsOneWidget);
+    expect(find.text('Gracias. Hemos recibido tu sugerencia.'), findsNothing);
+  });
+
   testWidgets('support list shows empty state and opens the creation form', (
     tester,
   ) async {
@@ -187,6 +284,14 @@ void main() {
         child: SupportListScreen(viewModel: viewModel, uid: 'user-1'),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Sugerencias'));
+    await tester.pumpAndSettle();
+    expect(find.text('Buzón de sugerencias'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Chat').first);
     await tester.pumpAndSettle();
 
     expect(tester.widget<Text>(find.text(subject)).maxLines, 2);

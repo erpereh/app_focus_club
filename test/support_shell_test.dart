@@ -71,6 +71,57 @@ void main() {
     },
   );
 
+  testWidgets('sending a suggestion does not change the chat badge', (
+    tester,
+  ) async {
+    const conversation = SupportConversation(
+      id: 'conversation-1',
+      userId: 'user-1',
+      userName: 'Laura',
+      userEmail: 'laura@example.com',
+      status: 'open',
+      subject: 'Mi bono',
+      lastMessage: 'Te respondemos pronto',
+      lastMessageAt: null,
+      lastMessageBy: 'admin-1',
+      unreadAdminCount: 0,
+      unreadCustomerCount: 2,
+      createdAt: null,
+      updatedAt: null,
+    );
+    final supportRepository = FakeSupportRepository(
+      conversations: [conversation],
+    );
+    await tester.pumpWidget(
+      AuthScope(
+        repository: _AuthRepository(),
+        child: PortalScope(
+          repository: FakePortalRepository(),
+          child: SupportScope(
+            repository: supportRepository,
+            child: const MaterialApp(home: ClientShellScreen()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Chat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sugerencias'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('suggestion-message')),
+      'Me gustaría ampliar los horarios.',
+    );
+    await tester.ensureVisible(find.text('Enviar sugerencia'));
+    await tester.tap(find.text('Enviar sugerencia'));
+    await tester.pumpAndSettle();
+
+    expect(supportRepository.submittedSuggestions, hasLength(1));
+    expect(find.text('2'), findsOneWidget);
+  });
+
   testWidgets('large text keeps narrow bottom navigation readable', (
     tester,
   ) async {

@@ -177,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           _HistoryPreview(
             tabIndex: _historyTabIndex,
-            appointments: state.historyAppointments,
+            appointments: state.dashboardHistoryAppointments,
             passes: state.inactiveBonos,
             trainerNameFor: _trainerName,
             onTabChanged: (index) => setState(() => _historyTabIndex = index),
@@ -429,11 +429,6 @@ class _NextAppointmentCard extends StatelessWidget {
             FocusStatusBadge(
               label: appointmentDisplayStatusLabel(appointment!),
               color: appointmentDisplayStatusColor(appointment!),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              appointmentDisplayStatusDescription(appointment!),
-              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 10),
             Text(

@@ -148,6 +148,22 @@ void main() {
     expect(pending.status, AppointmentStatus.pending);
   });
 
+  test('future pending appointment describes confirmation as a cita', () {
+    final pending = _appointment(
+      id: 'pending',
+      date: '2030-05-20',
+      time: '10:00',
+    );
+
+    expect(
+      appointmentDisplayStatusDescription(
+        pending,
+        now: DateTime(2030, 5, 20, 9),
+      ),
+      'Solicitud enviada. El equipo de Focus Club confirmará la cita.',
+    );
+  });
+
   test('dashboard appointments are sorted and limited to the nearest two', () {
     final now = DateTime.now();
     final state = ClientPortalState(
@@ -186,6 +202,68 @@ void main() {
       'third',
     ]);
   });
+
+  test(
+    'dashboard history shows the two most recent appointments that occurred',
+    () {
+      final now = DateTime(2030, 5, 20, 12);
+      final state = ClientPortalState(
+        appointments: [
+          _appointment(
+            id: 'future-cancelled',
+            date: '2030-05-21',
+            time: '13:00',
+            status: AppointmentStatus.cancelled,
+            createdAt: '2030-05-20T11:59:00.000Z',
+          ),
+          _appointment(
+            id: 'older-past',
+            date: '2030-05-20',
+            time: '09:00',
+            createdAt: '2030-05-20T11:58:00.000Z',
+          ),
+          _appointment(
+            id: 'latest-past',
+            date: '2030-05-20',
+            time: '12:00',
+            status: AppointmentStatus.approved,
+            createdAt: '2030-05-01T08:00:00.000Z',
+          ),
+          _appointment(
+            id: 'past-rejected',
+            date: '2030-05-20',
+            time: '11:45',
+            status: AppointmentStatus.rejected,
+          ),
+          _appointment(id: 'future-active', date: '2030-05-20', time: '13:00'),
+          _appointment(
+            id: 'second-past',
+            date: '2030-05-20',
+            time: '11:00',
+            createdAt: '2030-05-20T11:57:00.000Z',
+          ),
+          _appointment(
+            id: 'past-cancelled',
+            date: '2030-05-20',
+            time: '11:50',
+            status: AppointmentStatus.cancelled,
+          ),
+          _appointment(
+            id: 'future-rejected',
+            date: '2030-05-22',
+            time: '14:00',
+            status: AppointmentStatus.rejected,
+          ),
+          _appointment(id: 'invalid', date: 'invalid', time: '10:00'),
+        ],
+      );
+
+      expect(state.dashboardHistoryAppointmentsAt(now).map((item) => item.id), [
+        'latest-past',
+        'second-past',
+      ]);
+    },
+  );
 
   group('appointment boundary timer', () {
     test(
@@ -454,6 +532,7 @@ Appointment _appointment({
   required String date,
   required String time,
   AppointmentStatus status = AppointmentStatus.pending,
+  String createdAt = '2030-05-01T10:00:00.000Z',
 }) {
   return Appointment(
     id: id,
@@ -466,7 +545,7 @@ Appointment _appointment({
     preferredSlots: [TimeSlot(date: date, time: time)],
     reason: '',
     status: status,
-    createdAt: '2030-05-01T10:00:00.000Z',
+    createdAt: createdAt,
   );
 }
 

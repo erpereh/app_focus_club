@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_focus_club/features/support/application/support_chat_view_model.dart';
 import 'package:app_focus_club/features/support/application/support_conversations_view_model.dart';
+import 'package:app_focus_club/features/support/application/suggestion_view_model.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
 import 'package:app_focus_club/features/support/domain/support_conversation.dart';
 import 'package:app_focus_club/features/support/domain/support_message.dart';
@@ -123,6 +124,78 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test(
+    'suggestion view model trims, submits and clears only after success',
+    () async {
+      final repository = FakeSupportRepository();
+      final viewModel = SuggestionViewModel(repository: repository)
+        ..updateSubject('  Horarios  ')
+        ..updateMessage('  Me gustaría ampliar los horarios  ');
+
+      expect(await viewModel.submit(), isTrue);
+      expect(repository.submittedSuggestions, [
+        (subject: 'Horarios', message: 'Me gustaría ampliar los horarios'),
+      ]);
+      expect(viewModel.state.subject, isEmpty);
+      expect(viewModel.state.message, isEmpty);
+      expect(viewModel.state.isSuccess, isTrue);
+      expect(viewModel.state.errorMessage, isNull);
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'suggestion view model preserves content and unlocks after errors',
+    () async {
+      final repository = FakeSupportRepository(
+        suggestionFailure: StateError('failed'),
+      );
+      final viewModel = SuggestionViewModel(repository: repository)
+        ..updateSubject('Tema')
+        ..updateMessage('Una sugerencia válida');
+
+      expect(await viewModel.submit(), isFalse);
+      expect(viewModel.state.subject, 'Tema');
+      expect(viewModel.state.message, 'Una sugerencia válida');
+      expect(viewModel.state.isSubmitting, isFalse);
+      expect(viewModel.state.isSuccess, isFalse);
+      expect(viewModel.state.errorMessage, isNotNull);
+      viewModel.dispose();
+    },
+  );
+
+  test('suggestion view model blocks duplicate pending submissions', () async {
+    final repository = _SupportRepository();
+    final viewModel = SuggestionViewModel(repository: repository)
+      ..updateMessage('Una sugerencia válida');
+
+    final firstSubmission = viewModel.submit();
+    await Future<void>.delayed(Duration.zero);
+    expect(viewModel.state.isSubmitting, isTrue);
+    expect(await viewModel.submit(), isFalse);
+    expect(repository.submittedSuggestions, hasLength(1));
+
+    repository.suggestionCompleter.complete('suggestion-1');
+    expect(await firstSubmission, isTrue);
+    viewModel.dispose();
+  });
+
+  test(
+    'suggestion view model ignores a pending result after dispose',
+    () async {
+      final repository = _SupportRepository();
+      final viewModel = SuggestionViewModel(repository: repository)
+        ..updateMessage('Una sugerencia válida');
+
+      final submission = viewModel.submit();
+      await Future<void>.delayed(Duration.zero);
+      viewModel.dispose();
+      repository.suggestionCompleter.complete('suggestion-1');
+
+      expect(await submission, isFalse);
+    },
+  );
 }
 
 SupportConversation _conversation({
@@ -152,6 +225,8 @@ class _SupportRepository implements SupportRepository {
   final conversation = StreamController<SupportConversation?>.broadcast();
   final markedRead = <String>[];
   final sentMessages = <({String conversationId, String text})>[];
+  final suggestionCompleter = Completer<String>();
+  final submittedSuggestions = <({String? subject, String message})>[];
 
   @override
   Future<String> createConversation({
@@ -170,6 +245,15 @@ class _SupportRepository implements SupportRepository {
     required String text,
   }) async {
     sentMessages.add((conversationId: conversationId, text: text));
+  }
+
+  @override
+  Future<String> submitCustomerSuggestion({
+    String? subject,
+    required String message,
+  }) {
+    submittedSuggestions.add((subject: subject, message: message));
+    return suggestionCompleter.future;
   }
 
   @override

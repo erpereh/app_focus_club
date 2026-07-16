@@ -60,7 +60,7 @@ Color appointmentStatusColor(AppointmentStatus status) {
 String appointmentStatusDescription(AppointmentStatus status) {
   return switch (status) {
     AppointmentStatus.pending =>
-      'Solicitud enviada. El equipo de Focus Club confirmara la franja.',
+      'Solicitud enviada. El equipo de Focus Club confirmará la cita.',
     AppointmentStatus.approved =>
       'Cita aprobada. Revisa los datos confirmados antes de acudir.',
     AppointmentStatus.rejected =>
