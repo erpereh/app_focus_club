@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_focus_club/features/client/application/client_portal_view_model.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_availability.dart';
@@ -100,16 +102,10 @@ void main() {
       state.activeAppointmentsAt(DateTime(2030, 5, 20, 9, 59)).single.id,
       'current',
     );
+    expect(state.historyAppointmentsAt(DateTime(2030, 5, 20, 9, 59)), isEmpty);
+    expect(state.activeAppointmentsAt(DateTime(2030, 5, 20, 10)), isEmpty);
     expect(
-      state.historyAppointmentsAt(DateTime(2030, 5, 20, 9, 59)),
-      isEmpty,
-    );
-    expect(
-      state.activeAppointmentsAt(DateTime(2030, 5, 20, 10, 1)),
-      isEmpty,
-    );
-    expect(
-      state.historyAppointmentsAt(DateTime(2030, 5, 20, 10, 1)).single.id,
+      state.historyAppointmentsAt(DateTime(2030, 5, 20, 10)).single.id,
       'current',
     );
   });
@@ -184,6 +180,153 @@ void main() {
       'first',
       'second',
     ]);
+    expect(state.activeAppointments.map((appointment) => appointment.id), [
+      'first',
+      'second',
+      'third',
+    ]);
+  });
+
+  group('appointment boundary timer', () {
+    test(
+      'notifies at the boundary and advances without a repository event',
+      () async {
+        var now = DateTime(2030, 5, 20, 9, 30);
+        final timers = <_TestTimer>[];
+        final viewModel = ClientPortalViewModel(
+          repository: FakePortalRepository(
+            appointments: [
+              _appointment(id: 'first', date: '2030-05-20', time: '10:00'),
+              _appointment(id: 'second', date: '2030-05-20', time: '11:00'),
+            ],
+          ),
+          uid: 'uid',
+          now: () => now,
+          appointmentTimerFactory: (duration, callback) {
+            final timer = _TestTimer(duration, callback);
+            timers.add(timer);
+            return timer;
+          },
+        );
+        var notifications = 0;
+        viewModel.addListener(() => notifications++);
+        viewModel.start();
+        await _flushStreams();
+
+        expect(viewModel.state.dashboardAppointmentsAt(now).first.id, 'first');
+        expect(timers.single.duration, const Duration(minutes: 30));
+        final notificationsBeforeBoundary = notifications;
+
+        now = DateTime(2030, 5, 20, 10);
+        timers.single.fire();
+
+        expect(notifications, notificationsBeforeBoundary + 1);
+        expect(viewModel.state.dashboardAppointmentsAt(now).first.id, 'second');
+        expect(timers.last.duration, const Duration(hours: 1));
+        viewModel.dispose();
+      },
+    );
+
+    test(
+      'early and stale callbacks never create a zero-duration loop',
+      () async {
+        var now = DateTime(2030, 5, 20, 9, 59, 59, 999, 500);
+        final timers = <_TestTimer>[];
+        final viewModel = ClientPortalViewModel(
+          repository: FakePortalRepository(
+            appointments: [
+              _appointment(id: 'first', date: '2030-05-20', time: '10:00'),
+            ],
+          ),
+          uid: 'uid',
+          now: () => now,
+          appointmentTimerFactory: (duration, callback) {
+            final timer = _TestTimer(duration, callback);
+            timers.add(timer);
+            return timer;
+          },
+        );
+        var notifications = 0;
+        viewModel.addListener(() => notifications++);
+        viewModel.start();
+        await _flushStreams();
+
+        expect(timers.single.duration, const Duration(milliseconds: 1));
+        final earlyTimer = timers.single;
+        earlyTimer.fire();
+        expect(timers.last.duration, const Duration(milliseconds: 1));
+
+        viewModel.refreshTemporalState();
+        final notificationsAfterRefresh = notifications;
+        final timerCountAfterRefresh = timers.length;
+        earlyTimer.fire(ignoreCancellation: true);
+
+        expect(notifications, notificationsAfterRefresh);
+        expect(timers, hasLength(timerCountAfterRefresh));
+        viewModel.dispose();
+      },
+    );
+
+    test('dispose cancels the timer and ignores a queued callback', () async {
+      final timers = <_TestTimer>[];
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(
+          appointments: [
+            _appointment(id: 'first', date: '2030-05-20', time: '10:00'),
+          ],
+        ),
+        uid: 'uid',
+        now: () => DateTime(2030, 5, 20, 9),
+        appointmentTimerFactory: (duration, callback) {
+          final timer = _TestTimer(duration, callback);
+          timers.add(timer);
+          return timer;
+        },
+      );
+      var notifications = 0;
+      viewModel.addListener(() => notifications++);
+      viewModel.start();
+      await _flushStreams();
+      final timer = timers.single;
+
+      viewModel.dispose();
+      final notificationsAfterDispose = notifications;
+      timer.fire(ignoreCancellation: true);
+
+      expect(timer.isActive, isFalse);
+      expect(notifications, notificationsAfterDispose);
+      expect(timers, hasLength(1));
+    });
+  });
+
+  group('legacy bono normalization', () {
+    test('falls back to total minutes when package size is missing', () {
+      final bono = Bono.fromMap(
+        'legacy',
+        _bonoMap(tamano: null, total: 240, remaining: 150),
+      );
+
+      expect(bono.displayTotalMinutes, 240);
+      expect(bono.displayRemainingMinutes, 150);
+      expect(bono.usedMinutes, 90);
+    });
+
+    test('clamps invalid remaining minutes to the commercial total', () {
+      final excessive = Bono.fromMap(
+        'excessive',
+        _bonoMap(tamano: 240, total: 480, remaining: 999),
+      );
+      final negative = Bono.fromMap(
+        'negative',
+        _bonoMap(tamano: 'invalid', total: '240', remaining: -30),
+      );
+
+      expect(excessive.displayRemainingMinutes, 240);
+      expect(excessive.usedMinutes, 0);
+      expect(negative.displayTotalMinutes, 240);
+      expect(negative.displayRemainingMinutes, 0);
+      expect(negative.usedMinutes, 240);
+    });
   });
 
   test(
@@ -286,11 +429,7 @@ void main() {
   });
 }
 
-Bono _bono({
-  required int total,
-  required int remaining,
-  int? size,
-}) {
+Bono _bono({required int total, required int remaining, int? size}) {
   return Bono(
     id: 'bono-$total',
     userId: 'uid',
@@ -335,4 +474,52 @@ String _wireDate(DateTime value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
   return '${value.year}-$month-$day';
+}
+
+Map<String, Object?> _bonoMap({
+  required Object? tamano,
+  required Object? total,
+  required Object? remaining,
+}) {
+  final map = <String, Object?>{
+    'userId': 'uid',
+    'minutosTotales': total,
+    'minutosRestantes': remaining,
+    'fechaAsignacion': '2030-05-01',
+    'fechaExpiracion': '2030-06-01',
+    'estado': 'activo',
+    'historial': const <Object?>[],
+    'asignadoPor': 'admin',
+    'createdAt': '2030-05-01T10:00:00.000Z',
+  };
+  if (tamano != null) map['tamano'] = tamano;
+  return map;
+}
+
+Future<void> _flushStreams() async {
+  await Future<void>.delayed(Duration.zero);
+  await Future<void>.delayed(Duration.zero);
+}
+
+class _TestTimer implements Timer {
+  _TestTimer(this.duration, this._callback);
+
+  final Duration duration;
+  final void Function() _callback;
+  bool _isActive = true;
+
+  void fire({bool ignoreCancellation = false}) {
+    if (!_isActive && !ignoreCancellation) return;
+    _isActive = false;
+    _callback();
+  }
+
+  @override
+  void cancel() => _isActive = false;
+
+  @override
+  bool get isActive => _isActive;
+
+  @override
+  int get tick => _isActive ? 0 : 1;
 }

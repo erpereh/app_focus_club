@@ -266,9 +266,9 @@ class Bono {
     return Bono(
       id: id,
       userId: map['userId'] as String,
-      tamano: parseInt(map['tamano']),
-      minutosTotales: parseInt(map['minutosTotales']),
-      minutosRestantes: parseInt(map['minutosRestantes']),
+      tamano: parseIntOrZero(map['tamano']),
+      minutosTotales: parseIntOrZero(map['minutosTotales']),
+      minutosRestantes: parseIntOrZero(map['minutosRestantes']),
       fechaAsignacion: stringifyDate(map['fechaAsignacion']) ?? '',
       fechaExpiracion: stringifyDate(map['fechaExpiracion']) ?? '',
       estado: BonoStatus.fromWire(map['estado'] as String),
@@ -453,6 +453,14 @@ int parseInt(Object? value) {
     num() => value.toInt(),
     _ => throw FormatException('Expected integer-compatible value: $value'),
   };
+}
+
+int parseIntOrZero(Object? value) {
+  try {
+    return parseInt(value);
+  } on FormatException {
+    return 0;
+  }
 }
 
 String? stringifyDate(Object? value) {

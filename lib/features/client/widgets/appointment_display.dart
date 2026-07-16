@@ -69,6 +69,43 @@ String appointmentStatusDescription(AppointmentStatus status) {
   };
 }
 
+String appointmentDisplayStatusLabel(Appointment appointment, {DateTime? now}) {
+  final date = appointment.schedulingDateTime;
+  final isPast = date != null && !date.isAfter(now ?? DateTime.now());
+  if (isPast) {
+    if (appointment.status == AppointmentStatus.approved) return 'Realizada';
+    if (appointment.status == AppointmentStatus.pending) return 'No realizada';
+  }
+  return appointmentStatusLabel(appointment.status);
+}
+
+String appointmentDisplayStatusDescription(
+  Appointment appointment, {
+  DateTime? now,
+}) {
+  final date = appointment.schedulingDateTime;
+  final isPast = date != null && !date.isAfter(now ?? DateTime.now());
+  if (isPast) {
+    if (appointment.status == AppointmentStatus.approved) {
+      return 'Esta cita ya se ha realizado.';
+    }
+    if (appointment.status == AppointmentStatus.pending) {
+      return 'La hora de esta solicitud ha pasado sin confirmacion.';
+    }
+  }
+  return appointmentStatusDescription(appointment.status);
+}
+
+Color appointmentDisplayStatusColor(Appointment appointment) {
+  return appointmentStatusColor(appointment.status);
+}
+
+bool canManageAppointmentAt(Appointment appointment, DateTime now) {
+  return (appointment.status == AppointmentStatus.pending ||
+          appointment.status == AppointmentStatus.approved) &&
+      (appointment.schedulingDateTime?.isAfter(now) ?? false);
+}
+
 extension PortalUserDisplay on UserProfile {
   String get displayInitials {
     final parts = name
@@ -86,18 +123,27 @@ extension PortalUserDisplay on UserProfile {
 }
 
 extension PortalBonoDisplay on Bono {
+  int get displayTotalMinutes {
+    if (tamano > 0) return tamano;
+    if (minutosTotales > 0) return minutosTotales;
+    return 0;
+  }
+
+  int get displayRemainingMinutes =>
+      minutosRestantes.clamp(0, displayTotalMinutes);
+
   String get nameLabel {
-    final totalLabel = formatMinutesDuration(minutosTotales);
-    return minutosTotales > 0
+    final totalLabel = formatMinutesDuration(displayTotalMinutes);
+    return displayTotalMinutes > 0
         ? '$portalServiceLabel $totalLabel'
         : portalServiceLabel;
   }
 
-  int get usedMinutes => minutosTotales - minutosRestantes;
+  int get usedMinutes => displayTotalMinutes - displayRemainingMinutes;
 
-  double get progress => minutosTotales <= 0
+  double get progress => displayTotalMinutes <= 0
       ? 0
-      : (usedMinutes / minutosTotales).clamp(0, 1).toDouble();
+      : (usedMinutes / displayTotalMinutes).clamp(0, 1).toDouble();
 
   String get statusLabel => bonoStatusLabel(estado);
 
@@ -118,10 +164,10 @@ extension PortalBonoDisplay on Bono {
   }
 
   String get availableTimeLabel =>
-      '${formatMinutesDuration(minutosRestantes)} disponibles';
+      '${formatMinutesDuration(displayRemainingMinutes)} disponibles';
 
   String get minutesLabel =>
-      '${formatMinutesDuration(usedMinutes)} de ${formatMinutesDuration(minutosTotales)} usados';
+      '${formatMinutesDuration(usedMinutes)} de ${formatMinutesDuration(displayTotalMinutes)} usados';
 }
 
 String bonoStatusLabel(BonoStatus status) {

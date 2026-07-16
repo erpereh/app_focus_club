@@ -32,33 +32,33 @@ class ClientPortalState {
   final Object? error;
   final bool isLoading;
 
-  List<Appointment> get activeAppointments {
-    final now = DateTime.now();
-    return appointments
+  List<Appointment> activeAppointmentsAt(DateTime now) {
+    final result = appointments
         .where(
           (appointment) =>
               (appointment.status == AppointmentStatus.pending ||
                   appointment.status == AppointmentStatus.approved) &&
               (appointment.schedulingDateTime?.isAfter(now) ?? false),
         )
-        .toList(growable: false);
+        .toList();
+    result.sort(
+      (a, b) => a.schedulingDateTime!.compareTo(b.schedulingDateTime!),
+    );
+    return List.unmodifiable(result);
   }
 
-  List<Appointment> get dashboardAppointments {
-    final sorted = activeAppointments.toList(growable: false)
-      ..sort((a, b) {
-        final aDate = a.schedulingDateTime;
-        final bDate = b.schedulingDateTime;
-        if (aDate == null) return 1;
-        if (bDate == null) return -1;
-        return aDate.compareTo(bDate);
-      });
-    return sorted.take(2).toList(growable: false);
+  List<Appointment> get activeAppointments =>
+      activeAppointmentsAt(DateTime.now());
+
+  List<Appointment> dashboardAppointmentsAt(DateTime now) {
+    return activeAppointmentsAt(now).take(2).toList(growable: false);
   }
 
-  List<Appointment> get historyAppointments {
-    final now = DateTime.now();
-    return appointments
+  List<Appointment> get dashboardAppointments =>
+      dashboardAppointmentsAt(DateTime.now());
+
+  List<Appointment> historyAppointmentsAt(DateTime now) {
+    final result = appointments
         .where(
           (appointment) =>
               appointment.status == AppointmentStatus.rejected ||
@@ -67,8 +67,20 @@ class ClientPortalState {
                       appointment.status == AppointmentStatus.approved) &&
                   !(appointment.schedulingDateTime?.isAfter(now) ?? false)),
         )
-        .toList(growable: false);
+        .toList();
+    result.sort((a, b) {
+      final aDate = a.schedulingDateTime;
+      final bDate = b.schedulingDateTime;
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return bDate.compareTo(aDate);
+    });
+    return List.unmodifiable(result);
   }
+
+  List<Appointment> get historyAppointments =>
+      historyAppointmentsAt(DateTime.now());
 
   List<Bono> get inactiveBonos {
     return bonos.where((bono) => !bono.isActive).toList(growable: false);
@@ -102,23 +114,38 @@ class ClientPortalState {
   }
 }
 
+typedef AppointmentTimerFactory =
+    Timer Function(Duration duration, void Function() callback);
+
 class ClientPortalViewModel extends ChangeNotifier {
   ClientPortalViewModel({
     required PortalRepository repository,
     required String uid,
     FirebasePushNotificationService? pushNotificationService,
+    DateTime Function()? now,
+    AppointmentTimerFactory? appointmentTimerFactory,
   }) : _repository = repository,
        _uid = uid,
+       _now = now ?? DateTime.now,
+       _appointmentTimerFactory =
+           appointmentTimerFactory ??
+           ((duration, callback) => Timer(duration, callback)),
        _pushNotificationService =
            pushNotificationService ?? FirebasePushNotificationService.instance;
 
   final PortalRepository _repository;
   final String _uid;
+  final DateTime Function() _now;
+  final AppointmentTimerFactory _appointmentTimerFactory;
   final FirebasePushNotificationService _pushNotificationService;
   final List<StreamSubscription<Object?>> _subscriptions = [];
+  Timer? _appointmentBoundaryTimer;
+  int _appointmentTimerGeneration = 0;
+  bool _isDisposed = false;
 
   ClientPortalState _state = const ClientPortalState();
   ClientPortalState get state => _state;
+  DateTime get currentTime => _now();
 
   void start() {
     final range = _bookingRange();
@@ -196,8 +223,18 @@ class ClientPortalViewModel extends ChangeNotifier {
     );
   }
 
+  void refreshTemporalState() {
+    if (_isDisposed) return;
+    _scheduleAppointmentBoundary();
+    notifyListeners();
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
+    _appointmentTimerGeneration++;
+    _appointmentBoundaryTimer?.cancel();
+    _appointmentBoundaryTimer = null;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -221,7 +258,41 @@ class ClientPortalViewModel extends ChangeNotifier {
 
   void _setAppointments(List<Appointment> appointments) {
     _state = _state.copyWith(appointments: appointments, isLoading: false);
+    _scheduleAppointmentBoundary();
     notifyListeners();
+  }
+
+  void _scheduleAppointmentBoundary() {
+    _appointmentBoundaryTimer?.cancel();
+    _appointmentBoundaryTimer = null;
+    final generation = ++_appointmentTimerGeneration;
+    if (_isDisposed) return;
+
+    final now = _now();
+    DateTime? nextBoundary;
+    for (final appointment in _state.appointments) {
+      if (appointment.status != AppointmentStatus.pending &&
+          appointment.status != AppointmentStatus.approved) {
+        continue;
+      }
+      final date = appointment.schedulingDateTime;
+      if (date == null || !date.isAfter(now)) continue;
+      if (nextBoundary == null || date.isBefore(nextBoundary)) {
+        nextBoundary = date;
+      }
+    }
+    if (nextBoundary == null) return;
+
+    final remaining = nextBoundary.difference(now);
+    final delay = remaining < const Duration(milliseconds: 1)
+        ? const Duration(milliseconds: 1)
+        : remaining;
+    _appointmentBoundaryTimer = _appointmentTimerFactory(delay, () {
+      if (_isDisposed || generation != _appointmentTimerGeneration) return;
+      _appointmentBoundaryTimer = null;
+      notifyListeners();
+      _scheduleAppointmentBoundary();
+    });
   }
 
   void _setBonos(List<Bono> bonos) {
@@ -265,7 +336,7 @@ class ClientPortalViewModel extends ChangeNotifier {
   }
 
   ({String start, String end}) _bookingRange() {
-    final now = DateTime.now();
+    final now = _now();
     final start = DateTime(now.year, now.month, now.day);
     final end = start.add(const Duration(days: 22));
     return (start: _wireDate(start), end: _wireDate(end));

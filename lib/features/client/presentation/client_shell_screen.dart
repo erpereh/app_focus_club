@@ -24,7 +24,8 @@ class ClientShellScreen extends StatefulWidget {
   State<ClientShellScreen> createState() => _ClientShellScreenState();
 }
 
-class _ClientShellScreenState extends State<ClientShellScreen> {
+class _ClientShellScreenState extends State<ClientShellScreen>
+    with WidgetsBindingObserver {
   late int _selectedIndex;
   ClientPortalViewModel? _viewModel;
   SupportConversationsViewModel? _supportViewModel;
@@ -35,6 +36,7 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedIndex = widget.initialTabIndex.clamp(0, 3);
   }
 
@@ -60,9 +62,17 @@ class _ClientShellScreenState extends State<ClientShellScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _viewModel?.dispose();
     _supportViewModel?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _viewModel?.refreshTemporalState();
+    }
   }
 
   void _openBooking(ClientPortalViewModel viewModel) {

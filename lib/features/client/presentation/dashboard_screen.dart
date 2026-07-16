@@ -6,6 +6,7 @@ import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../shared/widgets/focus_status_message.dart';
+import '../../../shared/widgets/focus_status_badge.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/app_text_size.dart';
 import '../../auth/application/auth_scope.dart';
@@ -424,6 +425,16 @@ class _NextAppointmentCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const FocusKicker('Proxima cita'),
+            const SizedBox(height: 10),
+            FocusStatusBadge(
+              label: appointmentDisplayStatusLabel(appointment!),
+              color: appointmentDisplayStatusColor(appointment!),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              appointmentDisplayStatusDescription(appointment!),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             const SizedBox(height: 10),
             Text(
               appointment!.dateLabel,

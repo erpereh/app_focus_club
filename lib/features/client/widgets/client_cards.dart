@@ -14,8 +14,9 @@ class ClientAppointmentCard extends StatelessWidget {
     String? trainerName,
     super.key,
   }) : serviceType = appointment.serviceType,
-       statusLabel = appointmentStatusLabel(appointment.status),
-       statusColor = appointmentStatusColor(appointment.status),
+       statusLabel = appointmentDisplayStatusLabel(appointment),
+       statusDescription = appointmentDisplayStatusDescription(appointment),
+       statusColor = appointmentDisplayStatusColor(appointment),
        dateLabel = appointment.dateLabel,
        timeLabel = appointment.timeLabel,
        durationMinutes = appointment.durationMinutes,
@@ -23,6 +24,7 @@ class ClientAppointmentCard extends StatelessWidget {
 
   final String serviceType;
   final String statusLabel;
+  final String statusDescription;
   final Color statusColor;
   final String dateLabel;
   final String timeLabel;
@@ -72,6 +74,11 @@ class ClientAppointmentCard extends StatelessWidget {
                   ],
                 );
               },
+            ),
+            const SizedBox(height: 12),
+            Text(
+              statusDescription,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             _InfoLine(

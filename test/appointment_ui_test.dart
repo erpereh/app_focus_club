@@ -3,6 +3,9 @@ import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:app_focus_club/features/client/presentation/appointment_detail_screen.dart';
 import 'package:app_focus_club/features/client/presentation/booking_screen.dart';
+import 'package:app_focus_club/features/client/presentation/dashboard_screen.dart';
+import 'package:app_focus_club/features/client/widgets/client_cards.dart';
+import 'package:app_focus_club/shared/widgets/focus_glass_card.dart';
 import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +37,125 @@ void main() {
 
     expect(find.text('Modificar cita'), findsOneWidget);
     expect(find.text('Cancelar cita'), findsOneWidget);
+  });
+
+  testWidgets('appointment card shows the derived missed presentation', (
+    tester,
+  ) async {
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: _wireDate(DateTime.now().subtract(const Duration(days: 1))),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ClientAppointmentCard(appointment: appointment, onTap: () {}),
+        ),
+      ),
+    );
+
+    expect(find.text('No realizada'), findsOneWidget);
+    expect(
+      find.text('La hora de esta solicitud ha pasado sin confirmacion.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('detail refreshes its presentation and actions at the boundary', (
+    tester,
+  ) async {
+    var now = DateTime(2030, 5, 20, 9, 59);
+    final appointment = _appointment(
+      status: AppointmentStatus.approved,
+      date: '2030-05-20',
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: FakePortalRepository(),
+      uid: 'uid',
+      now: () => now,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppointmentDetailScreen(
+          appointment: appointment,
+          viewModel: viewModel,
+        ),
+      ),
+    );
+    expect(find.text('Aprobada'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Modificar cita'), findsOneWidget);
+
+    now = DateTime(2030, 5, 20, 10);
+    viewModel.refreshTemporalState();
+    await tester.pump();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Realizada'), findsOneWidget);
+    expect(find.text('Esta cita ya se ha realizado.'), findsOneWidget);
+    expect(find.text('Modificar cita'), findsNothing);
+    expect(find.text('Cancelar cita'), findsNothing);
+    viewModel.dispose();
+  });
+
+  testWidgets('dashboard next appointment preview includes derived status', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: FakePortalRepository(),
+      uid: 'uid',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DashboardScreen(
+            state: ClientPortalState(
+              appointments: [appointment],
+              isLoading: false,
+            ),
+            viewModel: viewModel,
+            onOpenAppointments: () {},
+            onOpenProfile: () {},
+            onOpenBooking: () {},
+          ),
+        ),
+      ),
+    );
+    final preview = find.ancestor(
+      of: find.text('PROXIMA CITA'),
+      matching: find.byType(FocusGlassCard),
+    );
+    expect(preview, findsOneWidget);
+    expect(
+      find.descendant(of: preview, matching: find.text('Pendiente')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: preview,
+        matching: find.text(
+          'Solicitud enviada. El equipo de Focus Club confirmara la franja.',
+        ),
+      ),
+      findsOneWidget,
+    );
+    viewModel.dispose();
   });
 
   testWidgets(
