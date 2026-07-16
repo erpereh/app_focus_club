@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/application/auth_scope.dart';
 import '../../auth/data/auth_repository.dart';
@@ -19,16 +20,27 @@ import '../data/push_notification_service.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 
+final _privacyPolicyUri = Uri.parse(
+  'https://focusclub.es/politica-de-privacidad',
+);
+
+Future<bool> _launchExternalUrl(Uri uri) {
+  return launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
 class ProfileScreen extends StatefulWidget {
   ProfileScreen({
     required this.state,
     super.key,
     FirebasePushNotificationService? pushNotificationService,
-  }) : pushNotificationService =
+    Future<bool> Function(Uri)? urlLauncher,
+  }) : _urlLauncher = urlLauncher ?? _launchExternalUrl,
+       pushNotificationService =
            pushNotificationService ?? FirebasePushNotificationService.instance;
 
   final ClientPortalState state;
   final FirebasePushNotificationService pushNotificationService;
+  final Future<bool> Function(Uri) _urlLauncher;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -167,6 +179,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 14),
           const _ProfileCard(child: _TextSizeSetting()),
           const SizedBox(height: 22),
+          const FocusSectionHeader(title: 'Legal'),
+          const SizedBox(height: 14),
+          _LegalLinkRow(onTap: _openPrivacyPolicy),
+          const SizedBox(height: 22),
           _DangerZone(
             isDeleting: _isDeletingAccount,
             onDeleteAccount: profile == null || _isDeletingAccount
@@ -191,6 +207,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _profilePhotoUrl = profile.photoUrl;
       _clearLocalAvatarState();
     }
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    var launched = false;
+    try {
+      launched = await widget._urlLauncher(_privacyPolicyUri);
+    } catch (_) {
+      launched = false;
+    }
+    if (launched || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No se ha podido abrir la política de privacidad.'),
+      ),
+    );
   }
 
   Future<void> _pickAvatar() async {
@@ -485,6 +516,60 @@ class _TextSizeSetting extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LegalLinkRow extends StatelessWidget {
+  const _LegalLinkRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.circular(AppTheme.radiusInput);
+    return Material(
+      color: AppTheme.input.withValues(alpha: 0.58),
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: AppTheme.borderStrong.withValues(alpha: 0.22)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        key: const Key('privacy-policy-link'),
+        link: true,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: ListTile(
+            onTap: onTap,
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            minLeadingWidth: 20,
+            horizontalTitleGap: 12,
+            leading: const Icon(
+              Icons.shield_outlined,
+              color: AppTheme.emerald,
+              size: 20,
+            ),
+            title: Text(
+              'Política de privacidad',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.textSecondary,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
