@@ -398,6 +398,10 @@ class SlotOccupancy {
   TimeSlot get slot => TimeSlot(date: date, time: time);
 }
 
+const int defaultMaxCapacity = 2;
+const int minAllowedCapacity = 1;
+const int maxAllowedCapacity = 10;
+
 class SiteConfig {
   const SiteConfig({
     required this.startHour,
@@ -405,6 +409,13 @@ class SiteConfig {
     required this.slotInterval,
     required this.bonoExpirationMonths,
     required this.maintenanceMode,
+    this.maxCapacity = defaultMaxCapacity,
+    this.minAndroidBuild = 0,
+    this.minIosBuild = 0,
+    this.latestAndroidBuild = 0,
+    this.latestIosBuild = 0,
+    this.androidStoreUrl,
+    this.iosStoreUrl,
     this.sessionDuration,
     this.logoUrl,
     this.logoStoragePath,
@@ -416,6 +427,13 @@ class SiteConfig {
   final int slotInterval;
   final int bonoExpirationMonths;
   final bool maintenanceMode;
+  final int maxCapacity;
+  final int minAndroidBuild;
+  final int minIosBuild;
+  final int latestAndroidBuild;
+  final int latestIosBuild;
+  final String? androidStoreUrl;
+  final String? iosStoreUrl;
   final int? sessionDuration;
   final String? logoUrl;
   final String? logoStoragePath;
@@ -428,6 +446,13 @@ class SiteConfig {
       slotInterval: parseInt(map['slotInterval']),
       bonoExpirationMonths: parseInt(map['bonoExpirationMonths']),
       maintenanceMode: map['maintenanceMode'] as bool? ?? false,
+      maxCapacity: parseMaxCapacity(map['maxCapacity']),
+      minAndroidBuild: parseNonNegativeIntOrZero(map['minAndroidBuild']),
+      minIosBuild: parseNonNegativeIntOrZero(map['minIosBuild']),
+      latestAndroidBuild: parseNonNegativeIntOrZero(map['latestAndroidBuild']),
+      latestIosBuild: parseNonNegativeIntOrZero(map['latestIosBuild']),
+      androidStoreUrl: parseOptionalTrimmedString(map['androidStoreUrl']),
+      iosStoreUrl: parseOptionalTrimmedString(map['iosStoreUrl']),
       sessionDuration: map['sessionDuration'] == null
           ? null
           : parseInt(map['sessionDuration']),
@@ -461,6 +486,26 @@ int parseIntOrZero(Object? value) {
   } on FormatException {
     return 0;
   }
+}
+
+int parseNonNegativeIntOrZero(Object? value) {
+  final parsed = parseIntOrZero(value);
+  return parsed < 0 ? 0 : parsed;
+}
+
+int parseMaxCapacity(Object? value) {
+  if (value == null) return defaultMaxCapacity;
+  try {
+    return parseInt(value).clamp(minAllowedCapacity, maxAllowedCapacity);
+  } on FormatException {
+    return defaultMaxCapacity;
+  }
+}
+
+String? parseOptionalTrimmedString(Object? value) {
+  if (value is! String) return null;
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }
 
 String? stringifyDate(Object? value) {

@@ -1,7 +1,6 @@
 import 'portal_models.dart';
 
 const int internalSlotMinutes = 15;
-const int maxCapacityPerInternalSlot = 2;
 
 class ActiveBonoConsistencyException implements Exception {
   const ActiveBonoConsistencyException(this.activeCount);
@@ -61,13 +60,14 @@ bool isDurationFull({
   required TimeSlot start,
   required int durationMinutes,
   required Iterable<SlotOccupancy> occupancy,
+  required int maxCapacity,
 }) {
   final counts = {for (final item in occupancy) item.slot.key: item.count};
 
   return expandInternalSlots(
     start,
     durationMinutes,
-  ).any((slot) => (counts[slot.key] ?? 0) >= maxCapacityPerInternalSlot);
+  ).any((slot) => (counts[slot.key] ?? 0) >= maxCapacity);
 }
 
 bool overlapsActiveAppointment({

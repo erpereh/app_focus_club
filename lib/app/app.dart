@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
+import '../features/app_update/data/installed_app_build_reader.dart';
+import '../features/app_update/domain/app_update_decision.dart';
+import '../features/app_update/presentation/version_gate.dart';
 import '../features/auth/application/auth_scope.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/client/application/portal_scope.dart';
@@ -19,6 +22,9 @@ class FocusClubApp extends StatefulWidget {
     AuthRepository? authRepository,
     PortalRepository? portalRepository,
     SupportRepository? supportRepository,
+    this.installedAppBuildReader,
+    this.appStorePlatform,
+    this.storeUrlLauncher,
   }) : authRepository = authRepository ?? FirebaseAuthRepository(),
        portalRepository = portalRepository ?? FirebasePortalRepository(),
        supportRepository = supportRepository ?? FirebaseSupportRepository(),
@@ -30,6 +36,9 @@ class FocusClubApp extends StatefulWidget {
   final AuthRepository authRepository;
   final PortalRepository portalRepository;
   final SupportRepository supportRepository;
+  final InstalledAppBuildReader? installedAppBuildReader;
+  final AppStorePlatform? appStorePlatform;
+  final Future<bool> Function(Uri)? storeUrlLauncher;
   final bool _enablePushNotificationNavigation;
 
   @override
@@ -74,9 +83,14 @@ class _FocusClubAppState extends State<FocusClubApp> {
               title: 'Focus Club',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.dark,
-              builder: (context, child) => AppTextSizing.applyGlobally(
-                context,
-                child: child ?? const SizedBox.shrink(),
+              builder: (context, child) => VersionGate(
+                buildReader: widget.installedAppBuildReader,
+                platform: widget.appStorePlatform,
+                urlLauncher: widget.storeUrlLauncher,
+                child: AppTextSizing.applyGlobally(
+                  context,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
               initialRoute: AppRouter.splash,
               onGenerateRoute: AppRouter.onGenerateRoute,

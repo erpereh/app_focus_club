@@ -302,6 +302,7 @@ BookingSlotState bookingSlotState({
     start: slot,
     durationMinutes: durationMinutes,
     occupancy: occupancy,
+    maxCapacity: siteConfig.maxCapacity,
   )) {
     return BookingSlotState(
       slot: slot,
@@ -316,7 +317,7 @@ BookingSlotState bookingSlotState({
     durationMinutes: durationMinutes,
     occupancy: occupancy,
   );
-  if (maxCount == maxCapacityPerInternalSlot - 1) {
+  if (maxCount == siteConfig.maxCapacity - 1) {
     return BookingSlotState(
       slot: slot,
       label: '1 plaza',

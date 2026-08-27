@@ -109,14 +109,28 @@ void main() {
               id: '2026-04-30_20:00',
               date: '2026-04-30',
               time: '20:00',
-              count: maxCapacityPerInternalSlot,
+              count: 2,
             ),
           ],
+          maxCapacity: 2,
         );
 
         expect(isFull, isTrue);
       },
     );
+
+    test('maxCapacity 2 treats counts below two as available', () {
+      expect(_isDurationFullAtCount(count: 0, maxCapacity: 2), isFalse);
+      expect(_isDurationFullAtCount(count: 1, maxCapacity: 2), isFalse);
+      expect(_isDurationFullAtCount(count: 2, maxCapacity: 2), isTrue);
+    });
+
+    test('maxCapacity 5 treats counts below five as available', () {
+      expect(_isDurationFullAtCount(count: 0, maxCapacity: 5), isFalse);
+      expect(_isDurationFullAtCount(count: 2, maxCapacity: 5), isFalse);
+      expect(_isDurationFullAtCount(count: 4, maxCapacity: 5), isFalse);
+      expect(_isDurationFullAtCount(count: 5, maxCapacity: 5), isTrue);
+    });
 
     test('duration is blocked when any internal sub-slot is blocked', () {
       final isBlocked = isDurationBlocked(
@@ -216,7 +230,7 @@ void main() {
             id: '2026-04-30_13:30',
             date: '2026-04-30',
             time: '13:30',
-            count: maxCapacityPerInternalSlot,
+            count: 2,
           ),
         ],
         activeAppointments: const [],
@@ -238,7 +252,7 @@ void main() {
             id: '2026-04-30_13:30',
             date: '2026-04-30',
             time: '13:30',
-            count: maxCapacityPerInternalSlot - 1,
+            count: 1,
           ),
         ],
         activeAppointments: const [],
@@ -337,6 +351,55 @@ void main() {
       expect(config.sessionDuration, 60);
       expect(config.logoUrl, isNotNull);
       expect(config.logoStoragePath, isNotNull);
+      expect(config.maxCapacity, 2);
+      expect(config.minAndroidBuild, 0);
+      expect(config.minIosBuild, 0);
+      expect(config.latestAndroidBuild, 0);
+      expect(config.latestIosBuild, 0);
+      expect(config.androidStoreUrl, isNull);
+      expect(config.iosStoreUrl, isNull);
+    });
+
+    test('site config without maxCapacity falls back to two', () {
+      final config = SiteConfig.fromMap(_requiredSiteConfigMap());
+
+      expect(config.maxCapacity, 2);
+    });
+
+    test('site config clamps maxCapacity to a safe minimum of one', () {
+      final config = SiteConfig.fromMap({
+        ..._requiredSiteConfigMap(),
+        'maxCapacity': 0,
+      });
+
+      expect(config.maxCapacity, 1);
+    });
+
+    test('site config clamps maxCapacity to a safe maximum of ten', () {
+      final config = SiteConfig.fromMap({
+        ..._requiredSiteConfigMap(),
+        'maxCapacity': 99,
+      });
+
+      expect(config.maxCapacity, 10);
+    });
+
+    test('site config accepts numeric maxCapacity from Firestore', () {
+      final config = SiteConfig.fromMap({
+        ..._requiredSiteConfigMap(),
+        'maxCapacity': 5.0,
+      });
+
+      expect(config.maxCapacity, 5);
+    });
+
+    test('site config ignores invalid maxCapacity without throwing', () {
+      final config = SiteConfig.fromMap({
+        ..._requiredSiteConfigMap(),
+        'maxCapacity': 'nope',
+      });
+
+      expect(config.maxCapacity, 2);
     });
 
     test('bono history accepts minutos field from functions payload', () {
@@ -378,5 +441,32 @@ Bono _bono({required String id, required BonoStatus estado}) {
     historial: const [],
     asignadoPor: 'admin@example.com',
     createdAt: '2026-04-01T00:00:00.000Z',
+  );
+}
+
+Map<String, Object?> _requiredSiteConfigMap() {
+  return {
+    'startHour': 8,
+    'endHour': 20,
+    'slotInterval': 30,
+    'bonoExpirationMonths': 1,
+    'maintenanceMode': false,
+    'sessionDuration': 60,
+  };
+}
+
+bool _isDurationFullAtCount({required int count, required int maxCapacity}) {
+  return isDurationFull(
+    start: const TimeSlot(date: '2026-04-30', time: '19:30'),
+    durationMinutes: 30,
+    occupancy: [
+      SlotOccupancy(
+        id: '2026-04-30_19:30',
+        date: '2026-04-30',
+        time: '19:30',
+        count: count,
+      ),
+    ],
+    maxCapacity: maxCapacity,
   );
 }
