@@ -333,6 +333,78 @@ void main() {
       expect(appointment.assignedTrainer, isNull);
       expect(appointment.durationMinutes, 60);
       expect(appointment.approvedSlot?.key, '2026-04-30_19:30');
+      expect(appointment.recurrenceSeriesId, isNull);
+      expect(appointment.recurrenceIndex, isNull);
+      expect(appointment.isRecurring, isFalse);
+    });
+
+    test('appointment parses optional recurrence fields', () {
+      final appointment = Appointment.fromMap('id', {
+        'userId': 'uid',
+        'name': 'Cliente',
+        'email': 'cliente@example.com',
+        'phone': '+34612345678',
+        'serviceType': 'Bono Mensual de Entrenamiento',
+        'duration': '60',
+        'preferredSlots': [
+          {'date': '2026-09-10', 'time': '18:00'},
+        ],
+        'reason': '',
+        'status': 'pending',
+        'createdAt': '2026-09-01T10:00:00.000Z',
+        'recurrenceSeriesId': 'series-1',
+        'recurrenceIndex': 2,
+      });
+
+      expect(appointment.recurrenceSeriesId, 'series-1');
+      expect(appointment.recurrenceIndex, 2);
+      expect(appointment.isRecurring, isTrue);
+    });
+
+    test('appointment ignores blank recurrenceSeriesId', () {
+      final appointment = Appointment.fromMap('id', {
+        'userId': 'uid',
+        'name': 'Cliente',
+        'email': 'cliente@example.com',
+        'phone': '+34612345678',
+        'serviceType': 'Bono Mensual de Entrenamiento',
+        'duration': '45',
+        'preferredSlots': [
+          {'date': '2026-09-10', 'time': '18:00'},
+        ],
+        'reason': '',
+        'status': 'pending',
+        'createdAt': '2026-09-01T10:00:00.000Z',
+        'recurrenceSeriesId': '  ',
+        'recurrenceIndex': 1.0,
+      });
+
+      expect(appointment.isRecurring, isFalse);
+      expect(appointment.recurrenceIndex, 1);
+    });
+
+    test('recurring series parses backend duration strings', () {
+      final series = RecurringAppointmentSeries.fromMap('series-1', {
+        'userId': 'uid',
+        'serviceType': 'Bono Mensual de Entrenamiento',
+        'duration': '60',
+        'startDate': '2026-09-10',
+        'startTime': '18:00',
+        'intervalDays': 3,
+        'endDate': '2026-09-19',
+        'occurrenceCount': 4,
+        'totalMinutes': 240,
+        'bonoId': 'bono-1',
+        'status': 'pending',
+        'origin': 'client',
+        'createdAt': '2026-09-01T10:00:00.000Z',
+      });
+
+      expect(series.durationMinutes, 60);
+      expect(series.intervalDays, 3);
+      expect(series.occurrenceCount, 4);
+      expect(series.origin, RecurringSeriesOrigin.client);
+      expect(series.status, AppointmentStatus.pending);
     });
 
     test('site config accepts observed logo fields', () {

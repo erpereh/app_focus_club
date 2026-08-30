@@ -1,5 +1,6 @@
 import 'package:app_focus_club/app/app.dart';
 import 'package:app_focus_club/features/auth/data/auth_repository.dart';
+import 'package:app_focus_club/features/client/application/client_portal_view_model.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
@@ -443,6 +444,151 @@ void main() {
     expect(repository.requests.single.reason, 'Trabajo suave.');
   });
 
+  test('recurring payload uses the backend client contract', () {
+    const request = RecurringAppointmentRequest(
+      durationMinutes: 60,
+      preferredSlot: TimeSlot(date: '2026-09-10', time: '18:00'),
+      intervalDays: 3,
+      endDate: '2026-09-19',
+      comment: 'Trabajo de fuerza.',
+    );
+
+    expect(request.toCallablePayload(), {
+      'date': '2026-09-10',
+      'time': '18:00',
+      'durationMinutes': 60,
+      'intervalDays': 3,
+      'endDate': '2026-09-19',
+      'comment': 'Trabajo de fuerza.',
+    });
+    expect(request.toCallablePayload().containsKey('startDate'), isFalse);
+    expect(request.toCallablePayload().containsKey('startTime'), isFalse);
+    expect(request.toCallablePayload().containsKey('serviceType'), isFalse);
+    expect(request.toCallablePayload().containsKey('assignedTrainer'), isFalse);
+    expect(request.toCallablePayload()['duration'], isNull);
+    expect(request.toCallablePayload()['durationMinutes'], isA<int>());
+  });
+
+  test('createRecurringAppointments records a single request', () async {
+    final repository = FakePortalRepository();
+    await repository.createRecurringAppointments(
+      const RecurringAppointmentRequest(
+        durationMinutes: 60,
+        preferredSlot: TimeSlot(date: '2026-09-10', time: '18:00'),
+        intervalDays: 3,
+        endDate: '2026-09-19',
+        comment: '',
+      ),
+    );
+
+    expect(repository.recurringRequests, hasLength(1));
+    expect(repository.requests, isEmpty);
+  });
+
+  test('view model keeps individual and recurring callables separate', () async {
+    final repository = FakePortalRepository();
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+    );
+
+    await viewModel.createAppointment(
+      durationMinutes: 45,
+      preferredSlot: const TimeSlot(date: '2026-09-10', time: '10:00'),
+      reason: '',
+    );
+    await viewModel.createRecurringAppointments(
+      durationMinutes: 60,
+      preferredSlot: const TimeSlot(date: '2026-09-10', time: '18:00'),
+      intervalDays: 3,
+      endDate: '2026-09-19',
+      reason: 'Serie',
+    );
+    await viewModel.cancelRecurringAppointmentSeries('series-1');
+
+    expect(repository.requests, hasLength(1));
+    expect(repository.recurringRequests, hasLength(1));
+    expect(repository.cancelledSeriesIds, ['series-1']);
+    viewModel.dispose();
+  });
+
+  test('recurring series by id are stored in portal state', () async {
+    final series = RecurringAppointmentSeries(
+      id: 'series-1',
+      userId: 'uid',
+      serviceType: 'Bono Mensual de Entrenamiento',
+      durationMinutes: 60,
+      startDate: '2026-09-10',
+      startTime: '18:00',
+      intervalDays: 3,
+      endDate: '2026-09-19',
+      occurrenceCount: 4,
+      totalMinutes: 240,
+      bonoId: 'bono-1',
+      status: AppointmentStatus.pending,
+      origin: RecurringSeriesOrigin.client,
+      createdAt: '2026-09-01T10:00:00.000Z',
+    );
+    final repository = FakePortalRepository(recurringSeries: [series]);
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+    )..start();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(viewModel.state.recurringSeriesById['series-1']?.intervalDays, 3);
+    expect(viewModel.state.recurringSeriesById['series-1']?.occurrenceCount, 4);
+    viewModel.dispose();
+  });
+
+  test('exhausted bono after a series does not hide pending appointments', () async {
+    final pending = Appointment(
+      id: 'pending-1',
+      userId: 'uid',
+      name: 'Cliente',
+      email: 'cliente@example.com',
+      phone: '+34600000000',
+      serviceType: 'Bono Mensual de Entrenamiento',
+      durationMinutes: 60,
+      preferredSlots: const [TimeSlot(date: '2026-09-10', time: '18:00')],
+      reason: '',
+      status: AppointmentStatus.pending,
+      createdAt: '2026-09-01T10:00:00.000Z',
+      recurrenceSeriesId: 'series-1',
+      recurrenceIndex: 0,
+    );
+    final spentBono = Bono(
+      id: 'bono-1',
+      userId: 'uid',
+      tamano: 240,
+      minutosTotales: 240,
+      minutosRestantes: 0,
+      fechaAsignacion: '2026-09-01',
+      fechaExpiracion: '2026-10-31',
+      estado: BonoStatus.agotado,
+      historial: const [],
+      asignadoPor: 'admin',
+      createdAt: '2026-09-01T10:00:00.000Z',
+    );
+    final repository = FakePortalRepository(
+      appointments: [pending],
+      bonos: [spentBono],
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+    )..start();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(viewModel.state.activeBono, isNull);
+    expect(viewModel.state.error, isNull);
+    expect(viewModel.state.appointments, hasLength(1));
+    expect(viewModel.state.appointments.single.isRecurring, isTrue);
+    await viewModel.cancelRecurringAppointmentSeries('series-1');
+    expect(repository.cancelledSeriesIds, ['series-1']);
+    viewModel.dispose();
+  });
+
   test('maps createAppointment errors to Spanish messages', () {
     expect(
       appointmentRequestErrorMessage(
@@ -470,6 +616,25 @@ void main() {
         ),
       ),
       'Esta franja no está disponible para esta duración o restricción.',
+    );
+    expect(
+      appointmentRequestErrorMessage(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message:
+              'No hay suficientes minutos en el bono. La serie requiere 240 min y quedan 180 min.',
+        ),
+      ),
+      'No hay suficientes minutos en el bono. La serie requiere 240 min y quedan 180 min.',
+    );
+    expect(
+      recurringSeriesMutationErrorMessage(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message: 'Esta serie ya no se puede cancelar.',
+        ),
+      ),
+      'Esta serie ya no se puede cancelar.',
     );
   });
 

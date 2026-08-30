@@ -9,7 +9,10 @@ import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
 import '../domain/portal_models.dart';
+import '../domain/recurring_booking.dart';
 import '../widgets/appointment_display.dart';
+
+enum _BookingType { single, recurring }
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({
@@ -27,14 +30,24 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   final _commentController = TextEditingController();
+  final _intervalController = TextEditingController(
+    text: '$defaultRecurringIntervalDays',
+  );
   late int _selectedDuration;
   late String _selectedDate;
   BookingSlotState? _selectedSlot;
   String? _statusMessage;
   FocusStatusType _statusType = FocusStatusType.success;
   bool _isSubmitting = false;
+  _BookingType _bookingType = _BookingType.single;
+  int _intervalDays = defaultRecurringIntervalDays;
+  String? _selectedEndDate;
 
   bool get _isEditing => widget.editingAppointment != null;
+  bool get _isEditingRecurring =>
+      widget.editingAppointment?.isRecurring == true;
+  bool get _isRecurringBooking =>
+      !_isEditing && _bookingType == _BookingType.recurring;
 
   @override
   void initState() {
@@ -47,7 +60,7 @@ class _BookingScreenState extends State<BookingScreen> {
     _selectedDuration = widget.editingAppointment?.durationMinutes ?? 45;
     _selectedDate = isFutureEditingSlot
         ? editingSlot.date
-        : buildBookingDates().first;
+        : buildBookingDates(now: widget.viewModel.currentTime).first;
     if (isFutureEditingSlot) {
       _selectedSlot = BookingSlotState(
         slot: editingSlot,
@@ -71,6 +84,7 @@ class _BookingScreenState extends State<BookingScreen> {
   void dispose() {
     widget.viewModel.removeListener(_handlePortalChange);
     _commentController.dispose();
+    _intervalController.dispose();
     super.dispose();
   }
 
@@ -81,7 +95,7 @@ class _BookingScreenState extends State<BookingScreen> {
     final siteConfig = state.siteConfig;
     final editingSlot = widget.editingAppointment?.schedulingSlot;
     final dates = {
-      ...buildBookingDates(),
+      ...buildBookingDates(now: widget.viewModel.currentTime),
       if (_isEditing &&
           editingSlot != null &&
           (appointmentSlotDateTime(editingSlot)?.isAfter(DateTime.now()) ??
@@ -90,7 +104,8 @@ class _BookingScreenState extends State<BookingScreen> {
     }.toList(growable: false)..sort();
     final canBook = _isEditing
         ? siteConfig != null
-        : activeBono?.canBook == true &&
+        : !_isEditingRecurring &&
+              activeBono?.canBook == true &&
               siteConfig != null &&
               _selectedDuration <= (activeBono?.minutosRestantes ?? 0);
     final slots = siteConfig == null
@@ -114,7 +129,19 @@ class _BookingScreenState extends State<BookingScreen> {
     final selectedSlot = recalculatedSelectedSlot?.isEnabled == true
         ? recalculatedSelectedSlot
         : null;
-    final canSubmit = canBook && selectedSlot != null;
+    final hasta = _currentHasta(state);
+    final selectedEndDate = sanitizeRecurringEndDate(
+      _selectedEndDate,
+      hasta.options,
+    );
+    final canSubmitRecurring =
+        !_isRecurringBooking ||
+        (selectedEndDate != null && _intervalDays >= 1);
+    final canSubmit =
+        !_isEditingRecurring &&
+        canBook &&
+        selectedSlot != null &&
+        canSubmitRecurring;
 
     return Scaffold(
       appBar: AppBar(
@@ -131,6 +158,42 @@ class _BookingScreenState extends State<BookingScreen> {
           children: [
             if (_statusMessage != null) ...[
               FocusStatusMessage(message: _statusMessage!, type: _statusType),
+              const SizedBox(height: 18),
+            ],
+            if (_isEditingRecurring) ...[
+              const FocusStatusMessage(
+                message:
+                    'Las citas recurrentes no se pueden modificar individualmente.',
+                type: FocusStatusType.warning,
+              ),
+              const SizedBox(height: 18),
+            ],
+            if (!_isEditing) ...[
+              _StepCard(
+                title: 'Tipo de reserva',
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _BookingTypeOption(
+                        key: const Key('booking-type-single'),
+                        label: 'Cita única',
+                        isSelected: _bookingType == _BookingType.single,
+                        onTap: () => _onBookingTypeChanged(_BookingType.single),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _BookingTypeOption(
+                        key: const Key('booking-type-recurring'),
+                        label: 'Entrenamiento recurrente',
+                        isSelected: _bookingType == _BookingType.recurring,
+                        onTap: () =>
+                            _onBookingTypeChanged(_BookingType.recurring),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 18),
             ],
             _StepCard(
@@ -169,6 +232,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                     ? () => setState(() {
                                         _selectedDuration = duration;
                                         _selectedSlot = null;
+                                        _syncRecurringEndDate();
                                       })
                                     : null,
                               );
@@ -202,16 +266,33 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 18),
             _StepCard(
-              title: 'Fecha',
+              title: _isRecurringBooking ? 'Fecha inicial' : 'Fecha',
               child: _BookingCalendar(
                 selectedDate: _selectedDate,
                 dates: dates,
                 onSelected: (date) => setState(() {
                   _selectedDate = date;
                   _selectedSlot = null;
+                  _syncRecurringEndDate();
                 }),
               ),
             ),
+            if (_isRecurringBooking) ...[
+              const SizedBox(height: 18),
+              _StepCard(
+                title: 'Recurrencia',
+                child: _RecurringControls(
+                  intervalController: _intervalController,
+                  hasta: hasta,
+                  selectedEndDate: selectedEndDate,
+                  durationMinutes: _selectedDuration,
+                  onIntervalChanged: _onIntervalChanged,
+                  onEndDateChanged: (endDate) => setState(() {
+                    _selectedEndDate = endDate;
+                  }),
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             _StepCard(
               title: 'Franja horaria',
@@ -279,7 +360,44 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _handlePortalChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(_syncRecurringEndDate);
+  }
+
+  void _onBookingTypeChanged(_BookingType type) {
+    setState(() {
+      _bookingType = type;
+      if (type == _BookingType.single) {
+        _selectedEndDate = null;
+      } else {
+        _syncRecurringEndDate();
+      }
+    });
+  }
+
+  void _onIntervalChanged(String value) {
+    final parsed = int.tryParse(value.trim());
+    setState(() {
+      _intervalDays = parsed != null && parsed >= 1 ? parsed : 0;
+      _syncRecurringEndDate();
+    });
+  }
+
+  RecurringHastaViewModel _currentHasta(ClientPortalState state) {
+    return getRecurringHastaViewModel(
+      startDate: _selectedDate,
+      intervalDays: _intervalDays,
+      durationMinutes: _selectedDuration,
+      remainingMinutes: state.activeBono?.minutosRestantes ?? 0,
+      bonoExpirationDate: state.activeBono?.fechaExpiracion,
+    );
+  }
+
+  void _syncRecurringEndDate() {
+    _selectedEndDate = sanitizeRecurringEndDate(
+      _selectedEndDate,
+      _currentHasta(widget.viewModel.state).options,
+    );
   }
 
   Future<void> _submit() async {
@@ -302,6 +420,22 @@ class _BookingScreenState extends State<BookingScreen> {
     if (selectedSlot == null) {
       _showError('Selecciona una franja horaria.');
       return;
+    }
+    if (_isEditingRecurring) {
+      _showError(
+        'Las citas recurrentes no se pueden modificar individualmente.',
+      );
+      return;
+    }
+    if (_isRecurringBooking) {
+      final endDate = sanitizeRecurringEndDate(
+        _selectedEndDate,
+        _currentHasta(state).options,
+      );
+      if (endDate == null || _intervalDays < 1) {
+        _showError('Selecciona hasta que fecha quieres repetir el entrenamiento.');
+        return;
+      }
     }
     final latestSlot = bookingSlotState(
       slot: selectedSlot.slot,
@@ -327,6 +461,17 @@ class _BookingScreenState extends State<BookingScreen> {
         await widget.viewModel.updateAppointmentSlot(
           appointmentId: widget.editingAppointment!.id,
           preferredSlot: latestSlot.slot,
+        );
+      } else if (_isRecurringBooking) {
+        await widget.viewModel.createRecurringAppointments(
+          durationMinutes: _selectedDuration,
+          preferredSlot: latestSlot.slot,
+          intervalDays: _intervalDays,
+          endDate: sanitizeRecurringEndDate(
+            _selectedEndDate,
+            _currentHasta(state).options,
+          )!,
+          reason: _commentController.text.trim(),
         );
       } else {
         await widget.viewModel.createAppointment(
@@ -398,6 +543,166 @@ class _StepCard extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+class _BookingTypeOption extends StatelessWidget {
+  const _BookingTypeOption({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        constraints: const BoxConstraints(minHeight: 56),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.surfaceElevated.withValues(alpha: 0.96)
+              : AppTheme.input,
+          borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.emerald.withValues(alpha: 0.32)
+                : AppTheme.borderStrong.withValues(alpha: 0.42),
+            width: isSelected ? 1.4 : 1,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecurringControls extends StatelessWidget {
+  const _RecurringControls({
+    required this.intervalController,
+    required this.hasta,
+    required this.selectedEndDate,
+    required this.durationMinutes,
+    required this.onIntervalChanged,
+    required this.onEndDateChanged,
+  });
+
+  final TextEditingController intervalController;
+  final RecurringHastaViewModel hasta;
+  final String? selectedEndDate;
+  final int durationMinutes;
+  final ValueChanged<String> onIntervalChanged;
+  final ValueChanged<String?> onEndDateChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedOption = hasta.options
+        .where((option) => option.endDate == selectedEndDate)
+        .firstOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Cada', style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 84,
+              child: TextFormField(
+                key: const Key('recurring-interval-days'),
+                controller: intervalController,
+                keyboardType: TextInputType.number,
+                onChanged: onIntervalChanged,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text('días', style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text('Hasta', style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 8),
+        if (hasta.options.isEmpty)
+          FocusStatusMessage(
+            message: recurringHastaEmptyMessage(hasta.emptyReason),
+            type: FocusStatusType.warning,
+          )
+        else
+          InputDecorator(
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                key: const Key('recurring-end-date'),
+                isExpanded: true,
+                value: selectedOption?.endDate,
+                hint: const Text('Selecciona una fecha'),
+                items: [
+                  for (final option in hasta.options)
+                    DropdownMenuItem<String>(
+                      value: option.endDate,
+                      child: Text(
+                        formatRecurringHastaOptionLabel(option),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: onEndDateChanged,
+              ),
+            ),
+          ),
+        if (selectedOption != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            '${selectedOption.occurrenceCount} sesiones',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          Text(
+            '$durationMinutes min por sesión',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          Text(
+            '${selectedOption.totalMinutes} min en total',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Las sesiones quedarán pendientes de aprobación.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ],
     );
   }
 }

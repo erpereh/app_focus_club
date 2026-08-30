@@ -122,6 +122,8 @@ class Appointment {
     this.updatedAt,
     this.legacyDate,
     this.legacyTime,
+    this.recurrenceSeriesId,
+    this.recurrenceIndex,
   });
 
   final String id;
@@ -142,6 +144,10 @@ class Appointment {
   final String? updatedAt;
   final String? legacyDate;
   final String? legacyTime;
+  final String? recurrenceSeriesId;
+  final int? recurrenceIndex;
+
+  bool get isRecurring => recurrenceSeriesId != null;
 
   factory Appointment.fromMap(String id, Map<String, Object?> map) {
     final rawSlots = (map['preferredSlots'] as List<Object?>? ?? const []);
@@ -172,6 +178,8 @@ class Appointment {
       updatedAt: stringifyDate(map['updatedAt']),
       legacyDate: map['date'] as String?,
       legacyTime: map['time'] as String?,
+      recurrenceSeriesId: parseOptionalNonEmptyString(map['recurrenceSeriesId']),
+      recurrenceIndex: parseOptionalInt(map['recurrenceIndex']),
     );
   }
 
@@ -192,6 +200,8 @@ class Appointment {
       if (trainerNotes != null) 'trainerNotes': trainerNotes,
       'createdAt': createdAt,
       if (updatedAt != null) 'updatedAt': updatedAt,
+      if (recurrenceSeriesId != null) 'recurrenceSeriesId': recurrenceSeriesId,
+      if (recurrenceIndex != null) 'recurrenceIndex': recurrenceIndex,
     };
   }
 
@@ -209,6 +219,82 @@ class Appointment {
   }
 
   DateTime? get schedulingDateTime => appointmentSlotDateTime(schedulingSlot);
+}
+
+enum RecurringSeriesOrigin {
+  admin,
+  client;
+
+  static RecurringSeriesOrigin fromWire(String value) {
+    return RecurringSeriesOrigin.values.firstWhere(
+      (origin) => origin.name == value,
+      orElse: () => throw FormatException(
+        'Unknown recurring series origin: $value',
+      ),
+    );
+  }
+}
+
+class RecurringAppointmentSeries {
+  const RecurringAppointmentSeries({
+    required this.id,
+    required this.userId,
+    required this.serviceType,
+    required this.durationMinutes,
+    required this.startDate,
+    required this.startTime,
+    required this.intervalDays,
+    required this.endDate,
+    required this.occurrenceCount,
+    required this.totalMinutes,
+    required this.bonoId,
+    required this.status,
+    required this.origin,
+    required this.createdAt,
+    this.assignedTrainer,
+    this.updatedAt,
+  });
+
+  final String id;
+  final String userId;
+  final String serviceType;
+  final int durationMinutes;
+  final String startDate;
+  final String startTime;
+  final int intervalDays;
+  final String endDate;
+  final int occurrenceCount;
+  final int totalMinutes;
+  final String bonoId;
+  final AppointmentStatus status;
+  final RecurringSeriesOrigin origin;
+  final String createdAt;
+  final String? assignedTrainer;
+  final String? updatedAt;
+
+  factory RecurringAppointmentSeries.fromMap(
+    String id,
+    Map<String, Object?> map,
+  ) {
+    return RecurringAppointmentSeries(
+      id: id,
+      userId: map['userId'] as String,
+      serviceType: map['serviceType'] as String? ?? '',
+      durationMinutes: parseDurationMinutes(map['duration']),
+      startDate: map['startDate'] as String,
+      startTime: map['startTime'] as String,
+      intervalDays: parseInt(map['intervalDays']),
+      endDate: map['endDate'] as String,
+      occurrenceCount: parseInt(map['occurrenceCount']),
+      totalMinutes: parseInt(map['totalMinutes']),
+      bonoId: map['bonoId'] as String? ?? '',
+      status: AppointmentStatus.fromWire(map['status'] as String),
+      origin: RecurringSeriesOrigin.fromWire(map['origin'] as String),
+      createdAt: stringifyDate(map['createdAt']) ?? '',
+      assignedTrainer: parseOptionalNonEmptyString(map['assignedTrainer']),
+      updatedAt: stringifyDate(map['updatedAt']),
+    );
+  }
 }
 
 DateTime? appointmentSlotDateTime(TimeSlot? slot) {
@@ -506,6 +592,18 @@ String? parseOptionalTrimmedString(Object? value) {
   if (value is! String) return null;
   final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
+}
+
+String? parseOptionalNonEmptyString(Object? value) =>
+    parseOptionalTrimmedString(value);
+
+int? parseOptionalInt(Object? value) {
+  if (value == null) return null;
+  try {
+    return parseInt(value);
+  } on FormatException {
+    return null;
+  }
 }
 
 String? stringifyDate(Object? value) {

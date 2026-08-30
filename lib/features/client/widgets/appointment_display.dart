@@ -106,6 +106,32 @@ bool canManageAppointmentAt(Appointment appointment, DateTime now) {
       (appointment.schedulingDateTime?.isAfter(now) ?? false);
 }
 
+Appointment resolveLiveAppointment({
+  required Appointment fallback,
+  required Iterable<Appointment> appointments,
+}) {
+  return appointments
+          .where((item) => item.id == fallback.id)
+          .firstOrNull ??
+      fallback;
+}
+
+bool canModifyAppointment(Appointment appointment, DateTime now) {
+  return canManageAppointmentAt(appointment, now) && !appointment.isRecurring;
+}
+
+bool canCancelRecurringSeries(Appointment appointment, DateTime now) {
+  return canManageAppointmentAt(appointment, now) &&
+      appointment.isRecurring &&
+      appointment.status == AppointmentStatus.pending;
+}
+
+bool canCancelAppointmentOccurrence(Appointment appointment, DateTime now) {
+  return canManageAppointmentAt(appointment, now) &&
+      !(appointment.isRecurring &&
+          appointment.status == AppointmentStatus.pending);
+}
+
 extension PortalUserDisplay on UserProfile {
   String get displayInitials {
     final parts = name

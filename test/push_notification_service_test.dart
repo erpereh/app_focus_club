@@ -193,6 +193,19 @@ class _RecordingPortalRepository implements PortalRepository {
   }) async {}
 
   @override
+  Future<void> createRecurringAppointments(
+    RecurringAppointmentRequest request,
+  ) async {}
+
+  @override
+  Future<void> cancelOwnRecurringAppointmentSeries(String seriesId) async {}
+
+  @override
+  Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
+    String uid,
+  ) => const Stream.empty();
+
+  @override
   Future<void> deleteOwnAccount() async {}
 
   @override

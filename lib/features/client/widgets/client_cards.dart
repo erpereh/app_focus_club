@@ -20,7 +20,8 @@ class ClientAppointmentCard extends StatelessWidget {
        dateLabel = appointment.dateLabel,
        timeLabel = appointment.timeLabel,
        durationMinutes = appointment.durationMinutes,
-       assignedTrainer = trainerName ?? appointment.assignedTrainer;
+       assignedTrainer = trainerName ?? appointment.assignedTrainer,
+       isRecurring = appointment.isRecurring;
 
   final String serviceType;
   final String statusLabel;
@@ -30,6 +31,7 @@ class ClientAppointmentCard extends StatelessWidget {
   final String timeLabel;
   final int durationMinutes;
   final String? assignedTrainer;
+  final bool isRecurring;
   final VoidCallback onTap;
 
   @override
@@ -85,6 +87,13 @@ class ClientAppointmentCard extends StatelessWidget {
               icon: Icons.schedule_rounded,
               text: '$dateLabel - $timeLabel - $durationMinutes min',
             ),
+            if (isRecurring) ...[
+              const SizedBox(height: 8),
+              const _InfoLine(
+                icon: Icons.repeat_rounded,
+                text: 'Recurrente',
+              ),
+            ],
             if (assignedTrainer != null) ...[
               const SizedBox(height: 8),
               _InfoLine(

@@ -20,9 +20,14 @@ abstract interface class PortalRepository {
     required String endDate,
   });
   Stream<SiteConfig?> watchSiteConfig();
+  Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
+    String uid,
+  );
 
   Future<void> createAppointment(AppointmentRequest request);
+  Future<void> createRecurringAppointments(RecurringAppointmentRequest request);
   Future<void> cancelOwnAppointment(String appointmentId);
+  Future<void> cancelOwnRecurringAppointmentSeries(String seriesId);
   Future<void> updateOwnAppointmentSlot({
     required String appointmentId,
     required TimeSlot preferredSlot,
@@ -55,6 +60,33 @@ class AppointmentRequest {
       'duration': durationMinutes.toString(),
       'preferredSlot': preferredSlot.toMap(),
       'reason': reason,
+    };
+  }
+}
+
+class RecurringAppointmentRequest {
+  const RecurringAppointmentRequest({
+    required this.durationMinutes,
+    required this.preferredSlot,
+    required this.intervalDays,
+    required this.endDate,
+    required this.comment,
+  });
+
+  final int durationMinutes;
+  final TimeSlot preferredSlot;
+  final int intervalDays;
+  final String endDate;
+  final String comment;
+
+  Map<String, Object?> toCallablePayload() {
+    return {
+      'date': preferredSlot.date,
+      'time': preferredSlot.time,
+      'durationMinutes': durationMinutes,
+      'intervalDays': intervalDays,
+      'endDate': endDate,
+      'comment': comment,
     };
   }
 }
@@ -166,9 +198,35 @@ class FirebasePortalRepository implements PortalRepository {
   }
 
   @override
+  Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
+    String uid,
+  ) {
+    return _firestore
+        .collection('appointment_recurrences')
+        .where('userId', isEqualTo: uid)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => RecurringAppointmentSeries.fromMap(doc.id, doc.data()),
+              )
+              .toList(growable: false),
+        );
+  }
+
+  @override
   Future<void> createAppointment(AppointmentRequest request) async {
     await _functions
         .httpsCallable('createAppointment')
+        .call<Object?>(request.toCallablePayload());
+  }
+
+  @override
+  Future<void> createRecurringAppointments(
+    RecurringAppointmentRequest request,
+  ) async {
+    await _functions
+        .httpsCallable('createRecurringAppointments')
         .call<Object?>(request.toCallablePayload());
   }
 
@@ -177,6 +235,13 @@ class FirebasePortalRepository implements PortalRepository {
     await _functions.httpsCallable('cancelOwnAppointment').call<Object?>({
       'appointmentId': appointmentId,
     });
+  }
+
+  @override
+  Future<void> cancelOwnRecurringAppointmentSeries(String seriesId) async {
+    await _functions
+        .httpsCallable('cancelOwnRecurringAppointmentSeries')
+        .call<Object?>({'seriesId': seriesId});
   }
 
   @override
@@ -232,6 +297,7 @@ class FirebasePortalRepository implements PortalRepository {
 String appointmentRequestErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
     final message = (error.message ?? '').toLowerCase();
+    final original = _originalCallableMessage(error);
     return switch (error.code) {
       'unauthenticated' => 'Tu sesion ha caducado. Vuelve a iniciar sesion.',
       'not-found' when message.contains('profile') =>
@@ -254,6 +320,8 @@ String appointmentRequestErrorMessage(Object error) {
         'Ya tienes una sesion en esa franja.',
       'failed-precondition' when message.contains('more than one') =>
         'Hay una incidencia con tu bono activo. Contacta con Focus Club.',
+      'failed-precondition' || 'invalid-argument' when original != null =>
+        original,
       _ => 'No hemos podido enviar la solicitud. Intentalo de nuevo.',
     };
   }
@@ -266,6 +334,7 @@ String appointmentRequestErrorMessage(Object error) {
 String appointmentMutationErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
     final message = (error.message ?? '').toLowerCase();
+    final original = _originalCallableMessage(error);
     return switch (error.code) {
       'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
       'not-found' => 'No hemos encontrado esta cita.',
@@ -282,10 +351,35 @@ String appointmentMutationErrorMessage(Object error) {
         'Esta franja ya no está disponible.',
       'unavailable' || 'deadline-exceeded' =>
         'No hay conexión. Revisa la red e inténtalo de nuevo.',
+      'failed-precondition' || 'invalid-argument' when original != null =>
+        original,
       _ => 'No hemos podido actualizar la cita. Inténtalo de nuevo.',
     };
   }
   return 'No hemos podido actualizar la cita. Inténtalo de nuevo.';
+}
+
+String recurringSeriesMutationErrorMessage(Object error) {
+  if (error is FirebaseFunctionsException) {
+    final original = _originalCallableMessage(error);
+    return switch (error.code) {
+      'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
+      'permission-denied' =>
+        'No tienes permisos para cancelar esta solicitud.',
+      'not-found' => 'No hemos encontrado esta solicitud recurrente.',
+      'unavailable' || 'deadline-exceeded' =>
+        'No hay conexión. Revisa la red e inténtalo de nuevo.',
+      _ when original != null => original,
+      _ =>
+        'No hemos podido cancelar la solicitud recurrente. Inténtalo de nuevo.',
+    };
+  }
+  return 'No hemos podido cancelar la solicitud recurrente. Inténtalo de nuevo.';
+}
+
+String? _originalCallableMessage(FirebaseFunctionsException error) {
+  final message = (error.message ?? '').trim();
+  return message.isEmpty ? null : message;
 }
 
 String deleteOwnAccountErrorMessage(Object error) {
@@ -308,43 +402,84 @@ class FakePortalRepository implements PortalRepository {
     List<Trainer> trainers = const [],
     List<BlockedSlot> blockedSlots = const [],
     List<SlotOccupancy> slotOccupancy = const [],
+    List<RecurringAppointmentSeries> recurringSeries = const [],
     SiteConfig? siteConfig,
     Object? deleteOwnAccountFailure,
+    Object? recurringSeriesCancelFailure,
   }) : _profile = profile,
-       _appointments = appointments,
-       _bonos = bonos,
+       _appointments = List<Appointment>.from(appointments),
+       _bonos = List<Bono>.from(bonos),
        _trainers = trainers,
        _blockedSlots = blockedSlots,
        _slotOccupancy = slotOccupancy,
+       _recurringSeries = List<RecurringAppointmentSeries>.from(
+         recurringSeries,
+       ),
        _siteConfig = siteConfig,
-       _deleteOwnAccountFailure = deleteOwnAccountFailure;
+       _deleteOwnAccountFailure = deleteOwnAccountFailure,
+       _recurringSeriesCancelFailure = recurringSeriesCancelFailure;
 
   final UserProfile? _profile;
-  final List<Appointment> _appointments;
-  final List<Bono> _bonos;
+  List<Appointment> _appointments;
+  List<Bono> _bonos;
   final List<Trainer> _trainers;
   final List<BlockedSlot> _blockedSlots;
   final List<SlotOccupancy> _slotOccupancy;
+  List<RecurringAppointmentSeries> _recurringSeries;
   final SiteConfig? _siteConfig;
   final Object? _deleteOwnAccountFailure;
+  final Object? _recurringSeriesCancelFailure;
+  final StreamController<void> _appointmentsController =
+      StreamController<void>.broadcast();
+  final StreamController<void> _bonosController =
+      StreamController<void>.broadcast();
+  final StreamController<void> _seriesController =
+      StreamController<void>.broadcast();
   final List<AppointmentRequest> requests = [];
+  final List<RecurringAppointmentRequest> recurringRequests = [];
   final List<String> cancelledAppointmentIds = [];
+  final List<String> cancelledSeriesIds = [];
   final List<({String appointmentId, TimeSlot preferredSlot})> slotUpdates = [];
   int deleteOwnAccountCalls = 0;
+
+  void emitAppointments(List<Appointment> appointments) {
+    _appointments = List<Appointment>.from(appointments);
+    _appointmentsController.add(null);
+  }
+
+  void emitBonos(List<Bono> bonos) {
+    _bonos = List<Bono>.from(bonos);
+    _bonosController.add(null);
+  }
+
+  void emitRecurringSeries(List<RecurringAppointmentSeries> series) {
+    _recurringSeries = List<RecurringAppointmentSeries>.from(series);
+    _seriesController.add(null);
+  }
 
   @override
   Stream<UserProfile?> watchUserProfile(String uid) => Stream.value(_profile);
 
   @override
   Stream<List<Appointment>> watchAppointmentsByUser(String uid) {
-    return Stream.value(
-      _appointments.where((appointment) => appointment.userId == uid).toList(),
-    );
+    return Stream<List<Appointment>>.multi((listener) {
+      listener.add(_appointmentsFor(uid));
+      final sub = _appointmentsController.stream.listen((_) {
+        listener.add(_appointmentsFor(uid));
+      });
+      listener.onCancel = sub.cancel;
+    });
   }
 
   @override
   Stream<List<Bono>> watchBonosByUser(String uid) {
-    return Stream.value(_bonos.where((bono) => bono.userId == uid).toList());
+    return Stream<List<Bono>>.multi((listener) {
+      listener.add(_bonos.where((bono) => bono.userId == uid).toList());
+      final sub = _bonosController.stream.listen((_) {
+        listener.add(_bonos.where((bono) => bono.userId == uid).toList());
+      });
+      listener.onCancel = sub.cancel;
+    });
   }
 
   @override
@@ -384,13 +519,40 @@ class FakePortalRepository implements PortalRepository {
   Stream<SiteConfig?> watchSiteConfig() => Stream.value(_siteConfig);
 
   @override
+  Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
+    String uid,
+  ) {
+    return Stream<List<RecurringAppointmentSeries>>.multi((listener) {
+      listener.add(_seriesFor(uid));
+      final sub = _seriesController.stream.listen((_) {
+        listener.add(_seriesFor(uid));
+      });
+      listener.onCancel = sub.cancel;
+    });
+  }
+
+  @override
   Future<void> createAppointment(AppointmentRequest request) async {
     requests.add(request);
   }
 
   @override
+  Future<void> createRecurringAppointments(
+    RecurringAppointmentRequest request,
+  ) async {
+    recurringRequests.add(request);
+  }
+
+  @override
   Future<void> cancelOwnAppointment(String appointmentId) async {
     cancelledAppointmentIds.add(appointmentId);
+  }
+
+  @override
+  Future<void> cancelOwnRecurringAppointmentSeries(String seriesId) async {
+    final failure = _recurringSeriesCancelFailure;
+    if (failure != null) throw failure;
+    cancelledSeriesIds.add(seriesId);
   }
 
   @override
@@ -423,4 +585,14 @@ class FakePortalRepository implements PortalRepository {
     required String token,
     required String platform,
   }) async {}
+
+  List<Appointment> _appointmentsFor(String uid) {
+    return _appointments
+        .where((appointment) => appointment.userId == uid)
+        .toList();
+  }
+
+  List<RecurringAppointmentSeries> _seriesFor(String uid) {
+    return _recurringSeries.where((series) => series.userId == uid).toList();
+  }
 }

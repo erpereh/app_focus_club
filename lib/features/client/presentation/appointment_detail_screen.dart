@@ -9,6 +9,7 @@ import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
 import '../domain/portal_models.dart';
+import '../domain/recurring_booking.dart';
 import '../widgets/appointment_display.dart';
 import 'booking_screen.dart';
 
@@ -38,12 +39,31 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     return ListenableBuilder(
       listenable: widget.viewModel,
       builder: (context, _) {
-        final appointment = widget.appointment;
+        final state = widget.viewModel.state;
+        final appointment = resolveLiveAppointment(
+          fallback: widget.appointment,
+          appointments: state.appointments,
+        );
         final now = widget.viewModel.currentTime;
         final isApproved = appointment.status == AppointmentStatus.approved;
         final assignedTrainer =
-            widget.trainerName ?? appointment.assignedTrainer;
-        final canManage = canManageAppointmentAt(appointment, now);
+            widget.trainerName ??
+            state.trainers
+                .where((trainer) => trainer.id == appointment.assignedTrainer)
+                .map((trainer) => trainer.name)
+                .firstOrNull ??
+            appointment.assignedTrainer;
+        final series = appointment.recurrenceSeriesId == null
+            ? null
+            : state.recurringSeriesById[appointment.recurrenceSeriesId];
+        final showModify = canModifyAppointment(appointment, now);
+        final showCancelSeries = canCancelRecurringSeries(appointment, now);
+        final showCancelOccurrence = canCancelAppointmentOccurrence(
+          appointment,
+          now,
+        );
+        final showActions =
+            showModify || showCancelSeries || showCancelOccurrence;
 
         return Scaffold(
           appBar: AppBar(
@@ -147,6 +167,32 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     ),
                   ),
                 ],
+                if (appointment.isRecurring) ...[
+                  const SizedBox(height: 18),
+                  FocusGlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const FocusSectionHeader(title: 'Entrenamiento recurrente'),
+                        if (series != null) ...[
+                          const SizedBox(height: 14),
+                          _DetailLine(
+                            label: 'Cada',
+                            value: '${series.intervalDays} días',
+                          ),
+                          _DetailLine(
+                            label: 'Sesiones',
+                            value: '${series.occurrenceCount} sesiones',
+                          ),
+                          _DetailLine(
+                            label: 'Hasta',
+                            value: formatIsoDateEs(series.endDate),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
                 if (appointment.reasonLabel != null) ...[
                   const SizedBox(height: 18),
                   FocusGlassCard(
@@ -177,7 +223,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     ],
                   ),
                 ),
-                if (canManage) ...[
+                if (showActions) ...[
                   const SizedBox(height: 22),
                   if (_errorMessage != null) ...[
                     FocusStatusMessage(
@@ -186,16 +232,31 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     ),
                     const SizedBox(height: 14),
                   ],
-                  FocusPrimaryButton(
-                    label: 'Modificar cita',
-                    onPressed: _isCancelling ? null : _openEdit,
-                  ),
-                  const SizedBox(height: 12),
-                  FocusGhostButton(
-                    label: 'Cancelar cita',
-                    icon: Icons.cancel_outlined,
-                    onPressed: _isCancelling ? null : _confirmCancel,
-                  ),
+                  if (showModify) ...[
+                    FocusPrimaryButton(
+                      label: 'Modificar cita',
+                      onPressed: _isCancelling
+                          ? null
+                          : () => _openEdit(appointment),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (showCancelSeries)
+                    FocusGhostButton(
+                      label: 'Cancelar solicitud recurrente',
+                      icon: Icons.cancel_outlined,
+                      onPressed: _isCancelling
+                          ? null
+                          : () => _confirmCancelSeries(appointment),
+                    ),
+                  if (showCancelOccurrence)
+                    FocusGhostButton(
+                      label: 'Cancelar cita',
+                      icon: Icons.cancel_outlined,
+                      onPressed: _isCancelling
+                          ? null
+                          : () => _confirmCancelOccurrence(appointment),
+                    ),
                 ],
               ],
             ),
@@ -205,28 +266,91 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     );
   }
 
-  Future<void> _openEdit() {
+  Future<void> _openEdit(Appointment appointment) {
+    if (appointment.isRecurring) return Future<void>.value();
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => BookingScreen(
           viewModel: widget.viewModel,
-          editingAppointment: widget.appointment,
+          editingAppointment: appointment,
         ),
       ),
     );
   }
 
-  Future<void> _confirmCancel() async {
+  Future<void> _confirmCancelSeries(Appointment appointment) async {
+    final seriesId = appointment.recurrenceSeriesId;
+    if (seriesId == null) return;
     final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         scrollable: true,
-        title: const Text('¿Cancelar esta cita?'),
+        title: const Text('¿Cancelar toda la solicitud recurrente?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Se devolverán los minutos a tu bono si corresponde.'),
+            const Text(
+              'Se cancelarán todas las sesiones pendientes de esta serie y se devolverán los minutos reservados.',
+            ),
+            const SizedBox(height: 22),
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Volver'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+                foregroundColor: AppTheme.background,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: const Text('Cancelar solicitud'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (shouldCancel != true || !mounted) return;
+
+    setState(() {
+      _isCancelling = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.viewModel.cancelRecurringAppointmentSeries(seriesId);
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _errorMessage = recurringSeriesMutationErrorMessage(error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
+  }
+
+  Future<void> _confirmCancelOccurrence(Appointment appointment) async {
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: Text(
+          appointment.isRecurring
+              ? '¿Cancelar esta sesión?'
+              : '¿Cancelar esta cita?',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              appointment.isRecurring
+                  ? 'Se devolverán los minutos de esta sesión. El resto de la serie no se cancela.'
+                  : 'Se devolverán los minutos a tu bono si corresponde.',
+            ),
             const SizedBox(height: 22),
             OutlinedButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -253,7 +377,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
       _errorMessage = null;
     });
     try {
-      await widget.viewModel.cancelAppointment(widget.appointment.id);
+      await widget.viewModel.cancelAppointment(appointment.id);
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       if (mounted) {

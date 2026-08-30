@@ -17,6 +17,7 @@ class ClientPortalState {
     this.slotOccupancy = const [],
     this.siteConfig,
     this.activeBono,
+    this.recurringSeriesById = const {},
     this.error,
     this.isLoading = true,
   });
@@ -29,6 +30,7 @@ class ClientPortalState {
   final List<SlotOccupancy> slotOccupancy;
   final SiteConfig? siteConfig;
   final Bono? activeBono;
+  final Map<String, RecurringAppointmentSeries> recurringSeriesById;
   final Object? error;
   final bool isLoading;
 
@@ -114,6 +116,7 @@ class ClientPortalState {
     SiteConfig? siteConfig,
     Bono? activeBono,
     bool clearActiveBono = false,
+    Map<String, RecurringAppointmentSeries>? recurringSeriesById,
     Object? error,
     bool? isLoading,
   }) {
@@ -126,6 +129,7 @@ class ClientPortalState {
       slotOccupancy: slotOccupancy ?? this.slotOccupancy,
       siteConfig: siteConfig ?? this.siteConfig,
       activeBono: clearActiveBono ? null : activeBono ?? this.activeBono,
+      recurringSeriesById: recurringSeriesById ?? this.recurringSeriesById,
       error: error,
       isLoading: isLoading ?? this.isLoading,
     );
@@ -210,6 +214,11 @@ class ClientPortalViewModel extends ChangeNotifier {
           _setSiteConfig,
           onError: _setError,
         ),
+      )
+      ..add(
+        _repository
+            .watchRecurringSeriesByUser(_uid)
+            .listen(_setRecurringSeries, onError: _setError),
       );
   }
 
@@ -227,6 +236,24 @@ class ClientPortalViewModel extends ChangeNotifier {
     );
   }
 
+  Future<void> createRecurringAppointments({
+    required int durationMinutes,
+    required TimeSlot preferredSlot,
+    required int intervalDays,
+    required String endDate,
+    required String reason,
+  }) async {
+    await _repository.createRecurringAppointments(
+      RecurringAppointmentRequest(
+        durationMinutes: durationMinutes,
+        preferredSlot: preferredSlot,
+        intervalDays: intervalDays,
+        endDate: endDate,
+        comment: reason,
+      ),
+    );
+  }
+
   Future<void> cancelAppointment(String appointmentId) {
     return _repository.cancelOwnAppointment(appointmentId);
   }
@@ -239,6 +266,10 @@ class ClientPortalViewModel extends ChangeNotifier {
       appointmentId: appointmentId,
       preferredSlot: preferredSlot,
     );
+  }
+
+  Future<void> cancelRecurringAppointmentSeries(String seriesId) {
+    return _repository.cancelOwnRecurringAppointmentSeries(seriesId);
   }
 
   void refreshTemporalState() {
@@ -345,6 +376,16 @@ class ClientPortalViewModel extends ChangeNotifier {
 
   void _setSiteConfig(SiteConfig? siteConfig) {
     _state = _state.copyWith(siteConfig: siteConfig, isLoading: false);
+    notifyListeners();
+  }
+
+  void _setRecurringSeries(List<RecurringAppointmentSeries> series) {
+    _state = _state.copyWith(
+      recurringSeriesById: {
+        for (final item in series) item.id: item,
+      },
+      isLoading: false,
+    );
     notifyListeners();
   }
 

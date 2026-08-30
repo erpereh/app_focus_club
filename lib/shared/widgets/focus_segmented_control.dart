@@ -72,6 +72,8 @@ class FocusSegmentedControl<T> extends StatelessWidget {
                     child: Text(
                       option.label,
                       textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: isSelected
                             ? AppTheme.textPrimary
