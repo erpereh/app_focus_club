@@ -20,13 +20,15 @@ void main() {
           pushNotificationService: _FailingPushNotificationService(),
         ),
       );
-
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(Switch));
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
       expect(
         find.text(
           'No hemos podido activar las notificaciones. Revisa los permisos del iPhone e intentalo de nuevo.',
+          skipOffstage: false,
         ),
         findsOneWidget,
       );

@@ -2,62 +2,56 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
+enum FocusButtonTone { lime, black }
+
 class FocusPrimaryButton extends StatelessWidget {
   const FocusPrimaryButton({
     required this.label,
     required this.onPressed,
     super.key,
     this.isLoading = false,
+    this.tone = FocusButtonTone.lime,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
+  final FocusButtonTone tone;
 
   @override
   Widget build(BuildContext context) {
     final isDisabled = onPressed == null || isLoading;
+    final background = tone == FocusButtonTone.lime
+        ? AppTheme.lime
+        : AppTheme.black;
+    final foreground = tone == FocusButtonTone.lime
+        ? AppTheme.onLime
+        : AppTheme.onBlack;
 
     return Opacity(
-      opacity: isDisabled ? 0.58 : 1,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          color: AppTheme.emerald,
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.emerald.withValues(alpha: 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 9),
+      opacity: isDisabled ? 0.5 : 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: background,
+              foregroundColor: foreground,
+              disabledBackgroundColor: background,
+              disabledForegroundColor: foreground,
+              shadowColor: Colors.transparent,
             ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 12,
-              offset: const Offset(0, 7),
-            ),
-          ],
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                disabledBackgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-              ),
-              onPressed: isDisabled ? null : onPressed,
-              child: isLoading
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.background,
-                      ),
-                    )
-                  : Text(label),
-            ),
+            onPressed: isDisabled ? null : onPressed,
+            child: isLoading
+                ? SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: foreground,
+                    ),
+                  )
+                : Text(label),
           ),
         ),
       ),
@@ -89,12 +83,10 @@ class FocusGhostButton extends StatelessWidget {
           label: Text(label),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.textPrimary,
-            backgroundColor: AppTheme.surfaceElevated.withValues(alpha: 0.52),
-            side: BorderSide(
-              color: AppTheme.borderStrong.withValues(alpha: 0.32),
-            ),
+            backgroundColor: AppTheme.white,
+            side: const BorderSide(color: AppTheme.borderStrong),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             ),
           ),
         ),
@@ -125,12 +117,10 @@ class FocusGoogleButton extends StatelessWidget {
           onPressed: isDisabled ? null : onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.textPrimary,
-            backgroundColor: AppTheme.input.withValues(alpha: 0.58),
-            side: BorderSide(
-              color: AppTheme.borderStrong.withValues(alpha: 0.32),
-            ),
+            backgroundColor: AppTheme.white,
+            side: const BorderSide(color: AppTheme.borderStrong),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             ),
           ),
           child: isLoading
@@ -167,7 +157,7 @@ class _GoogleGlyph extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.textPrimary,
+        color: AppTheme.black,
         borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
       ),
       child: const SizedBox(
@@ -177,7 +167,7 @@ class _GoogleGlyph extends StatelessWidget {
           child: Text(
             'G',
             style: TextStyle(
-              color: AppTheme.background,
+              color: AppTheme.onBlack,
               fontSize: 13,
               fontWeight: FontWeight.w900,
             ),

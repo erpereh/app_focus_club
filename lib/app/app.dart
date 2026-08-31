@@ -82,7 +82,7 @@ class _FocusClubAppState extends State<FocusClubApp> {
               navigatorKey: AppRouter.navigatorKey,
               title: 'Focus Club',
               debugShowCheckedModeBanner: false,
-              theme: AppTheme.dark,
+              theme: AppTheme.light,
               builder: (context, child) => VersionGate(
                 buildReader: widget.installedAppBuildReader,
                 platform: widget.appStorePlatform,

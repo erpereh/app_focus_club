@@ -201,6 +201,7 @@ void main() {
           },
         ),
       );
+      await tester.pump(const Duration(milliseconds: 950));
       await tester.pumpAndSettle();
 
       expect(find.text('Actualizacion necesaria'), findsOneWidget);

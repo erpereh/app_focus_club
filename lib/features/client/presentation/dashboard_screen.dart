@@ -4,21 +4,16 @@ import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
-import '../../../shared/widgets/focus_segmented_control.dart';
-import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_status_badge.dart';
+import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
-import '../../../theme/app_text_size.dart';
-import '../../auth/application/auth_scope.dart';
-import '../../../navigation/app_router.dart';
 import '../application/client_portal_view_model.dart';
-import '../data/push_notification_service.dart';
 import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 import '../widgets/client_cards.dart';
 import 'appointment_detail_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
     required this.state,
     required this.viewModel,
@@ -35,60 +30,21 @@ class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenBooking;
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  int _historyTabIndex = 0;
-
-  void _openDetail(BuildContext context, Appointment appointment) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AppointmentDetailScreen(
-          appointment: appointment,
-          viewModel: widget.viewModel,
-          trainerName: _trainerName(appointment.assignedTrainer),
-        ),
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final state = widget.state;
     final profile = state.profile;
     final pass = state.activeBono;
-    final appointments = state.activeAppointments;
     final dashboardAppointments = state.dashboardAppointments;
     final nextAppointment = dashboardAppointments.firstOrNull;
-    final pendingCount = appointments
-        .where((item) => item.status == AppointmentStatus.pending)
-        .length;
-    final approvedCount = appointments
-        .where((item) => item.status == AppointmentStatus.approved)
-        .length;
+    final recent = dashboardAppointments.take(3).toList();
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 150),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, AppTheme.navContentInset),
         children: [
           _DashboardHeader(
             profile: profile,
-            onOpenProfile: widget.onOpenProfile,
-            onSignOut: () => _signOut(context),
+            onOpenProfile: onOpenProfile,
           ),
-          const SizedBox(height: 24),
-          FocusPrimaryButton(
-            label: 'Reservar Sesion',
-            onPressed: pass?.canBook == true ? widget.onOpenBooking : null,
-          ),
-          if (pass?.canBook != true) ...[
-            const SizedBox(height: 18),
-            const FocusStatusMessage(
-              message: 'No tienes minutos disponibles para reservar ahora.',
-              type: FocusStatusType.warning,
-            ),
-          ],
           const SizedBox(height: 28),
           if (pass == null)
             const FocusEmptyState(
@@ -98,69 +54,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
           else
             ClientPassCard(pass: pass),
-          const SizedBox(height: 22),
+          const SizedBox(height: 24),
+          FocusPrimaryButton(
+            label: 'Reservar Sesion',
+            onPressed: pass?.canBook == true ? onOpenBooking : null,
+          ),
+          if (pass?.canBook != true) ...[
+            const SizedBox(height: 14),
+            const FocusStatusMessage(
+              message: 'No tienes minutos disponibles para reservar ahora.',
+              type: FocusStatusType.warning,
+            ),
+          ],
+          const SizedBox(height: 32),
+          const FocusKicker('Proxima sesion'),
+          const SizedBox(height: 12),
           _NextAppointmentCard(
             appointment: nextAppointment,
+            onOpenBooking: onOpenBooking,
+            canBook: pass?.canBook == true,
             onTap: nextAppointment == null
                 ? null
                 : () => _openDetail(context, nextAppointment),
           ),
-          const SizedBox(height: 22),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final usedMinutesCard = ClientMetricCard(
-                icon: Icons.fitness_center_rounded,
-                value: '${pass?.usedMinutes ?? 0}',
-                label: 'Minutos usados',
-                detail: pass == null ? 'Sin bono activo' : 'Este bono activo',
-              );
-              final appointmentsCard = ClientMetricCard(
-                icon: Icons.pending_actions_rounded,
-                value: '${appointments.length}',
-                label: 'Citas activas',
-                detail: '$approvedCount aprobadas\n$pendingCount pendientes',
-              );
-              final stackCards =
-                  AppTextSizing.isLarge(context) && constraints.maxWidth < 340;
-              if (stackCards) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    usedMinutesCard,
-                    const SizedBox(height: 12),
-                    appointmentsCard,
-                  ],
-                );
-              }
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: usedMinutesCard),
-                    const SizedBox(width: 12),
-                    Expanded(child: appointmentsCard),
-                  ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 32),
           FocusSectionHeader(
-            title: 'Mis Citas',
+            title: 'Actividad reciente',
             actionLabel: 'Ver todas',
-            onAction: widget.onOpenAppointments,
+            onAction: onOpenAppointments,
           ),
-          const SizedBox(height: 16),
-          if (dashboardAppointments.isEmpty)
+          const SizedBox(height: 12),
+          if (recent.isEmpty)
             const FocusEmptyState(
               title: 'Sin citas activas',
               description: 'Tus citas pendientes o aprobadas apareceran aqui.',
               icon: Icons.event_busy_rounded,
             )
           else
-            ...dashboardAppointments.map(
+            ...recent.map(
               (appointment) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: ClientAppointmentCard(
                   appointment: appointment,
                   trainerName: _trainerName(appointment.assignedTrainer),
@@ -168,42 +101,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-          const SizedBox(height: 20),
-          FocusSectionHeader(
-            title: 'Historial',
-            actionLabel: 'Abrir citas',
-            onAction: widget.onOpenAppointments,
-          ),
-          const SizedBox(height: 16),
-          _HistoryPreview(
-            tabIndex: _historyTabIndex,
-            appointments: state.dashboardHistoryAppointments,
-            passes: state.inactiveBonos,
-            trainerNameFor: _trainerName,
-            onTabChanged: (index) => setState(() => _historyTabIndex = index),
-            onOpenAppointment: (appointment) =>
-                _openDetail(context, appointment),
-          ),
         ],
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context, Appointment appointment) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AppointmentDetailScreen(
+          appointment: appointment,
+          viewModel: viewModel,
+          trainerName: _trainerName(appointment.assignedTrainer),
+        ),
       ),
     );
   }
 
   String? _trainerName(String? trainerId) {
     if (trainerId == null) return null;
-    for (final trainer in widget.state.trainers) {
+    for (final trainer in state.trainers) {
       if (trainer.id == trainerId) return trainer.name;
     }
     return trainerId;
-  }
-
-  Future<void> _signOut(BuildContext context) async {
-    final authRepository = AuthScope.of(context);
-    final navigator = Navigator.of(context);
-    await FirebasePushNotificationService.instance.stop();
-    await authRepository.signOut();
-    if (!context.mounted) return;
-    navigator.pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
   }
 }
 
@@ -211,41 +131,39 @@ class _DashboardHeader extends StatelessWidget {
   const _DashboardHeader({
     required this.profile,
     required this.onOpenProfile,
-    required this.onSignOut,
   });
 
   final UserProfile? profile;
   final VoidCallback onOpenProfile;
-  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
+    final hour = TimeOfDay.now().hour;
+    final greeting = hour < 12
+        ? 'Buenos dias'
+        : hour < 19
+        ? 'Buenas tardes'
+        : 'Buenas noches';
+
     return Row(
       children: [
         InkWell(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           onTap: onOpenProfile,
           child: Tooltip(
             message: 'Abrir perfil',
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppTheme.surfaceGlass,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppTheme.borderStrong.withValues(alpha: 0.20),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 16,
-                    offset: const Offset(0, 9),
-                  ),
-                ],
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.lime, width: 2),
               ),
-              child: SizedBox(
-                width: 58,
-                height: 58,
-                child: _DashboardAvatar(profile: profile),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: _DashboardAvatar(profile: profile),
+                ),
               ),
             ),
           ),
@@ -255,28 +173,26 @@ class _DashboardHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const FocusKicker('Focus Club Vallecas'),
-              const SizedBox(height: 5),
               Text(
-                profile?.name ?? 'Cliente',
-                style: Theme.of(context).textTheme.titleMedium,
+                greeting,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 2),
               Text(
-                profile?.email ?? '',
-                style: Theme.of(context).textTheme.bodyMedium,
+                profile?.name ?? 'Cliente',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontSize: 24,
+                ),
               ),
             ],
           ),
         ),
         IconButton(
-          tooltip: 'Salir',
-          onPressed: onSignOut,
-          icon: const Icon(Icons.logout_rounded, size: 21),
-          style: IconButton.styleFrom(
-            backgroundColor: AppTheme.input.withValues(alpha: 0.50),
-            foregroundColor: AppTheme.textSecondary,
-          ),
+          tooltip: 'Abrir perfil',
+          onPressed: onOpenProfile,
+          icon: const Icon(Icons.person_outline_rounded, size: 22),
         ),
       ],
     );
@@ -294,12 +210,11 @@ class _DashboardAvatar extends StatelessWidget {
       return _DashboardAvatarFallback(profile: profile);
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
+    return ClipOval(
       child: Image.network(
         profile!.photoUrl!,
-        width: 58,
-        height: 58,
+        width: 52,
+        height: 52,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return _DashboardAvatarFallback(profile: profile);
@@ -316,133 +231,108 @@ class _DashboardAvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        profile?.displayInitials ?? '?',
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: AppTheme.emerald,
-          fontWeight: FontWeight.w900,
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTheme.black,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          profile?.displayInitials ?? '?',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: AppTheme.lime,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
   }
 }
 
-class _HistoryPreview extends StatelessWidget {
-  const _HistoryPreview({
-    required this.tabIndex,
-    required this.appointments,
-    required this.passes,
-    required this.trainerNameFor,
-    required this.onTabChanged,
-    required this.onOpenAppointment,
+class _NextAppointmentCard extends StatelessWidget {
+  const _NextAppointmentCard({
+    required this.appointment,
+    required this.onOpenBooking,
+    required this.canBook,
+    required this.onTap,
   });
 
-  final int tabIndex;
-  final List<Appointment> appointments;
-  final List<Bono> passes;
-  final String? Function(String? trainerId) trainerNameFor;
-  final ValueChanged<int> onTabChanged;
-  final ValueChanged<Appointment> onOpenAppointment;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        FocusSegmentedControl(
-          options: const [
-            FocusSegmentOption(value: 0, label: 'Historial Citas'),
-            FocusSegmentOption(value: 1, label: 'Historial Bonos'),
-          ],
-          selectedValue: tabIndex,
-          onChanged: onTabChanged,
-        ),
-        const SizedBox(height: 18),
-        if (tabIndex == 0)
-          if (appointments.isEmpty)
-            const FocusEmptyState(
-              title: 'Sin historial de citas',
-              description: 'Las citas anteriores apareceran aqui.',
-              icon: Icons.history_rounded,
-            )
-          else
-            ...appointments
-                .take(2)
-                .map(
-                  (appointment) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: ClientAppointmentCard(
-                      appointment: appointment,
-                      trainerName: trainerNameFor(appointment.assignedTrainer),
-                      onTap: () => onOpenAppointment(appointment),
-                    ),
-                  ),
-                )
-        else if (passes.isEmpty)
-          const FocusEmptyState(
-            title: 'Sin historial de bonos',
-            description: 'Tus bonos no activos apareceran aqui.',
-            icon: Icons.local_activity_outlined,
-          )
-        else
-          ...passes
-              .take(2)
-              .map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: PassHistoryCard(item: item),
-                ),
-              ),
-      ],
-    );
-  }
-}
-
-class _NextAppointmentCard extends StatelessWidget {
-  const _NextAppointmentCard({required this.appointment, required this.onTap});
-
   final Appointment? appointment;
+  final VoidCallback onOpenBooking;
+  final bool canBook;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     if (appointment == null) {
-      return const FocusEmptyState(
-        title: 'Sin citas proximas',
-        description:
-            'Cuando tengas una cita aprobada o pendiente, la veras aqui.',
-        icon: Icons.event_available_rounded,
-      );
-    }
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-      child: FocusGlassCard(
-        padding: const EdgeInsets.all(20),
+      return FocusLimeCard(
+        onTap: canBook ? onOpenBooking : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const FocusKicker('Proxima cita'),
-            const SizedBox(height: 10),
-            FocusStatusBadge(
-              label: appointmentDisplayStatusLabel(appointment!),
-              color: appointmentDisplayStatusColor(appointment!),
-            ),
-            const SizedBox(height: 10),
             Text(
-              appointment!.dateLabel,
-              style: Theme.of(context).textTheme.headlineMedium,
+              'Tu agenda esta libre',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.onLime,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              '${appointment!.timeLabel} - ${appointment!.durationMinutes} min',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(color: AppTheme.textPrimary),
+              'Reserva tu proxima sesion cuando quieras.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.onLime.withValues(alpha: 0.72),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Reservar sesion',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppTheme.onLime,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ],
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusHero),
+        child: FocusBlackCard(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: FocusKicker('Proxima cita', onDark: true),
+                  ),
+                  FocusStatusBadge(
+                    label: appointmentDisplayStatusLabel(appointment!),
+                    color: appointmentDisplayStatusColor(appointment!),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                appointment!.dateLabel,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppTheme.onBlack,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${appointment!.timeLabel} - ${appointment!.durationMinutes} min',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppTheme.onBlack.withValues(alpha: 0.78),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

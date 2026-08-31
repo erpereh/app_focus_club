@@ -36,72 +36,84 @@ class ClientAppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-      child: FocusGlassCard(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final heading = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const FocusKicker('Cita'),
-                    const SizedBox(height: 6),
-                    Text(
-                      serviceType,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ],
-                );
-                final badge = FocusStatusBadge(
-                  label: statusLabel,
-                  color: statusColor,
-                );
-                if (constraints.maxWidth < 280) {
-                  return Column(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 56,
+                  child: Column(
+                    children: [
+                      Text(
+                        dateLabel,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        timeLabel.split(' - ').first,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [heading, const SizedBox(height: 10), badge],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: heading),
-                    const SizedBox(width: 10),
-                    badge,
-                  ],
-                );
-              },
+                    children: [
+                      Text(
+                        serviceType,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$timeLabel - $durationMinutes min',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          ?assignedTrainer,
+                          if (isRecurring) 'Recurrente',
+                        ].where((part) => part.isNotEmpty).join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        statusDescription,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FocusStatusBadge(label: statusLabel, color: statusColor),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              statusDescription,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            _InfoLine(
-              icon: Icons.schedule_rounded,
-              text: '$dateLabel - $timeLabel - $durationMinutes min',
-            ),
-            if (isRecurring) ...[
-              const SizedBox(height: 8),
-              const _InfoLine(
-                icon: Icons.repeat_rounded,
-                text: 'Recurrente',
-              ),
-            ],
-            if (assignedTrainer != null) ...[
-              const SizedBox(height: 8),
-              _InfoLine(
-                icon: Icons.person_outline_rounded,
-                text: assignedTrainer!,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -126,34 +138,15 @@ class ClientMetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceGlass.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(
-          color: AppTheme.borderStrong.withValues(alpha: 0.18),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppTheme.input.withValues(alpha: 0.62),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: SizedBox.square(
-                dimension: 40,
-                child: Icon(icon, color: AppTheme.textSecondary, size: 20),
-              ),
-            ),
+            Icon(icon, color: AppTheme.textSecondary, size: 20),
             const SizedBox(height: 16),
             Text(value, style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 6),
@@ -174,32 +167,14 @@ class ClientPassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FocusGlassCard(
+    return FocusBlackCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppTheme.input.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const SizedBox.square(
-                  dimension: 40,
-                  child: Icon(
-                    Icons.local_activity_outlined,
-                    color: AppTheme.emerald,
-                    size: 21,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Mi Bono',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+              const Expanded(
+                child: FocusKicker('Mi bono', onDark: true),
               ),
               FocusStatusBadge(
                 label: pass.statusLabel,
@@ -208,27 +183,36 @@ class ClientPassCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          Text(pass.nameLabel, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
           Text(
             pass.availableTimeLabel,
             key: const Key('pass-available-time'),
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              color: AppTheme.onBlack,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Text(
+            pass.nameLabel,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppTheme.onBlack.withValues(alpha: 0.72),
+            ),
+          ),
+          const SizedBox(height: 18),
           ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             child: LinearProgressIndicator(
               value: pass.progress,
               minHeight: 8,
-              backgroundColor: AppTheme.input.withValues(alpha: 0.86),
-              color: AppTheme.emerald,
+              backgroundColor: AppTheme.blackElevated,
+              color: AppTheme.lime,
             ),
           ),
           const SizedBox(height: 10),
           Text(
-            '${pass.minutesLabel} - ${pass.expiresAtLabel}',
-            style: Theme.of(context).textTheme.bodyMedium,
+            '${pass.minutesLabel} · ${pass.expiresAtLabel}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppTheme.onBlack.withValues(alpha: 0.72),
+            ),
           ),
         ],
       ),
@@ -271,31 +255,6 @@ class PassHistoryCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: AppTheme.textSecondary, size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.textPrimary),
-          ),
-        ),
-      ],
     );
   }
 }

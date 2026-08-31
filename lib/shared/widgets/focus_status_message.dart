@@ -21,8 +21,8 @@ class FocusStatusMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (type) {
-      FocusStatusType.success => AppTheme.emerald,
-      FocusStatusType.warning => AppTheme.amber,
+      FocusStatusType.success => AppTheme.success,
+      FocusStatusType.warning => AppTheme.warning,
       FocusStatusType.error => AppTheme.danger,
     };
     final icon = switch (type) {
@@ -33,9 +33,8 @@ class FocusStatusMessage extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.085),
-        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
       ),
       child: Padding(
         padding: const EdgeInsets.all(15),

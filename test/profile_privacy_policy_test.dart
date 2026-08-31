@@ -22,9 +22,9 @@ void main() {
 
     await _scrollToPrivacyPolicy(tester);
 
-    expect(find.text('Ajustes'), findsOneWidget);
-    expect(find.text('Tamaño de texto'), findsOneWidget);
-    expect(find.text('Legal'), findsOneWidget);
+    expect(find.text('Ajustes', skipOffstage: false), findsOneWidget);
+    expect(find.text('Tamaño de texto', skipOffstage: false), findsOneWidget);
+    expect(find.text('Legal', skipOffstage: false), findsOneWidget);
     expect(find.text('Política de privacidad'), findsOneWidget);
     expect(find.byIcon(Icons.shield_outlined), findsOneWidget);
     expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);

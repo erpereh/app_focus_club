@@ -237,7 +237,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     },
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
-                    activeColor: AppTheme.emerald,
+                    activeColor: AppTheme.lime,
                     title: Text(
                       'Acepto la Politica de Privacidad',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -451,16 +451,9 @@ class _AuthLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.24)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.emerald.withValues(alpha: 0.10),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: AppTheme.lime, width: 2),
       ),
       child: Padding(
         padding: const EdgeInsets.all(6),

@@ -8,6 +8,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../application/portal_scope.dart';
 import '../../../shared/widgets/focus_buttons.dart';
+import '../../../shared/widgets/focus_list_row.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../shared/widgets/focus_text_field.dart';
@@ -65,6 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isSigningOut = false;
   bool _isDeletingAccount = false;
   bool _isUpdatingPushNotifications = false;
+  bool _isEditing = false;
 
   @override
   void initState() {
@@ -91,103 +93,163 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = widget.state.profile;
     final session = AuthScope.of(context).currentSession;
 
+    if (_isEditing) {
+      return _buildEditProfile(profile, session);
+    }
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 150),
         children: [
-          const _ProfileHeader(),
-          const SizedBox(height: 22),
-          _ProfileCard(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _AvatarEditor(
-                    profile: profile,
-                    previewBytes: _avatarPreviewBytes,
-                    photoRemoved: _photoRemoved,
-                    onPickAvatar: _pickAvatar,
-                    onRemoveAvatar: _removeAvatar,
-                  ),
-                  const SizedBox(height: 28),
-                  if (profile != null) ...[
-                    _ReadonlyLine(label: 'Email', value: profile.email),
-                    const SizedBox(height: 18),
-                    _PushNotificationsSwitch(
-                      enabled: profile.pushNotificationsEnabled,
-                      isUpdating: _isUpdatingPushNotifications,
-                      onChanged: _isUpdatingPushNotifications
-                          ? null
-                          : _setPushNotificationsEnabled,
-                    ),
-                    const SizedBox(height: 18),
-                  ],
-                  FocusTextField(
-                    label: 'Nombre visible',
-                    icon: Icons.person_outline_rounded,
-                    controller: _nameController,
-                    validator: (value) => (value ?? '').trim().isEmpty
-                        ? 'Introduce tu nombre.'
-                        : null,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 18),
-                  FocusTextField(
-                    label: 'Telefono',
-                    icon: Icons.phone_outlined,
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    validator: _validateSpanishPhone,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  if (session?.canChangePassword == true) ...[
-                    const SizedBox(height: 18),
-                    FocusTextField(
-                      label: 'Nueva contrasena',
-                      icon: Icons.lock_outline_rounded,
-                      controller: _passwordController,
-                      obscureText: true,
-                      validator: _validateOptionalPassword,
-                      textInputAction: TextInputAction.done,
-                    ),
-                  ],
-                  if (_statusMessage != null) ...[
-                    const SizedBox(height: 20),
-                    FocusStatusMessage(
-                      message: _statusMessage!,
-                      type: _statusType,
-                    ),
-                  ],
-                  const SizedBox(height: 26),
-                  FocusPrimaryButton(
-                    label: 'Guardar cambios',
-                    onPressed: _isSaving ? null : _saveProfile,
-                  ),
-                  const SizedBox(height: 12),
-                  FocusGhostButton(
-                    label: 'Cerrar sesion',
-                    icon: Icons.logout_rounded,
-                    onPressed: _isSigningOut ? null : _signOut,
-                  ),
-                ],
+          _CenteredProfileHeader(profile: profile),
+          const SizedBox(height: 32),
+          const FocusKicker('Account'),
+          const SizedBox(height: 10),
+          FocusListGroup(
+            children: [
+              FocusListRow(
+                title: 'Datos personales',
+                icon: Icons.person_outline_rounded,
+                onTap: () => setState(() => _isEditing = true),
               ),
-            ),
+              if (session?.canChangePassword == true)
+                FocusListRow(
+                  title: 'Seguridad',
+                  icon: Icons.lock_outline_rounded,
+                  onTap: () => setState(() => _isEditing = true),
+                ),
+            ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 28),
           const FocusSectionHeader(title: 'Ajustes'),
-          const SizedBox(height: 14),
-          const _ProfileCard(child: _TextSizeSetting()),
-          const SizedBox(height: 22),
+          const SizedBox(height: 10),
+          FocusListGroup(
+            children: [
+              if (profile != null)
+                _PushNotificationsSwitch(
+                  enabled: profile.pushNotificationsEnabled,
+                  isUpdating: _isUpdatingPushNotifications,
+                  onChanged: _isUpdatingPushNotifications
+                      ? null
+                      : _setPushNotificationsEnabled,
+                ),
+              const _TextSizeSetting(),
+            ],
+          ),
+          if (_statusMessage != null) ...[
+            const SizedBox(height: 16),
+            FocusStatusMessage(
+              message: _statusMessage!,
+              type: _statusType,
+            ),
+          ],
+          const SizedBox(height: 28),
           const FocusSectionHeader(title: 'Legal'),
-          const SizedBox(height: 14),
-          _LegalLinkRow(onTap: _openPrivacyPolicy),
+          const SizedBox(height: 10),
+          FocusListGroup(
+            children: [
+              _LegalLinkRow(onTap: _openPrivacyPolicy),
+            ],
+          ),
+          const SizedBox(height: 24),
+          FocusGhostButton(
+            label: 'Cerrar sesion',
+            icon: Icons.logout_rounded,
+            onPressed: _isSigningOut ? null : _signOut,
+          ),
           const SizedBox(height: 22),
           _DangerZone(
             isDeleting: _isDeletingAccount,
             onDeleteAccount: profile == null || _isDeletingAccount
                 ? null
                 : () => _showDeleteAccountDialog(profile.email),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditProfile(UserProfile? profile, AuthSession? session) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 150),
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Volver',
+                onPressed: () => setState(() => _isEditing = false),
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              Expanded(
+                child: Text(
+                  'Datos personales',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _AvatarEditor(
+                  profile: profile,
+                  previewBytes: _avatarPreviewBytes,
+                  photoRemoved: _photoRemoved,
+                  onPickAvatar: _pickAvatar,
+                  onRemoveAvatar: _removeAvatar,
+                ),
+                const SizedBox(height: 28),
+                if (profile != null) ...[
+                  _ReadonlyLine(label: 'Email', value: profile.email),
+                  const SizedBox(height: 18),
+                ],
+                FocusTextField(
+                  label: 'Nombre visible',
+                  icon: Icons.person_outline_rounded,
+                  controller: _nameController,
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'Introduce tu nombre.'
+                      : null,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 18),
+                FocusTextField(
+                  label: 'Telefono',
+                  icon: Icons.phone_outlined,
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: _validateSpanishPhone,
+                  textInputAction: TextInputAction.next,
+                ),
+                if (session?.canChangePassword == true) ...[
+                  const SizedBox(height: 18),
+                  FocusTextField(
+                    label: 'Nueva contrasena',
+                    icon: Icons.lock_outline_rounded,
+                    controller: _passwordController,
+                    obscureText: true,
+                    validator: _validateOptionalPassword,
+                    textInputAction: TextInputAction.done,
+                  ),
+                ],
+                if (_statusMessage != null) ...[
+                  const SizedBox(height: 20),
+                  FocusStatusMessage(
+                    message: _statusMessage!,
+                    type: _statusType,
+                  ),
+                ],
+                const SizedBox(height: 26),
+                FocusPrimaryButton(
+                  label: 'Guardar cambios',
+                  onPressed: _isSaving ? null : _saveProfile,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -484,7 +546,9 @@ class _TextSizeSetting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = AppTextSizeScope.of(context);
-    return Column(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Tamaño de texto', style: Theme.of(context).textTheme.titleSmall),
@@ -516,6 +580,7 @@ class _TextSizeSetting extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }
@@ -552,7 +617,7 @@ class _LegalLinkRow extends StatelessWidget {
             horizontalTitleGap: 12,
             leading: const Icon(
               Icons.shield_outlined,
-              color: AppTheme.emerald,
+              color: AppTheme.black,
               size: 20,
             ),
             title: Text(
@@ -574,57 +639,75 @@ class _LegalLinkRow extends StatelessWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+class _CenteredProfileHeader extends StatelessWidget {
+  const _CenteredProfileHeader({required this.profile});
+
+  final UserProfile? profile;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Mi Perfil',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontSize: 30,
-            fontWeight: FontWeight.w900,
-            height: 1.05,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppTheme.lime, width: 2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(3),
+            child: SizedBox.square(
+              dimension: 88,
+              child: profile?.hasPhoto == true
+                  ? ClipOval(
+                      child: Image.network(
+                        profile!.photoUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _InitialsAvatar(profile: profile);
+                        },
+                      ),
+                    )
+                  : _InitialsAvatar(profile: profile),
+            ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
         Text(
-          'Actualiza tus datos de cliente.',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppTheme.textSecondary.withValues(alpha: 0.88),
-          ),
+          profile?.name ?? 'Cliente',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          profile?.email ?? '',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
     );
   }
 }
 
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.child});
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({required this.profile});
 
-  final Widget child;
+  final UserProfile? profile;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceGlass,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: AppTheme.borderStrong.withValues(alpha: 0.18),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: AppTheme.black,
+        shape: BoxShape.circle,
       ),
-      child: Padding(padding: const EdgeInsets.all(22), child: child),
+      child: Center(
+        child: Text(
+          profile?.displayInitials ?? '?',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            color: AppTheme.lime,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -774,14 +857,14 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
           onPressed: _emailMatches && !_isSubmitting ? _submit : null,
           style: FilledButton.styleFrom(
             backgroundColor: AppTheme.danger,
-            foregroundColor: AppTheme.background,
+            foregroundColor: AppTheme.white,
           ),
           child: _isSubmitting
               ? const SizedBox.square(
                   dimension: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.background,
+                    color: AppTheme.white,
                   ),
                 )
               : const Text('Eliminar definitivamente'),
@@ -1043,53 +1126,24 @@ class _PushNotificationsSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.input.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-        border: Border.all(
-          color: enabled
-              ? AppTheme.emerald.withValues(alpha: 0.16)
-              : AppTheme.borderStrong.withValues(alpha: 0.22),
-        ),
+    return SwitchListTile(
+      value: enabled,
+      onChanged: onChanged,
+      activeThumbColor: AppTheme.lime,
+      activeTrackColor: AppTheme.lime.withValues(alpha: 0.35),
+      inactiveThumbColor: AppTheme.textSecondary,
+      inactiveTrackColor: AppTheme.backgroundSecondary,
+      contentPadding: const EdgeInsets.fromLTRB(20, 4, 12, 4),
+      title: Text(
+        'Notificaciones',
+        style: Theme.of(context).textTheme.titleSmall,
       ),
-      child: SwitchListTile(
-        value: enabled,
-        onChanged: onChanged,
-        activeThumbColor: AppTheme.emerald,
-        activeTrackColor: AppTheme.emerald.withValues(alpha: 0.16),
-        inactiveThumbColor: AppTheme.textSecondary,
-        inactiveTrackColor: AppTheme.surfaceElevated,
-        contentPadding: const EdgeInsets.fromLTRB(14, 4, 10, 4),
-        secondary: DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceElevated.withValues(alpha: 0.78),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: SizedBox.square(
-            dimension: 38,
-            child: Center(
-              child: isUpdating
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(
-                      Icons.notifications_active_outlined,
-                      color: AppTheme.emerald,
-                      size: 20,
-                    ),
-            ),
-          ),
-        ),
-        title: Text(
-          'Notificaciones',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
+      secondary: isUpdating
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.notifications_active_outlined, size: 20),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
@@ -53,32 +54,32 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Citas',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 10),
+                Text('Citas', style: Theme.of(context).textTheme.headlineLarge),
+                const SizedBox(height: 8),
                 Text(
                   'Consulta tus solicitudes activas e historial.',
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 20),
                 FocusPrimaryButton(
                   label: 'Reservar Sesion',
                   onPressed: widget.onOpenBooking,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 FocusSegmentedControl(
                   options: const [
                     FocusSegmentOption(value: 0, label: 'Proximas'),
                     FocusSegmentOption(value: 1, label: 'Historial'),
                   ],
                   selectedValue: _tabIndex,
-                  onChanged: (value) => setState(() => _tabIndex = value),
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _tabIndex = value);
+                  },
                 ),
               ],
             ),
@@ -149,7 +150,7 @@ class _AppointmentsList extends StatelessWidget {
         FocusSectionHeader(
           title: tabIndex == 0 ? 'Proximas' : 'Historial de citas',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         if (error != null)
           FocusEmptyState(
             title: 'No se pudieron cargar las citas',
@@ -169,7 +170,7 @@ class _AppointmentsList extends StatelessWidget {
         else
           ...appointments.map(
             (appointment) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(bottom: 10),
               child: ClientAppointmentCard(
                 appointment: appointment,
                 trainerName: trainerNameFor(appointment.assignedTrainer),
@@ -180,7 +181,7 @@ class _AppointmentsList extends StatelessWidget {
         if (tabIndex == 1) ...[
           const SizedBox(height: 22),
           const FocusSectionHeader(title: 'Historial de bonos'),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (inactiveBonos.isEmpty)
             const FocusEmptyState(
               title: 'Sin historial de bonos',
@@ -190,7 +191,7 @@ class _AppointmentsList extends StatelessWidget {
           else
             ...inactiveBonos.map(
               (bono) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: PassHistoryCard(item: bono),
               ),
             ),

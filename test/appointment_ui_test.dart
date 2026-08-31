@@ -148,7 +148,7 @@ void main() {
     );
     final preview = find.ancestor(
       of: find.text('PROXIMA CITA'),
-      matching: find.byType(FocusGlassCard),
+      matching: find.byType(FocusBlackCard),
     );
     expect(preview, findsOneWidget);
     expect(
@@ -232,7 +232,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: DashboardScreen(
+          body: AppointmentsScreen(
             state: ClientPortalState(
               appointments: [
                 futureCancelled,
@@ -244,44 +244,30 @@ void main() {
               isLoading: false,
             ),
             viewModel: viewModel,
-            onOpenAppointments: () {},
-            onOpenProfile: () {},
             onOpenBooking: () {},
           ),
         ),
       ),
     );
-    await tester.scrollUntilVisible(find.text('Historial Citas'), 500);
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.tap(find.text('Historial'));
     await tester.pumpAndSettle();
 
     final latestSchedule =
-        '${latest.dateLabel} - ${latest.timeLabel} - ${latest.durationMinutes} min';
+        '${latest.timeLabel} - ${latest.durationMinutes} min';
     final secondSchedule =
-        '${second.dateLabel} - ${second.timeLabel} - ${second.durationMinutes} min';
-    expect(find.text(latestSchedule), findsOneWidget);
-    expect(find.text(secondSchedule), findsOneWidget);
+        '${second.timeLabel} - ${second.durationMinutes} min';
+    expect(find.text(latest.dateLabel), findsOneWidget);
+    expect(find.text(second.dateLabel), findsOneWidget);
+    expect(find.text(older.dateLabel), findsOneWidget);
+    expect(find.text(latestSchedule), findsWidgets);
+    expect(find.text(secondSchedule), findsWidgets);
     expect(
-      find.text(
-        '${older.dateLabel} - ${older.timeLabel} - ${older.durationMinutes} min',
-      ),
-      findsNothing,
+      tester.getTopLeft(find.text(latest.dateLabel)).dy,
+      lessThan(tester.getTopLeft(find.text(second.dateLabel)).dy),
     );
     expect(
-      find.text(
-        '${futureCancelled.dateLabel} - ${futureCancelled.timeLabel} - ${futureCancelled.durationMinutes} min',
-      ),
-      findsNothing,
-    );
-    expect(
-      find.text(
-        '${futureRejected.dateLabel} - ${futureRejected.timeLabel} - ${futureRejected.durationMinutes} min',
-      ),
-      findsNothing,
-    );
-    expect(
-      tester.getTopLeft(find.text(latestSchedule)).dy,
-      lessThan(tester.getTopLeft(find.text(secondSchedule)).dy),
+      tester.getTopLeft(find.text(second.dateLabel)).dy,
+      lessThan(tester.getTopLeft(find.text(older.dateLabel)).dy),
     );
     viewModel.dispose();
   });
@@ -516,6 +502,7 @@ void main() {
       _LargeTextHarness(child: BookingScreen(viewModel: viewModel)),
     );
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.byKey(const Key('booking-slot-grid')));
     await tester.scrollUntilVisible(
       find.byKey(const Key('booking-slot-grid')),
       300,
@@ -553,7 +540,13 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Servicio'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     final serviceLabel = tester.getTopLeft(find.text('Servicio'));
     final serviceValue = tester.getTopLeft(
       find.text('Bono Mensual de Entrenamiento').last,
@@ -608,6 +601,7 @@ void main() {
     expect(find.text('Modificar cita'), findsOneWidget);
     expect(find.text('Duración fija: 45 min'), findsOneWidget);
     expect(find.text('Enviar Solicitud'), findsNothing);
+    await _bookingContinueUntil(tester, find.text('Guardar cambios'));
     await tester.scrollUntilVisible(
       find.text('Guardar cambios'),
       400,
@@ -652,6 +646,8 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('booking-type-recurring')));
     await tester.tap(find.byKey(const Key('booking-type-recurring')));
     await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.text('Cada'));
     await tester.scrollUntilVisible(
       find.text('Cada'),
       300,
@@ -680,15 +676,26 @@ void main() {
 
     await tester.tap(find.byKey(const Key('booking-type-recurring')));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('10 sep'));
     await tester.tap(find.text('10 sep'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('18:00').first);
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
     await tester.tap(find.byKey(const Key('recurring-end-date')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('19/09/2026 · 4 sesiones · 240 min').last);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Atras'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Atras'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Atras'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('booking-type-single')));
     await tester.pumpAndSettle();
     expect(find.text('Cada'), findsNothing);
@@ -696,20 +703,22 @@ void main() {
 
     await tester.tap(find.byKey(const Key('booking-type-recurring')));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('Cada'));
     expect(find.text('Cada'), findsOneWidget);
     expect(find.text('4 sesiones'), findsNothing);
+    await tester.tap(find.text('Atras'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Atras'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Atras'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('booking-type-single')));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('18:00'));
     await tester.tap(find.text('18:00').first);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Enviar Solicitud'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await _bookingContinueUntil(tester, find.text('Enviar Solicitud'));
     await tester.tap(find.text('Enviar Solicitud'));
     await tester.pump();
     expect(repository.requests, hasLength(1));
@@ -735,10 +744,15 @@ void main() {
 
     await tester.tap(find.byKey(const Key('booking-type-recurring')));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('10 sep'));
     await tester.tap(find.text('10 sep'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('18:00').first);
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
     await tester.tap(find.byKey(const Key('recurring-end-date')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('19/09/2026 · 4 sesiones · 240 min').last);
@@ -751,15 +765,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('18:00').first);
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Enviar Solicitud'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await _bookingContinueUntil(tester, find.text('Enviar Solicitud'));
     await tester.tap(find.text('Enviar Solicitud'));
     await tester.pump();
     expect(repository.recurringRequests, hasLength(1));
@@ -788,8 +794,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('booking-type-recurring')));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(
+      tester,
+      find.text(
+        'No tienes minutos o vigencia suficientes para programar al menos 2 sesiones.',
+      ),
+    );
 
     expect(
       find.text(
@@ -797,6 +811,7 @@ void main() {
       ),
       findsOneWidget,
     );
+    await _bookingContinueUntil(tester, find.text('Enviar Solicitud'));
     await tester.scrollUntilVisible(
       find.text('Enviar Solicitud'),
       400,
@@ -821,10 +836,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('booking-type-recurring')));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('30'));
     await tester.tap(find.text('30'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('08 sep'));
-    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '08 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-interval-days')));
     await tester.enterText(find.byKey(const Key('recurring-interval-days')), '7');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('recurring-end-date')));
@@ -1157,4 +1173,36 @@ String _wireDate(DateTime value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
   return '${value.year}-$month-$day';
+}
+
+Future<void> _bookingContinueUntil(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 8; i++) {
+    await tester.pumpAndSettle();
+    if (_finderHasMatch(finder)) return;
+    final next = find.widgetWithText(FilledButton, 'Continuar');
+    if (next.evaluate().isEmpty) return;
+    if (tester.widget<FilledButton>(next).onPressed == null) return;
+    await tester.ensureVisible(next);
+    await tester.tap(next);
+  }
+}
+
+Future<void> _bookingSelectSlot(
+  WidgetTester tester, {
+  required String dateLabel,
+  String time = '18:00',
+}) async {
+  await _bookingContinueUntil(tester, find.text(dateLabel));
+  await tester.tap(find.text(dateLabel));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(time).first);
+  await tester.pumpAndSettle();
+}
+
+bool _finderHasMatch(Finder finder) {
+  try {
+    return finder.evaluate().isNotEmpty;
+  } on StateError {
+    return false;
+  }
 }

@@ -27,6 +27,7 @@ class FocusSectionHeader extends StatelessWidget {
             style: TextButton.styleFrom(
               minimumSize: const Size(0, 40),
               padding: const EdgeInsets.symmetric(horizontal: 8),
+              foregroundColor: AppTheme.textSecondary,
             ),
             child: Text(actionLabel!),
           ),
@@ -36,18 +37,19 @@ class FocusSectionHeader extends StatelessWidget {
 }
 
 class FocusKicker extends StatelessWidget {
-  const FocusKicker(this.label, {super.key});
+  const FocusKicker(this.label, {super.key, this.onDark = false});
 
   final String label;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
     return Text(
       label.toUpperCase(),
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: AppTheme.emerald,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0,
+        color: onDark ? AppTheme.lime : AppTheme.textSecondary,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
       ),
     );
   }

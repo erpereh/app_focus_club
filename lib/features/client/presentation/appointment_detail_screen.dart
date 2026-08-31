@@ -66,6 +66,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
             showModify || showCancelSeries || showCancelOccurrence;
 
         return Scaffold(
+          backgroundColor: AppTheme.background,
           appBar: AppBar(
             title: const Text('Detalle de la Cita'),
             titleSpacing: 0,
@@ -87,7 +88,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                         builder: (context, constraints) {
                           final title = Text(
                             appointment.serviceType,
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.headlineMedium,
                           );
                           final badge = FocusStatusBadge(
                             label: appointmentDisplayStatusLabel(
@@ -303,7 +304,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.danger,
-                foregroundColor: AppTheme.background,
+                foregroundColor: AppTheme.white,
                 minimumSize: const Size.fromHeight(48),
               ),
               child: const Text('Cancelar solicitud'),
@@ -361,7 +362,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.danger,
-                foregroundColor: AppTheme.background,
+                foregroundColor: AppTheme.white,
                 minimumSize: const Size.fromHeight(48),
               ),
               child: const Text('Cancelar cita'),

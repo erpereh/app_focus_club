@@ -42,10 +42,9 @@ void main() {
 
     expect(find.text('Laura Perez'), findsOneWidget);
     expect(find.text('Inicio'), findsOneWidget);
-    expect(find.text('Citas'), findsOneWidget);
-    expect(find.text('Perfil'), findsOneWidget);
+    expect(find.byKey(const Key('nav-appointments')), findsOneWidget);
+    expect(find.byKey(const Key('nav-profile')), findsOneWidget);
     expect(find.text('Reservar Sesion'), findsOneWidget);
-    expect(find.text('1 aprobadas\n1 pendientes'), findsOneWidget);
   });
 
   testWidgets('login blocks unverified email and shows resend action', (
@@ -165,7 +164,7 @@ void main() {
   testWidgets('appointments tab opens appointment detail', (tester) async {
     await _pumpDashboard(tester);
 
-    await tester.tap(find.text('Citas').last);
+    await tester.tap(find.byKey(const Key('nav-appointments')));
     await tester.pumpAndSettle();
     final pendingAppointment = find.textContaining('09:30 - 10:15 - 45 min');
     await tester.ensureVisible(pendingAppointment);
@@ -194,25 +193,23 @@ void main() {
 
     expect(find.text('Reservar Sesion'), findsOneWidget);
     expect(find.textContaining('requestAppointment'), findsNothing);
+    await _bookingContinueUntil(tester, find.text('30'));
     expect(find.text('30'), findsOneWidget);
     expect(find.text('45'), findsOneWidget);
     expect(find.text('60'), findsOneWidget);
+    await _bookingContinueUntil(
+      tester,
+      find.text(_calendarHeaderLabel(_todayDate())),
+    );
     expect(find.text(_calendarHeaderLabel(_todayDate())), findsOneWidget);
 
     await tester.tap(find.text(bookingDateLabel));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -300));
     await tester.pumpAndSettle();
     await tester.tap(find.text('08:00').first);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Enviar Solicitud'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Enviar Solicitud'));
-    await tester.pump();
+    await _submitVisibleBooking(tester);
 
     expect(portalRepository.requests, hasLength(1));
     await tester.drag(find.byType(ListView), const Offset(0, 1000));
@@ -250,11 +247,13 @@ void main() {
 
     await tester.tap(find.text('Reservar Sesion').first);
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text(bookingDateLabel));
     await tester.tap(find.text(bookingDateLabel));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
     await tester.pumpAndSettle();
 
     expect(find.text('20:30'), findsOneWidget);
@@ -263,7 +262,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Elegida:'), findsNothing);
-    await _submitVisibleBooking(tester);
+    _assertBookingCannotAdvance(tester);
     expect(portalRepository.requests, isEmpty);
   });
 
@@ -289,21 +288,27 @@ void main() {
 
     await tester.tap(find.text('Reservar Sesion').first);
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('30'));
     await tester.tap(find.text('30'));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text(bookingDateLabel));
     await tester.tap(find.text(bookingDateLabel));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -700));
     await tester.pumpAndSettle();
     await tester.tap(find.text('20:30'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Elegida:'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(0, 700));
+    await tester.tap(find.text('Atras'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('45'));
     await tester.pumpAndSettle();
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('booking-slot-grid')),
+    );
 
     expect(find.textContaining('Elegida:'), findsNothing);
   });
@@ -348,7 +353,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Elegida:'), findsNothing);
-    await _submitVisibleBooking(tester);
+    _assertBookingCannotAdvance(tester);
     expect(portalRepository.requests, isEmpty);
   });
 
@@ -664,12 +669,12 @@ void main() {
   ) async {
     await _pumpDashboard(tester);
 
-    await tester.scrollUntilVisible(find.text('Historial Citas'), 400);
-    expect(find.text('Historial Citas'), findsOneWidget);
-
-    await tester.scrollUntilVisible(find.text('Historial Bonos'), 400);
-    await tester.tap(find.text('Historial Bonos'));
+    await tester.tap(find.byKey(const Key('nav-appointments')));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Historial'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Historial de bonos'), 400);
+    expect(find.text('Historial de bonos'), findsOneWidget);
 
     expect(find.text('Agotado'), findsOneWidget);
     expect(find.text('Expirado'), findsOneWidget);
@@ -678,11 +683,13 @@ void main() {
   testWidgets('profile saves visual changes', (tester) async {
     await _pumpDashboard(tester);
 
-    await tester.tap(find.text('Perfil').last);
+    await tester.tap(find.byKey(const Key('nav-profile')));
     await tester.pumpAndSettle();
     expect(find.text('LP'), findsOneWidget);
     expect(find.text('Notificaciones'), findsOneWidget);
     expect(find.text('Notificaciones Push'), findsNothing);
+    await tester.tap(find.text('Datos personales'));
+    await tester.pumpAndSettle();
     expect(find.text('Cambiar foto'), findsOneWidget);
     expect(find.text('Eliminar foto'), findsOneWidget);
     expect(find.text('Nueva contrasena'), findsOneWidget);
@@ -701,7 +708,7 @@ void main() {
     final passTime = find.byKey(const Key('pass-available-time'));
     final defaultScale = _effectiveFontSize(tester, passTime);
 
-    await tester.tap(find.text('Perfil').last);
+    await tester.tap(find.byKey(const Key('nav-profile')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('text-size-large')),
@@ -719,18 +726,18 @@ void main() {
       closeTo(defaultScale * 1.15, 0.001),
     );
     expect(
-      _effectiveFontSize(tester, find.text('Chat').last),
+      _effectiveFontSize(tester, find.byKey(const Key('nav-chat'))),
       closeTo(defaultScale * 1.15, 0.001),
     );
 
-    await tester.tap(find.text('Inicio').last);
+    await tester.tap(find.byKey(const Key('nav-home')));
     await tester.pumpAndSettle();
     expect(
       _effectiveFontSize(tester, passTime),
       closeTo(defaultScale * 1.15, 0.001),
     );
 
-    await tester.tap(find.text('Chat').last);
+    await tester.tap(find.byKey(const Key('nav-chat')));
     await tester.pumpAndSettle();
     expect(
       _effectiveFontSize(tester, find.text('Nueva conversación').first),
@@ -747,8 +754,15 @@ void main() {
         .widget<AppTextSizeScope>(find.byType(AppTextSizeScope))
         .onChanged(AppTextSize.large);
     await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('pass-available-time')), findsOneWidget);
+    expect(
+      find.text('Reservar Sesion', skipOffstage: false),
+      findsWidgets,
+    );
     await tester.scrollUntilVisible(
-      find.text('Minutos usados'),
+      find.text('Actividad reciente'),
       250,
       scrollable: find
           .descendant(
@@ -758,17 +772,14 @@ void main() {
           .first,
     );
     await tester.pumpAndSettle();
-
-    final usedMinutes = tester.getTopLeft(find.text('Minutos usados'));
-    final activeAppointments = tester.getTopLeft(find.text('Citas activas'));
-    expect(activeAppointments.dx, usedMinutes.dx);
-    expect(activeAppointments.dy, greaterThan(usedMinutes.dy));
+    expect(find.text('Actividad reciente'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('profile logout returns to auth', (tester) async {
     await _pumpDashboard(tester);
 
-    await tester.tap(find.text('Perfil').last);
+    await tester.tap(find.byKey(const Key('nav-profile')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Cerrar sesion'));
     await tester.tap(find.text('Cerrar sesion'));
@@ -783,7 +794,7 @@ void main() {
   ) async {
     await _pumpDashboard(tester, viewportSize: const Size(800, 1300));
 
-    await tester.tap(find.text('Perfil').last);
+    await tester.tap(find.byKey(const Key('nav-profile')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('delete-account-button')),
@@ -833,7 +844,7 @@ void main() {
       viewportSize: const Size(800, 1300),
     );
 
-    await tester.tap(find.text('Perfil').last);
+    await tester.tap(find.byKey(const Key('nav-profile')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('delete-account-button')),
@@ -871,7 +882,7 @@ void main() {
       viewportSize: const Size(800, 1300),
     );
 
-    await tester.tap(find.text('Perfil').last);
+    await tester.tap(find.byKey(const Key('nav-profile')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('delete-account-button')),
@@ -923,6 +934,7 @@ Future<void> _openBookingOnDate(
 }) async {
   await tester.tap(find.text('Reservar Sesion').first);
   await tester.pumpAndSettle();
+  await _bookingContinueUntil(tester, find.text(dateLabel));
   await tester.tap(find.text(dateLabel));
   await tester.pumpAndSettle();
 }
@@ -975,12 +987,29 @@ String _monthLabel(int month) {
   ][month - 1];
 }
 
-Future<void> _submitVisibleBooking(WidgetTester tester) async {
-  await tester.scrollUntilVisible(
-    find.text('Enviar Solicitud'),
-    500,
-    scrollable: find.byType(Scrollable).first,
+Future<void> _bookingContinueUntil(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 8; i++) {
+    await tester.pumpAndSettle();
+    if (finder.evaluate().isNotEmpty) return;
+    final next = find.widgetWithText(FilledButton, 'Continuar');
+    if (next.evaluate().isEmpty) return;
+    if (tester.widget<FilledButton>(next).onPressed == null) return;
+    await tester.ensureVisible(next);
+    await tester.tap(next);
+  }
+}
+
+void _assertBookingCannotAdvance(WidgetTester tester) {
+  expect(find.text('Enviar Solicitud'), findsNothing);
+  final continueButton = tester.widget<FilledButton>(
+    find.widgetWithText(FilledButton, 'Continuar'),
   );
+  expect(continueButton.onPressed, isNull);
+}
+
+Future<void> _submitVisibleBooking(WidgetTester tester) async {
+  await _bookingContinueUntil(tester, find.text('Enviar Solicitud'));
+  await tester.ensureVisible(find.text('Enviar Solicitud'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Enviar Solicitud'));
   await tester.pump();

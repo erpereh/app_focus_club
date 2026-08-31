@@ -51,7 +51,7 @@ String appointmentStatusLabel(AppointmentStatus status) {
 Color appointmentStatusColor(AppointmentStatus status) {
   return switch (status) {
     AppointmentStatus.pending => AppTheme.amber,
-    AppointmentStatus.approved => AppTheme.emerald,
+    AppointmentStatus.approved => AppTheme.success,
     AppointmentStatus.rejected => AppTheme.danger,
     AppointmentStatus.cancelled => AppTheme.textSecondary,
   };
@@ -207,7 +207,7 @@ String bonoStatusLabel(BonoStatus status) {
 
 Color bonoStatusColor(BonoStatus status) {
   return switch (status) {
-    BonoStatus.activo => AppTheme.emerald,
+    BonoStatus.activo => AppTheme.success,
     BonoStatus.agotado => AppTheme.amber,
     BonoStatus.expirado => AppTheme.textSecondary,
     BonoStatus.eliminado => AppTheme.textSecondary,

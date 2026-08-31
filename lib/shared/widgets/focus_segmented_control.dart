@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../theme/app_theme.dart';
 
@@ -25,48 +26,32 @@ class FocusSegmentedControl<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.input.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-        border: Border.all(
-          color: AppTheme.borderStrong.withValues(alpha: 0.22),
-        ),
+        color: AppTheme.backgroundSecondary,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(4),
         child: Row(
           children: options.map((option) {
             final isSelected = option.value == selectedValue;
 
             return Expanded(
               child: InkWell(
-                onTap: () => onChanged(option.value),
-                borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onChanged(option.value);
+                },
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
+                  duration: AppTheme.motion,
+                  curve: AppTheme.motionCurve,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
+                    horizontal: 12,
+                    vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppTheme.surfaceElevated.withValues(alpha: 0.92)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppTheme.emerald.withValues(alpha: 0.12)
-                          : Colors.transparent,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.16),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
+                    color: isSelected ? AppTheme.black : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                   ),
                   child: Center(
                     child: Text(
@@ -76,11 +61,12 @@ class FocusSegmentedControl<T> extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: isSelected
-                            ? AppTheme.textPrimary
-                            : AppTheme.textSecondary,
+                            ? AppTheme.onBlack
+                            : AppTheme.textPrimary,
                         fontWeight: isSelected
                             ? FontWeight.w800
                             : FontWeight.w600,
+                        fontSize: 13,
                       ),
                     ),
                   ),

@@ -56,12 +56,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Inicio'), findsOneWidget);
-      expect(find.text('Citas'), findsOneWidget);
-      expect(find.text('Chat'), findsOneWidget);
-      expect(find.text('Perfil'), findsOneWidget);
+      expect(find.byKey(const Key('nav-appointments')), findsOneWidget);
+      expect(find.byKey(const Key('nav-chat')), findsOneWidget);
+      expect(find.byKey(const Key('nav-profile')), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
 
-      await tester.tap(find.text('Chat'));
+      await tester.tap(find.byKey(const Key('nav-chat')));
       await tester.pumpAndSettle();
       expect(find.text('Mi bono'), findsOneWidget);
 
@@ -106,7 +106,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Chat'));
+    await tester.tap(find.byKey(const Key('nav-chat')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sugerencias'));
     await tester.pumpAndSettle();
@@ -156,9 +156,9 @@ void main() {
     );
     expect(tester.getSize(navItem).height, greaterThanOrEqualTo(60));
     expect(find.text('Inicio'), findsOneWidget);
-    expect(find.text('Citas'), findsOneWidget);
-    expect(find.text('Chat'), findsOneWidget);
-    expect(find.text('Perfil'), findsOneWidget);
+    expect(find.byKey(const Key('nav-appointments')), findsOneWidget);
+    expect(find.byKey(const Key('nav-chat')), findsOneWidget);
+    expect(find.byKey(const Key('nav-profile')), findsOneWidget);
   });
 }
 

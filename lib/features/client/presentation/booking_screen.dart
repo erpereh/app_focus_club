@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/widgets/focus_buttons.dart';
+import '../../../shared/widgets/focus_date_strip.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_section_header.dart';
 import '../../../shared/widgets/focus_status_message.dart';
+import '../../../shared/widgets/focus_time_slot.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
@@ -13,6 +16,8 @@ import '../domain/recurring_booking.dart';
 import '../widgets/appointment_display.dart';
 
 enum _BookingType { single, recurring }
+
+enum _BookingStep { type, duration, schedule, recurrence, summary }
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({
@@ -42,12 +47,39 @@ class _BookingScreenState extends State<BookingScreen> {
   _BookingType _bookingType = _BookingType.single;
   int _intervalDays = defaultRecurringIntervalDays;
   String? _selectedEndDate;
+  int _stepIndex = 0;
 
   bool get _isEditing => widget.editingAppointment != null;
   bool get _isEditingRecurring =>
       widget.editingAppointment?.isRecurring == true;
   bool get _isRecurringBooking =>
       !_isEditing && _bookingType == _BookingType.recurring;
+
+  List<_BookingStep> get _flow {
+    if (_isEditing) {
+      return const [_BookingStep.schedule, _BookingStep.summary];
+    }
+    if (_isRecurringBooking) {
+      return const [
+        _BookingStep.type,
+        _BookingStep.duration,
+        _BookingStep.schedule,
+        _BookingStep.recurrence,
+        _BookingStep.summary,
+      ];
+    }
+    return const [
+      _BookingStep.type,
+      _BookingStep.duration,
+      _BookingStep.schedule,
+      _BookingStep.summary,
+    ];
+  }
+
+  _BookingStep get _currentStep {
+    final flow = _flow;
+    return flow[_stepIndex.clamp(0, flow.length - 1)];
+  }
 
   @override
   void initState() {
@@ -65,7 +97,7 @@ class _BookingScreenState extends State<BookingScreen> {
       _selectedSlot = BookingSlotState(
         slot: editingSlot,
         label: 'Disponible',
-        color: AppTheme.emerald,
+        color: AppTheme.success,
         isEnabled: true,
       );
     }
@@ -142,8 +174,17 @@ class _BookingScreenState extends State<BookingScreen> {
         canBook &&
         selectedSlot != null &&
         canSubmitRecurring;
+    final flow = _flow;
+    final step = _currentStep;
+    final canContinue = switch (step) {
+      _BookingStep.type || _BookingStep.duration => true,
+      _BookingStep.schedule => selectedSlot != null && canBook,
+      _BookingStep.recurrence => true,
+      _BookingStep.summary => false,
+    };
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: Text(_isEditing ? 'Modificar cita' : 'Reservar Sesion'),
         leading: IconButton(
@@ -153,210 +194,154 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+        child: Column(
           children: [
-            if (_statusMessage != null) ...[
-              FocusStatusMessage(message: _statusMessage!, type: _statusType),
-              const SizedBox(height: 18),
-            ],
-            if (_isEditingRecurring) ...[
-              const FocusStatusMessage(
-                message:
-                    'Las citas recurrentes no se pueden modificar individualmente.',
-                type: FocusStatusType.warning,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: _StepDots(
+                current: _stepIndex.clamp(0, flow.length - 1),
+                total: flow.length,
               ),
-              const SizedBox(height: 18),
-            ],
-            if (!_isEditing) ...[
-              _StepCard(
-                title: 'Tipo de reserva',
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _BookingTypeOption(
-                        key: const Key('booking-type-single'),
-                        label: 'Cita única',
-                        isSelected: _bookingType == _BookingType.single,
-                        onTap: () => _onBookingTypeChanged(_BookingType.single),
-                      ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: [
+                  if (_statusMessage != null) ...[
+                    FocusStatusMessage(
+                      message: _statusMessage!,
+                      type: _statusType,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _BookingTypeOption(
-                        key: const Key('booking-type-recurring'),
-                        label: 'Entrenamiento recurrente',
-                        isSelected: _bookingType == _BookingType.recurring,
-                        onTap: () =>
-                            _onBookingTypeChanged(_BookingType.recurring),
-                      ),
-                    ),
+                    const SizedBox(height: 18),
                   ],
-                ),
-              ),
-              const SizedBox(height: 18),
-            ],
-            _StepCard(
-              title: 'Duracion',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _isEditing
-                        ? 'La duración de esta cita se mantiene en $_selectedDuration min.'
-                        : activeBono == null
-                        ? 'No hay bono activo disponible para reservar.'
-                        : '${activeBono.minutosRestantes} minutos disponibles en tu bono.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  if (_isEditing)
-                    Text(
-                      'Duración fija: $_selectedDuration min',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    )
-                  else
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final useGrid = constraints.maxWidth >= 420;
-                        final options = [30, 45, 60]
-                            .map((duration) {
-                              final isEnabled =
-                                  activeBono != null &&
-                                  duration <= activeBono.minutosRestantes;
-                              return _DurationOption(
-                                duration: duration,
-                                isSelected: _selectedDuration == duration,
-                                isEnabled: isEnabled,
-                                onTap: isEnabled
-                                    ? () => setState(() {
-                                        _selectedDuration = duration;
-                                        _selectedSlot = null;
-                                        _syncRecurringEndDate();
-                                      })
-                                    : null,
-                              );
-                            })
-                            .toList(growable: false);
-
-                        if (!useGrid) {
-                          return Column(
-                            children: [
-                              for (final option in options) ...[
-                                option,
-                                if (option != options.last)
-                                  const SizedBox(height: 10),
-                              ],
-                            ],
-                          );
-                        }
-                        return Row(
-                          children: [
-                            for (final option in options) ...[
-                              Expanded(child: option),
-                              if (option != options.last)
-                                const SizedBox(width: 10),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            _StepCard(
-              title: _isRecurringBooking ? 'Fecha inicial' : 'Fecha',
-              child: _BookingCalendar(
-                selectedDate: _selectedDate,
-                dates: dates,
-                onSelected: (date) => setState(() {
-                  _selectedDate = date;
-                  _selectedSlot = null;
-                  _syncRecurringEndDate();
-                }),
-              ),
-            ),
-            if (_isRecurringBooking) ...[
-              const SizedBox(height: 18),
-              _StepCard(
-                title: 'Recurrencia',
-                child: _RecurringControls(
-                  intervalController: _intervalController,
-                  hasta: hasta,
-                  selectedEndDate: selectedEndDate,
-                  durationMinutes: _selectedDuration,
-                  onIntervalChanged: _onIntervalChanged,
-                  onEndDateChanged: (endDate) => setState(() {
-                    _selectedEndDate = endDate;
-                  }),
-                ),
-              ),
-            ],
-            const SizedBox(height: 18),
-            _StepCard(
-              title: 'Franja horaria',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _SlotLegend(),
-                  const SizedBox(height: 16),
-                  if (!canBook)
+                  if (_isEditingRecurring) ...[
                     const FocusStatusMessage(
                       message:
-                          'Necesitas un bono activo y la configuracion horaria del centro para seleccionar una franja.',
+                          'Las citas recurrentes no se pueden modificar individualmente.',
                       type: FocusStatusType.warning,
-                    )
-                  else
-                    _SlotGrid(
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  if (step == _BookingStep.type)
+                    _TypeStep(
+                      bookingType: _bookingType,
+                      onChanged: _onBookingTypeChanged,
+                    ),
+                  if (step == _BookingStep.duration)
+                    _DurationStep(
+                      selectedDuration: _selectedDuration,
+                      isEditing: _isEditing,
+                      remainingMinutes: activeBono?.minutosRestantes,
+                      onSelected: (duration) {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _selectedDuration = duration;
+                          _selectedSlot = null;
+                          _syncRecurringEndDate();
+                        });
+                      },
+                    ),
+                  if (step == _BookingStep.schedule)
+                    _ScheduleStep(
+                      selectedDate: _selectedDate,
+                      dates: dates,
                       slots: slots,
                       selectedSlot: selectedSlot,
-                      onSelected: (slot) =>
+                      canBook: canBook,
+                      isRecurring: _isRecurringBooking,
+                      isEditing: _isEditing,
+                      durationMinutes: _selectedDuration,
+                      onDateSelected: (date) => setState(() {
+                        _selectedDate = date;
+                        _selectedSlot = null;
+                        _syncRecurringEndDate();
+                      }),
+                      onSlotSelected: (slot) =>
                           setState(() => _selectedSlot = slot),
                     ),
-                  if (selectedSlot != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      'Elegida: ${selectedSlot.slot.dateLabel} a las ${selectedSlot.slot.time}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.emerald,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  if (step == _BookingStep.recurrence)
+                    _RecurringControls(
+                      intervalController: _intervalController,
+                      intervalDays: _intervalDays,
+                      hasta: hasta,
+                      selectedEndDate: selectedEndDate,
+                      durationMinutes: _selectedDuration,
+                      onIntervalChanged: _onIntervalChanged,
+                      onEndDateChanged: (endDate) => setState(() {
+                        _selectedEndDate = endDate;
+                      }),
                     ),
-                  ],
+                  if (step == _BookingStep.summary)
+                    _SummaryStep(
+                      isEditing: _isEditing,
+                      isRecurring: _isRecurringBooking,
+                      durationMinutes: _selectedDuration,
+                      selectedSlot: selectedSlot,
+                      intervalDays: _intervalDays,
+                      selectedEndDate: selectedEndDate,
+                      hasta: hasta,
+                      commentController: _commentController,
+                      approvedWarning:
+                          _isEditing &&
+                          widget.editingAppointment?.status ==
+                              AppointmentStatus.approved,
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 18),
-            if (_isEditing &&
-                widget.editingAppointment?.status ==
-                    AppointmentStatus.approved) ...[
-              const FocusStatusMessage(
-                message:
-                    'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
-                type: FocusStatusType.warning,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Column(
+                children: [
+                  if (step == _BookingStep.summary)
+                    FocusPrimaryButton(
+                      label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
+                      isLoading: _isSubmitting,
+                      onPressed: canSubmit && !_isSubmitting
+                          ? () {
+                              HapticFeedback.lightImpact();
+                              _submit();
+                            }
+                          : null,
+                    )
+                  else
+                    FocusPrimaryButton(
+                      label: 'Continuar',
+                      onPressed: canContinue ? _goNext : null,
+                    ),
+                  const SizedBox(height: 10),
+                  if (_stepIndex > 0)
+                    FocusGhostButton(
+                      label: 'Atras',
+                      onPressed: _goBack,
+                      icon: Icons.arrow_back_rounded,
+                    )
+                  else
+                    FocusGhostButton(
+                      label: 'Cancelar',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icons.close_rounded,
+                    ),
+                ],
               ),
-              const SizedBox(height: 18),
-            ],
-            if (!_isEditing) ...[
-              _CommentInputCard(controller: _commentController),
-              const SizedBox(height: 22),
-            ],
-            FocusPrimaryButton(
-              label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
-              isLoading: _isSubmitting,
-              onPressed: canSubmit && !_isSubmitting ? _submit : null,
-            ),
-            const SizedBox(height: 12),
-            FocusGhostButton(
-              label: 'Cancelar',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Icons.close_rounded,
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _goNext() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _stepIndex = (_stepIndex + 1).clamp(0, _flow.length - 1);
+    });
+  }
+
+  void _goBack() {
+    setState(() {
+      _stepIndex = (_stepIndex - 1).clamp(0, _flow.length - 1);
+    });
   }
 
   void _handlePortalChange() {
@@ -365,6 +350,7 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _onBookingTypeChanged(_BookingType type) {
+    HapticFeedback.selectionClick();
     setState(() {
       _bookingType = type;
       if (type == _BookingType.single) {
@@ -372,6 +358,7 @@ class _BookingScreenState extends State<BookingScreen> {
       } else {
         _syncRecurringEndDate();
       }
+      _stepIndex = _stepIndex.clamp(0, _flow.length - 1);
     });
   }
 
@@ -433,7 +420,9 @@ class _BookingScreenState extends State<BookingScreen> {
         _currentHasta(state).options,
       );
       if (endDate == null || _intervalDays < 1) {
-        _showError('Selecciona hasta que fecha quieres repetir el entrenamiento.');
+        _showError(
+          'Selecciona hasta que fecha quieres repetir el entrenamiento.',
+        );
         return;
       }
     }
@@ -526,23 +515,68 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 }
 
-class _StepCard extends StatelessWidget {
-  const _StepCard({required this.title, required this.child});
+class _StepDots extends StatelessWidget {
+  const _StepDots({required this.current, required this.total});
 
-  final String title;
-  final Widget child;
+  final int current;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
-    return FocusGlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FocusSectionHeader(title: title),
-          const SizedBox(height: 12),
-          child,
+    return Row(
+      children: [
+        for (var i = 0; i < total; i++) ...[
+          Expanded(
+            child: AnimatedContainer(
+              duration: AppTheme.motion,
+              height: 4,
+              decoration: BoxDecoration(
+                color: i <= current ? AppTheme.black : AppTheme.backgroundSecondary,
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+              ),
+            ),
+          ),
+          if (i != total - 1) const SizedBox(width: 6),
         ],
-      ),
+      ],
+    );
+  }
+}
+
+class _TypeStep extends StatelessWidget {
+  const _TypeStep({required this.bookingType, required this.onChanged});
+
+  final _BookingType bookingType;
+  final ValueChanged<_BookingType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Tipo', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        Text(
+          'Elige si quieres una sesion suelta o un entrenamiento recurrente.',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+        const SizedBox(height: 24),
+        _BookingTypeOption(
+          key: const Key('booking-type-single'),
+          label: 'Cita única',
+          detail: 'Una sola sesion',
+          isSelected: bookingType == _BookingType.single,
+          onTap: () => onChanged(_BookingType.single),
+        ),
+        const SizedBox(height: 12),
+        _BookingTypeOption(
+          key: const Key('booking-type-recurring'),
+          label: 'Entrenamiento recurrente',
+          detail: 'Repite cada X dias',
+          isSelected: bookingType == _BookingType.recurring,
+          onTap: () => onChanged(_BookingType.recurring),
+        ),
+      ],
     );
   }
 }
@@ -550,47 +584,52 @@ class _StepCard extends StatelessWidget {
 class _BookingTypeOption extends StatelessWidget {
   const _BookingTypeOption({
     required this.label,
+    required this.detail,
     required this.isSelected,
     required this.onTap,
     super.key,
   });
 
   final String label;
+  final String detail;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        constraints: const BoxConstraints(minHeight: 56),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.surfaceElevated.withValues(alpha: 0.96)
-              : AppTheme.input,
-          borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-          border: Border.all(
-            color: isSelected
-                ? AppTheme.emerald.withValues(alpha: 0.32)
-                : AppTheme.borderStrong.withValues(alpha: 0.42),
-            width: isSelected ? 1.4 : 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        child: AnimatedContainer(
+          duration: AppTheme.motion,
+          curve: AppTheme.motionCurve,
+          constraints: const BoxConstraints(minHeight: 88),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.lime : AppTheme.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
           ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: isSelected ? AppTheme.onLime : AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                detail,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: isSelected
+                      ? AppTheme.onLime.withValues(alpha: 0.72)
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -598,9 +637,290 @@ class _BookingTypeOption extends StatelessWidget {
   }
 }
 
+class _DurationStep extends StatelessWidget {
+  const _DurationStep({
+    required this.selectedDuration,
+    required this.isEditing,
+    required this.remainingMinutes,
+    required this.onSelected,
+  });
+
+  final int selectedDuration;
+  final bool isEditing;
+  final int? remainingMinutes;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Duracion', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        Text(
+          remainingMinutes == null
+              ? 'No hay bono activo disponible para reservar.'
+              : '${formatMinutesDuration(remainingMinutes!)} disponibles',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+        const SizedBox(height: 24),
+        if (isEditing)
+          Text(
+            'Duración fija: $selectedDuration min',
+            style: Theme.of(context).textTheme.titleSmall,
+          )
+        else
+          Row(
+            children: [
+              for (final duration in [30, 45, 60]) ...[
+                Expanded(
+                  child: _DurationOption(
+                    duration: duration,
+                    isSelected: selectedDuration == duration,
+                    isEnabled:
+                        remainingMinutes != null &&
+                        duration <= remainingMinutes!,
+                    onTap: remainingMinutes != null &&
+                            duration <= remainingMinutes!
+                        ? () => onSelected(duration)
+                        : null,
+                  ),
+                ),
+                if (duration != 60) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _DurationOption extends StatelessWidget {
+  const _DurationOption({
+    required this.duration,
+    required this.isSelected,
+    required this.isEnabled,
+    required this.onTap,
+  });
+
+  final int duration;
+  final bool isSelected;
+  final bool isEnabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.42,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        child: AnimatedContainer(
+          duration: AppTheme.motion,
+          curve: AppTheme.motionCurve,
+          constraints: const BoxConstraints(minHeight: 88),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.lime : AppTheme.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$duration',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: isSelected ? AppTheme.onLime : AppTheme.textPrimary,
+                ),
+              ),
+              Text(
+                'min',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: isSelected ? AppTheme.onLime : AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleStep extends StatelessWidget {
+  const _ScheduleStep({
+    required this.selectedDate,
+    required this.dates,
+    required this.slots,
+    required this.selectedSlot,
+    required this.canBook,
+    required this.isRecurring,
+    required this.isEditing,
+    required this.durationMinutes,
+    required this.onDateSelected,
+    required this.onSlotSelected,
+  });
+
+  final String selectedDate;
+  final List<String> dates;
+  final List<BookingSlotState> slots;
+  final BookingSlotState? selectedSlot;
+  final bool canBook;
+  final bool isRecurring;
+  final bool isEditing;
+  final int durationMinutes;
+  final ValueChanged<String> onDateSelected;
+  final ValueChanged<BookingSlotState> onSlotSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedDateTime = DateTime.tryParse(selectedDate);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isRecurring ? 'Fecha inicial' : 'Fecha y hora',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 8),
+        if (isEditing)
+          Text(
+            'Duración fija: $durationMinutes min',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        if (isEditing) const SizedBox(height: 12),
+        Row(
+          children: [
+            const Icon(
+              Icons.calendar_month_outlined,
+              color: AppTheme.textSecondary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                selectedDateTime == null
+                    ? 'Calendario'
+                    : '${_monthLabel(selectedDateTime.month)} ${selectedDateTime.year}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            TextButton(
+              onPressed: () => _openCalendar(context),
+              child: const Text('Ver calendario'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        FocusDateStrip(
+          selectedId: selectedDate,
+          onSelected: onDateSelected,
+          items: [
+            for (final date in dates)
+              FocusDateStripItem(
+                id: date,
+                weekday: _stripWeekday(date),
+                day: _chipDateLabel(date),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        const _SlotLegend(),
+        const SizedBox(height: 16),
+        if (!canBook)
+          const FocusStatusMessage(
+            message:
+                'Necesitas un bono activo y la configuracion horaria del centro para seleccionar una franja.',
+            type: FocusStatusType.warning,
+          )
+        else
+          _SlotGrid(
+            slots: slots,
+            selectedSlot: selectedSlot,
+            onSelected: onSlotSelected,
+          ),
+        if (selectedSlot != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Elegida: ${selectedSlot!.slot.dateLabel} a las ${selectedSlot!.slot.time}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _openCalendar(BuildContext context) async {
+    final parsed = dates
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .toList(growable: false);
+    if (parsed.isEmpty) return;
+    final initial = DateTime.tryParse(selectedDate) ?? parsed.first;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: parsed.first,
+      lastDate: parsed.last,
+      selectableDayPredicate: (day) {
+        final id =
+            '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+        return dates.contains(id);
+      },
+    );
+    if (picked == null) return;
+    final id =
+        '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    if (dates.contains(id)) onDateSelected(id);
+  }
+}
+
+class _SlotGrid extends StatelessWidget {
+  const _SlotGrid({
+    required this.slots,
+    required this.selectedSlot,
+    required this.onSelected,
+  });
+
+  final List<BookingSlotState> slots;
+  final BookingSlotState? selectedSlot;
+  final ValueChanged<BookingSlotState> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      key: const Key('booking-slot-grid'),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: slots.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        mainAxisExtent: AppTextSizing.slotExtent(context),
+      ),
+      itemBuilder: (context, index) {
+        final slot = slots[index];
+        final isSelected = selectedSlot?.slot == slot.slot;
+        return FocusTimeSlot(
+          time: slot.slot.time,
+          label: slot.label,
+          selected: isSelected,
+          enabled: slot.isEnabled,
+          color: slot.color,
+          onTap: () => onSelected(slot),
+        );
+      },
+    );
+  }
+}
+
 class _RecurringControls extends StatelessWidget {
   const _RecurringControls({
     required this.intervalController,
+    required this.intervalDays,
     required this.hasta,
     required this.selectedEndDate,
     required this.durationMinutes,
@@ -609,6 +929,7 @@ class _RecurringControls extends StatelessWidget {
   });
 
   final TextEditingController intervalController;
+  final int intervalDays;
   final RecurringHastaViewModel hasta;
   final String? selectedEndDate;
   final int durationMinutes;
@@ -623,18 +944,30 @@ class _RecurringControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('Recurrencia', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 24),
+        Text('Cada', style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 10),
         Row(
           children: [
-            Text('Cada', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(width: 10),
+            _StepperButton(
+              icon: Icons.remove_rounded,
+              onTap: () {
+                final next = (intervalDays <= 1 ? 1 : intervalDays - 1);
+                intervalController.text = '$next';
+                onIntervalChanged('$next');
+              },
+            ),
+            const SizedBox(width: 12),
             SizedBox(
               width: 84,
               child: TextFormField(
                 key: const Key('recurring-interval-days'),
                 controller: intervalController,
                 keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
                 onChanged: onIntervalChanged,
-                style: const TextStyle(color: AppTheme.textPrimary),
+                style: Theme.of(context).textTheme.headlineMedium,
                 decoration: const InputDecoration(
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(
@@ -644,11 +977,20 @@ class _RecurringControls extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Text('días', style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(width: 12),
+            _StepperButton(
+              icon: Icons.add_rounded,
+              onTap: () {
+                final next = intervalDays + 1;
+                intervalController.text = '$next';
+                onIntervalChanged('$next');
+              },
+            ),
+            const SizedBox(width: 12),
+            Text('días', style: Theme.of(context).textTheme.titleSmall),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         Text('Hasta', style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 8),
         if (hasta.options.isEmpty)
@@ -683,24 +1025,157 @@ class _RecurringControls extends StatelessWidget {
             ),
           ),
         if (selectedOption != null) ...[
-          const SizedBox(height: 16),
-          Text(
-            '${selectedOption.occurrenceCount} sesiones',
-            style: Theme.of(context).textTheme.titleSmall,
+          const SizedBox(height: 20),
+          FocusBlackCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const FocusKicker('Resumen', onDark: true),
+                const SizedBox(height: 12),
+                Text(
+                  '${selectedOption.occurrenceCount} sesiones',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: AppTheme.onBlack,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$durationMinutes min por sesión',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.onBlack.withValues(alpha: 0.72),
+                  ),
+                ),
+                Text(
+                  '${selectedOption.totalMinutes} min en total',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.onBlack.withValues(alpha: 0.72),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Las sesiones quedarán pendientes de aprobación.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.onBlack.withValues(alpha: 0.72),
+                  ),
+                ),
+              ],
+            ),
           ),
-          Text(
-            '$durationMinutes min por sesión',
-            style: Theme.of(context).textTheme.bodyMedium,
+        ],
+      ],
+    );
+  }
+}
+
+class _StepperButton extends StatelessWidget {
+  const _StepperButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.white,
+      borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        child: SizedBox.square(
+          dimension: 48,
+          child: Icon(icon, color: AppTheme.textPrimary),
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryStep extends StatelessWidget {
+  const _SummaryStep({
+    required this.isEditing,
+    required this.isRecurring,
+    required this.durationMinutes,
+    required this.selectedSlot,
+    required this.intervalDays,
+    required this.selectedEndDate,
+    required this.hasta,
+    required this.commentController,
+    required this.approvedWarning,
+  });
+
+  final bool isEditing;
+  final bool isRecurring;
+  final int durationMinutes;
+  final BookingSlotState? selectedSlot;
+  final int intervalDays;
+  final String? selectedEndDate;
+  final RecurringHastaViewModel hasta;
+  final TextEditingController commentController;
+  final bool approvedWarning;
+
+  @override
+  Widget build(BuildContext context) {
+    final option = hasta.options
+        .where((item) => item.endDate == selectedEndDate)
+        .firstOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Tu reserva', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 18),
+        if (approvedWarning) ...[
+          const FocusStatusMessage(
+            message:
+                'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
+            type: FocusStatusType.warning,
           ),
-          Text(
-            '${selectedOption.totalMinutes} min en total',
-            style: Theme.of(context).textTheme.bodyMedium,
+          const SizedBox(height: 18),
+        ],
+        FocusBlackCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const FocusKicker('Tu reserva', onDark: true),
+              const SizedBox(height: 16),
+              Text(
+                '$durationMinutes min',
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: AppTheme.onBlack,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                selectedSlot == null
+                    ? 'Selecciona fecha y hora'
+                    : '${selectedSlot!.slot.dateLabel}\n${selectedSlot!.slot.time}',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppTheme.onBlack,
+                ),
+              ),
+              if (isRecurring && option != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Cada $intervalDays días · ${option.occurrenceCount} sesiones',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.onBlack.withValues(alpha: 0.72),
+                  ),
+                ),
+                Text(
+                  '${option.totalMinutes} min total',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.onBlack.withValues(alpha: 0.72),
+                  ),
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            'Las sesiones quedarán pendientes de aprobación.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+        ),
+        if (!isEditing) ...[
+          const SizedBox(height: 18),
+          _CommentInputCard(controller: commentController),
         ],
       ],
     );
@@ -719,30 +1194,9 @@ class _CommentInputCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceElevated.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const SizedBox.square(
-                  dimension: 38,
-                  child: Icon(
-                    Icons.notes_rounded,
-                    color: AppTheme.emerald,
-                    size: 19,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Comentario opcional',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-            ],
+          Text(
+            'Comentario opcional',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 14),
           TextFormField(
@@ -750,29 +1204,10 @@ class _CommentInputCard extends StatelessWidget {
             minLines: 3,
             maxLines: 5,
             style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: 'Comentario opcional',
               hintText: 'Cuentanos si necesitas adaptar la sesion.',
               alignLabelWithHint: true,
-              prefixIcon: const Padding(
-                padding: EdgeInsets.only(bottom: 56),
-                child: Icon(Icons.edit_note_rounded, size: 20),
-              ),
-              filled: true,
-              fillColor: AppTheme.input.withValues(alpha: 0.80),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                borderSide: BorderSide(
-                  color: AppTheme.borderStrong.withValues(alpha: 0.52),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                borderSide: BorderSide(
-                  color: AppTheme.emerald.withValues(alpha: 0.62),
-                  width: 1.2,
-                ),
-              ),
             ),
           ),
         ],
@@ -781,297 +1216,38 @@ class _CommentInputCard extends StatelessWidget {
   }
 }
 
-class _DurationOption extends StatelessWidget {
-  const _DurationOption({
-    required this.duration,
-    required this.isSelected,
-    required this.isEnabled,
-    required this.onTap,
-  });
-
-  final int duration;
-  final bool isSelected;
-  final bool isEnabled;
-  final VoidCallback? onTap;
+class _SlotLegend extends StatelessWidget {
+  const _SlotLegend();
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isSelected
-        ? AppTheme.emerald.withValues(alpha: 0.32)
-        : AppTheme.borderStrong.withValues(alpha: 0.42);
-    return Opacity(
-      opacity: isEnabled ? 1 : 0.42,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          constraints: const BoxConstraints(minHeight: 82),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppTheme.surfaceElevated.withValues(alpha: 0.96)
-                : AppTheme.input,
-            borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-            border: Border.all(color: borderColor, width: isSelected ? 1.4 : 1),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '$duration',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontSize: 27,
-                  color: isSelected ? AppTheme.textPrimary : AppTheme.emerald,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'min',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: isSelected ? AppTheme.emerald : AppTheme.textSecondary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SlotGrid extends StatelessWidget {
-  const _SlotGrid({
-    required this.slots,
-    required this.selectedSlot,
-    required this.onSelected,
-  });
-
-  final List<BookingSlotState> slots;
-  final BookingSlotState? selectedSlot;
-  final ValueChanged<BookingSlotState> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return GridView.builder(
-          key: const Key('booking-slot-grid'),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: slots.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            mainAxisExtent: AppTextSizing.slotExtent(context),
-          ),
-          itemBuilder: (context, index) {
-            final slot = slots[index];
-            final isSelected = selectedSlot?.slot == slot.slot;
-            return _SlotChip(
-              slot: slot,
-              isSelected: isSelected,
-              onTap: slot.isEnabled ? () => onSelected(slot) : null,
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _SlotChip extends StatelessWidget {
-  const _SlotChip({
-    required this.slot,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final BookingSlotState slot;
-  final bool isSelected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: slot.isEnabled ? 1 : 0.5,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppTheme.surfaceElevated.withValues(alpha: 0.94)
-                : AppTheme.input,
-            borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-            border: Border.all(
-              color: isSelected
-                  ? AppTheme.emerald.withValues(alpha: 0.24)
-                  : AppTheme.borderStrong.withValues(alpha: 0.24),
-              width: isSelected ? 1.2 : 1,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      blurRadius: 14,
-                      offset: const Offset(0, 7),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  slot.slot.time,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(color: AppTheme.textPrimary),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isSelected ? 'Elegida' : slot.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isSelected ? AppTheme.textPrimary : slot.color,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BookingCalendar extends StatelessWidget {
-  const _BookingCalendar({
-    required this.selectedDate,
-    required this.dates,
-    required this.onSelected,
-  });
-
-  final String selectedDate;
-  final List<String> dates;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedDateTime = DateTime.tryParse(selectedDate);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return const Wrap(
+      spacing: 12,
+      runSpacing: 8,
       children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.calendar_month_outlined,
-              color: AppTheme.textSecondary,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              selectedDateTime == null
-                  ? 'Calendario'
-                  : '${_monthLabel(selectedDateTime.month)} ${selectedDateTime.year}',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          mainAxisExtent: AppTextSizing.dateExtent(context),
-          children: dates.map((date) {
-            final dateTime = DateTime.tryParse(date);
-            final weekday = dateTime == null
-                ? ''
-                : _weekdayLabel(dateTime.weekday);
-            final day = dateTime?.day.toString().padLeft(2, '0') ?? date;
-            final month = dateTime == null ? '' : _monthLabel(dateTime.month);
-            final isSelected = selectedDate == date;
+        _LegendItem(color: AppTheme.success, label: 'Disponible'),
+        _LegendItem(color: AppTheme.warning, label: 'Casi lleno'),
+        _LegendItem(color: AppTheme.textSecondary, label: 'No disponible'),
+        _LegendItem(color: AppTheme.danger, label: 'Completo'),
+      ],
+    );
+  }
+}
 
-            return InkWell(
-              onTap: () => onSelected(date),
-              borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.surfaceElevated.withValues(alpha: 0.94)
-                      : AppTheme.input,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppTheme.emerald.withValues(alpha: 0.24)
-                        : AppTheme.border,
-                    width: isSelected ? 1.2 : 1,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.22),
-                            blurRadius: 12,
-                            offset: const Offset(0, 5),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 9,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        weekday,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: isSelected
-                              ? AppTheme.textPrimary
-                              : AppTheme.textSecondary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '$day $month',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.circle, size: 8, color: color),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
       ],
     );
   }
@@ -1098,39 +1274,14 @@ String _monthLabel(int month) {
   ][month - 1];
 }
 
-class _SlotLegend extends StatelessWidget {
-  const _SlotLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: const [
-        _LegendItem(color: AppTheme.emerald, label: 'Disponible'),
-        _LegendItem(color: AppTheme.amber, label: 'Casi lleno'),
-        _LegendItem(color: AppTheme.textSecondary, label: 'No disponible'),
-        _LegendItem(color: AppTheme.danger, label: 'Completo'),
-      ],
-    );
-  }
+String _stripWeekday(String date) {
+  final dateTime = DateTime.tryParse(date);
+  if (dateTime == null) return '';
+  return _weekdayLabel(dateTime.weekday).toUpperCase();
 }
 
-class _LegendItem extends StatelessWidget {
-  const _LegendItem({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.circle, size: 8, color: color),
-        const SizedBox(width: 6),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
-    );
-  }
+String _chipDateLabel(String date) {
+  final dateTime = DateTime.tryParse(date);
+  if (dateTime == null) return date;
+  return '${dateTime.day.toString().padLeft(2, '0')} ${_monthLabel(dateTime.month)}';
 }

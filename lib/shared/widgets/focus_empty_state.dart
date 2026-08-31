@@ -23,8 +23,8 @@ class FocusEmptyState extends StatelessWidget {
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              color: AppTheme.input.withValues(alpha: 0.62),
-              borderRadius: BorderRadius.circular(16),
+              color: AppTheme.backgroundSecondary,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             ),
             child: SizedBox.square(
               dimension: 42,

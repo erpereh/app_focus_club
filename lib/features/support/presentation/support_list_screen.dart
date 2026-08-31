@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
-import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_segmented_control.dart';
 import '../../../theme/app_theme.dart';
 import '../application/suggestion_view_model.dart';
@@ -145,19 +144,55 @@ class _SupportListScreenState extends State<SupportListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Chat',
-                      style: Theme.of(context).textTheme.headlineMedium,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final title = Text(
+                          'Chat',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.headlineLarge,
+                        );
+                        final newConversation = FilledButton(
+                          onPressed: () => _openNewConversation(context),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.lime,
+                            foregroundColor: AppTheme.onLime,
+                            minimumSize: const Size(0, 40),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: const Text(
+                            'Nueva conversación',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                        if (constraints.maxWidth < 360) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              title,
+                              const SizedBox(height: 12),
+                              newConversation,
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(child: title),
+                            const SizedBox(width: 8),
+                            newConversation,
+                          ],
+                        );
+                      },
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
                       'Habla directamente con el equipo de Focus Club.',
                       style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 20),
-                    FocusPrimaryButton(
-                      label: 'Nueva conversación',
-                      onPressed: () => _openNewConversation(context),
                     ),
                   ],
                 ),
@@ -227,7 +262,7 @@ class _ConversationContent extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 120),
       itemCount: state.conversations.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const Divider(height: 1, color: AppTheme.border),
       itemBuilder: (context, index) {
         final conversation = state.conversations[index];
         return _ConversationCard(
@@ -249,23 +284,22 @@ class _ConversationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = conversation.isClosed
         ? AppTheme.textSecondary
-        : AppTheme.emerald;
+        : AppTheme.success;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-      child: FocusGlassCard(
-        padding: EdgeInsets.all(conversation.isClosed ? 14 : 18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             DecoratedBox(
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
+              decoration: const BoxDecoration(
+                color: AppTheme.black,
+                shape: BoxShape.circle,
               ),
               child: SizedBox.square(
                 dimension: 44,
-                child: Icon(Icons.forum_rounded, color: statusColor),
+                child: Icon(Icons.forum_rounded, color: AppTheme.lime, size: 20),
               ),
             ),
             const SizedBox(width: 14),
@@ -358,7 +392,7 @@ class _UnreadBadge extends StatelessWidget {
     final label = count > 99 ? '99+' : '$count';
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: AppTheme.emerald,
+        color: AppTheme.lime,
         shape: BoxShape.circle,
       ),
       child: SizedBox.square(
@@ -367,7 +401,7 @@ class _UnreadBadge extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppTheme.background,
+              color: AppTheme.onLime,
               fontWeight: FontWeight.w900,
             ),
           ),

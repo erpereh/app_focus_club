@@ -49,9 +49,9 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.emerald.withValues(alpha: 0.12),
+        color: AppTheme.lime.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.45)),
+        border: Border.all(color: AppTheme.lime.withValues(alpha: 0.45)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -59,7 +59,7 @@ class _StatusPill extends StatelessWidget {
           label,
           style: Theme.of(
             context,
-          ).textTheme.labelLarge?.copyWith(color: AppTheme.emerald),
+          ).textTheme.labelLarge?.copyWith(color: AppTheme.black),
         ),
       ),
     );
@@ -75,7 +75,7 @@ class _ReadinessPanel extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
+        color: AppTheme.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppTheme.border),
       ),

@@ -66,18 +66,9 @@ class _SplashScreenState extends State<SplashScreen> {
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
+              color: AppTheme.white,
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: AppTheme.emerald.withValues(alpha: 0.24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.emerald.withValues(alpha: 0.12),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              border: Border.all(color: AppTheme.lime, width: 2),
             ),
             child: Padding(
               padding: const EdgeInsets.all(7),
@@ -112,7 +103,7 @@ class _SplashScreenState extends State<SplashScreen> {
             dimension: 22,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppTheme.emerald,
+              color: AppTheme.black,
             ),
           ),
         ],

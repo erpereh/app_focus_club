@@ -148,9 +148,8 @@ class _ClosedConversationNotice extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.input,
-        borderRadius: BorderRadius.circular(AppTheme.radiusInput),
-        border: Border.all(color: AppTheme.borderStrong),
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
       ),
       child: Column(
         children: [
@@ -233,8 +232,8 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alignment = isCustomer ? Alignment.centerRight : Alignment.centerLeft;
-    final background = isCustomer ? AppTheme.emerald : AppTheme.surfaceElevated;
-    final foreground = isCustomer ? AppTheme.background : AppTheme.textPrimary;
+    final background = isCustomer ? AppTheme.black : AppTheme.white;
+    final foreground = isCustomer ? AppTheme.onBlack : AppTheme.textPrimary;
     return Align(
       alignment: alignment,
       child: ConstrainedBox(
@@ -248,7 +247,7 @@ class _MessageBubble extends StatelessWidget {
               bottomLeft: Radius.circular(isCustomer ? 18 : 4),
               bottomRight: Radius.circular(isCustomer ? 4 : 18),
             ),
-            border: isCustomer ? null : Border.all(color: AppTheme.border),
+            border: isCustomer ? null : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -283,7 +282,7 @@ class _Composer extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         decoration: BoxDecoration(
-          color: AppTheme.surface.withValues(alpha: 0.96),
+          color: AppTheme.white,
           border: const Border(top: BorderSide(color: AppTheme.border)),
         ),
         child: Row(
