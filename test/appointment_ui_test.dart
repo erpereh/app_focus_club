@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_focus_club/features/client/application/client_portal_view_model.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
@@ -685,10 +687,7 @@ void main() {
     await tester.tap(find.text('18:00').first);
     await tester.pumpAndSettle();
     await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
-    await tester.tap(find.byKey(const Key('recurring-end-date')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('19/09/2026 · 4 sesiones · 240 min').last);
-    await tester.pumpAndSettle();
+    await _selectRecurringHasta(tester, '2026-09-19');
 
     await tester.tap(find.text('Atras'));
     await tester.pumpAndSettle();
@@ -753,10 +752,7 @@ void main() {
     await tester.tap(find.text('18:00').first);
     await tester.pumpAndSettle();
     await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
-    await tester.tap(find.byKey(const Key('recurring-end-date')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('19/09/2026 · 4 sesiones · 240 min').last);
-    await tester.pumpAndSettle();
+    await _selectRecurringHasta(tester, '2026-09-19');
     expect(find.text('4 sesiones'), findsWidgets);
     expect(find.text('60 min por sesión'), findsOneWidget);
     expect(find.text('240 min en total'), findsOneWidget);
@@ -843,16 +839,317 @@ void main() {
     await _bookingContinueUntil(tester, find.byKey(const Key('recurring-interval-days')));
     await tester.enterText(find.byKey(const Key('recurring-interval-days')), '7');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recurring-end-date')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('29/09/2026 · 4 sesiones · 120 min').last);
-    await tester.pumpAndSettle();
+    await _selectRecurringHasta(tester, '2026-09-29');
     expect(find.text('4 sesiones'), findsWidgets);
 
     await tester.enterText(find.byKey(const Key('recurring-interval-days')), '10');
     await tester.pumpAndSettle();
     expect(find.text('4 sesiones'), findsNothing);
     expect(find.text('29/09/2026 · 4 sesiones · 120 min'), findsNothing);
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring Hasta loading disables continue', (tester) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final gate = Completer<void>();
+    final repository = _bookingRepository(availabilityGate: gate);
+    final viewModel = _bookingViewModel(repository: repository);
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await tester.pump();
+
+    expect(find.text('Comprobando disponibilidad...'), findsWidgets);
+    final continueButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Continuar'),
+    );
+    expect(continueButton.onPressed, isNull);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring Hasta shows available options as selectable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final viewModel = _bookingViewModel();
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await tester.tap(find.byKey(const Key('recurring-end-date')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Disponible'), findsWidgets);
+    await tester.tap(find.byKey(const Key('recurring-hasta-option-2026-09-13')));
+    await tester.pumpAndSettle();
+    expect(find.text('2 sesiones'), findsWidgets);
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring Hasta blocked option is visible and not selectable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _bookingRepository(
+      blockedSlots: const [
+        BlockedSlot(id: 'block-16', date: '2026-09-16', time: '18:00'),
+      ],
+    );
+    final viewModel = _bookingViewModel(repository: repository);
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await tester.tap(find.byKey(const Key('recurring-end-date')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('La sesión del 16/09 está bloqueada.'), findsWidgets);
+    final blockedTile = tester.widget<ListTile>(
+      find.byKey(const Key('recurring-hasta-option-2026-09-16')),
+    );
+    expect(blockedTile.enabled, isFalse);
+    final laterTile = tester.widget<ListTile>(
+      find.byKey(const Key('recurring-hasta-option-2026-09-19')),
+    );
+    expect(laterTile.enabled, isFalse);
+    await tester.tap(find.byKey(const Key('recurring-hasta-option-2026-09-16')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ListTile), findsWidgets);
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring Hasta full option is visible and not selectable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _bookingRepository(
+      slotOccupancy: const [
+        SlotOccupancy(
+          id: '2026-09-16_18:00',
+          date: '2026-09-16',
+          time: '18:00',
+          count: 2,
+        ),
+      ],
+    );
+    final viewModel = _bookingViewModel(repository: repository);
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await tester.tap(find.byKey(const Key('recurring-end-date')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Franja completa el 16/09'), findsWidgets);
+    expect(
+      tester
+          .widget<ListTile>(
+            find.byKey(const Key('recurring-hasta-option-2026-09-16')),
+          )
+          .enabled,
+      isFalse,
+    );
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring Hasta conflict option is visible and not selectable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _bookingRepository(
+      appointments: [
+        _appointment(
+          status: AppointmentStatus.approved,
+          date: '2026-09-16',
+          time: '18:00',
+        ),
+      ],
+    );
+    final viewModel = _bookingViewModel(repository: repository);
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await tester.tap(find.byKey(const Key('recurring-end-date')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Ya tienes una sesión que se solapa el 16/09/2026.'),
+      findsWidgets,
+    );
+    expect(
+      tester
+          .widget<ListTile>(
+            find.byKey(const Key('recurring-hasta-option-2026-09-16')),
+          )
+          .enabled,
+      isFalse,
+    );
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring Hasta preview error allows selection and submit', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _bookingRepository(
+      availabilityFailure: Exception('offline'),
+    );
+    final viewModel = _bookingViewModel(repository: repository);
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    expect(find.text('No se ha podido comprobar la disponibilidad.'), findsWidgets);
+
+    await _selectRecurringHasta(tester, '2026-09-19');
+    expect(find.text('4 sesiones'), findsWidgets);
+    expect(
+      find.text(
+        'No se ha podido comprobar la disponibilidad. Se volverá a validar al enviar.',
+      ),
+      findsOneWidget,
+    );
+
+    await _bookingContinueUntil(tester, find.text('Enviar Solicitud'));
+    await tester.tap(find.text('Enviar Solicitud'));
+    await tester.pump();
+    expect(repository.recurringRequests, hasLength(1));
+    expect(repository.recurringRequests.single.endDate, '2026-09-19');
+    await tester.pump(const Duration(milliseconds: 901));
+    await tester.pumpAndSettle();
+    viewModel.dispose();
+  });
+
+  testWidgets('changing interval reloads recurring availability', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _bookingRepository();
+    final viewModel = _bookingViewModel(repository: repository);
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-interval-days')),
+    );
+    final callsAfterSlot = repository.availabilityCalls;
+    expect(callsAfterSlot, greaterThan(0));
+
+    await tester.enterText(
+      find.byKey(const Key('recurring-interval-days')),
+      '7',
+    );
+    await tester.pumpAndSettle();
+    expect(repository.availabilityCalls, greaterThan(callsAfterSlot));
+    viewModel.dispose();
+  });
+
+  testWidgets('invalid Hasta after ready preview is cleared', (tester) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _bookingRepository();
+    final viewModel = _bookingViewModel(repository: repository);
+    await tester.pumpWidget(
+      MaterialApp(home: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('60'));
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await _bookingSelectSlot(tester, dateLabel: '10 sep');
+    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _selectRecurringHasta(tester, '2026-09-19');
+    expect(find.text('4 sesiones'), findsWidgets);
+
+    repository.emitAppointments([
+      _appointment(
+        status: AppointmentStatus.pending,
+        date: '2026-09-16',
+        time: '18:00',
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('4 sesiones'), findsNothing);
     viewModel.dispose();
   });
 
@@ -1145,9 +1442,21 @@ RecurringAppointmentSeries _series({String id = 'series-1'}) {
   );
 }
 
-FakePortalRepository _bookingRepository({Bono? bono}) {
+FakePortalRepository _bookingRepository({
+  Bono? bono,
+  List<BlockedSlot> blockedSlots = const [],
+  List<SlotOccupancy> slotOccupancy = const [],
+  List<Appointment> appointments = const [],
+  Completer<void>? availabilityGate,
+  Object? availabilityFailure,
+}) {
   return FakePortalRepository(
     bonos: [bono ?? _bonoWithMinutes(240)],
+    blockedSlots: blockedSlots,
+    slotOccupancy: slotOccupancy,
+    appointments: appointments,
+    availabilityGate: availabilityGate,
+    availabilityFailure: availabilityFailure,
     siteConfig: const SiteConfig(
       startHour: 8,
       endHour: 20,
@@ -1205,4 +1514,11 @@ bool _finderHasMatch(Finder finder) {
   } on StateError {
     return false;
   }
+}
+
+Future<void> _selectRecurringHasta(WidgetTester tester, String endDate) async {
+  await tester.tap(find.byKey(const Key('recurring-end-date')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key('recurring-hasta-option-$endDate')));
+  await tester.pumpAndSettle();
 }

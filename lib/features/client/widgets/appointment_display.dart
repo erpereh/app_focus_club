@@ -359,19 +359,6 @@ BookingSlotState bookingSlotState({
   );
 }
 
-bool doesDurationFitInSchedule({
-  required TimeSlot slot,
-  required int durationMinutes,
-  required SiteConfig siteConfig,
-}) {
-  final startMinutes = _parseTimeMinutes(slot.time);
-  if (startMinutes == null) return false;
-  final scheduleStart = siteConfig.startHour * 60;
-  final scheduleEnd = siteConfig.endHour * 60;
-  final endMinutes = startMinutes + durationMinutes;
-  return startMinutes >= scheduleStart && endMinutes <= scheduleEnd;
-}
-
 String _formatDate(String? value) {
   if (value == null || value.isEmpty) return 'Sin fecha';
   final parts = value.split('-');
@@ -418,15 +405,6 @@ String _formatMinutes(int value) {
   final hour = (value ~/ 60).toString().padLeft(2, '0');
   final minute = (value % 60).toString().padLeft(2, '0');
   return '$hour:$minute';
-}
-
-int? _parseTimeMinutes(String value) {
-  final parts = value.split(':');
-  if (parts.length != 2) return null;
-  final hour = int.tryParse(parts[0]);
-  final minute = int.tryParse(parts[1]);
-  if (hour == null || minute == null) return null;
-  return hour * 60 + minute;
 }
 
 String _formatWireDate(DateTime value) {

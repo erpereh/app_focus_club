@@ -30,18 +30,89 @@ List<TimeSlot> expandInternalSlots(TimeSlot start, int durationMinutes) {
     );
   }
 
-  final parts = start.time.split(':');
-  if (parts.length != 2) {
+  final startTotal = parseTimeMinutes(start.time);
+  if (startTotal == null) {
     throw FormatException('Expected HH:mm time, got ${start.time}');
   }
 
-  final base = DateTime(2000, 1, 1, int.parse(parts[0]), int.parse(parts[1]));
   final count = durationMinutes ~/ internalSlotMinutes;
-
   return List.generate(count, (index) {
-    final time = base.add(Duration(minutes: internalSlotMinutes * index));
-    return TimeSlot(date: start.date, time: _formatTime(time));
+    return TimeSlot(
+      date: start.date,
+      time: formatClockMinutes(startTotal + internalSlotMinutes * index),
+    );
   });
+}
+
+/// Firestore occupancy/blocked keys that [createRecurringAppointments] validates.
+///
+/// Matches backend `getSlotBlocks`: 15-minute internals plus legacy 30-minute
+/// floors. Do not use this for calendar slot rendering — that stays on
+/// [expandInternalSlots].
+List<String> expandAvailabilitySlotKeys(
+  String startTime,
+  int durationMinutes,
+) {
+  final startTotal = parseTimeMinutes(startTime);
+  if (startTotal == null) {
+    throw FormatException('Expected HH:mm time, got $startTime');
+  }
+  if (durationMinutes <= 0) return const [];
+
+  final numBlocks = (durationMinutes / internalSlotMinutes).ceil();
+  final blocks = <String>{};
+  for (var index = 0; index < numBlocks; index += 1) {
+    final total = startTotal + index * internalSlotMinutes;
+    final legacyTotal = (total ~/ 30) * 30;
+    blocks
+      ..add(formatClockMinutes(total))
+      ..add(formatClockMinutes(legacyTotal));
+  }
+  return List<String>.unmodifiable(blocks);
+}
+
+int? parseTimeMinutes(String value) {
+  final parts = value.split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return hour * 60 + minute;
+}
+
+String formatClockMinutes(int totalMinutes) {
+  final hour = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+  final minute = (totalMinutes % 60).toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+bool isGeneratedScheduleTime({
+  required String time,
+  required SiteConfig siteConfig,
+}) {
+  final startMinutes = parseTimeMinutes(time);
+  if (startMinutes == null) return false;
+  final interval = siteConfig.slotInterval;
+  if (interval <= 0) return false;
+  final scheduleStart = siteConfig.startHour * 60;
+  final scheduleEnd = siteConfig.endHour * 60;
+  if (startMinutes < scheduleStart || startMinutes >= scheduleEnd) {
+    return false;
+  }
+  return (startMinutes - scheduleStart) % interval == 0;
+}
+
+bool doesDurationFitInSchedule({
+  required TimeSlot slot,
+  required int durationMinutes,
+  required SiteConfig siteConfig,
+}) {
+  final startMinutes = parseTimeMinutes(slot.time);
+  if (startMinutes == null) return false;
+  final scheduleStart = siteConfig.startHour * 60;
+  final scheduleEnd = siteConfig.endHour * 60;
+  final endMinutes = startMinutes + durationMinutes;
+  return startMinutes >= scheduleStart && endMinutes <= scheduleEnd;
 }
 
 bool isDurationBlocked({
@@ -96,10 +167,4 @@ bool overlapsActiveAppointment({
           appointment.durationMinutes,
         ).any((candidate) => requestedKeys.contains(candidate.key));
       });
-}
-
-String _formatTime(DateTime time) {
-  final hour = time.hour.toString().padLeft(2, '0');
-  final minute = time.minute.toString().padLeft(2, '0');
-  return '$hour:$minute';
 }

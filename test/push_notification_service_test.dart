@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/data/push_notification_service.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
+import 'package:app_focus_club/features/client/domain/recurring_booking_availability.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -204,6 +205,13 @@ class _RecordingPortalRepository implements PortalRepository {
   Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
     String uid,
   ) => const Stream.empty();
+
+  @override
+  Future<RecurringAvailabilitySnapshot> getAvailabilityForDates(
+    List<String> dates,
+  ) async {
+    return const RecurringAvailabilitySnapshot();
+  }
 
   @override
   Future<void> deleteOwnAccount() async {}

@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 
 import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
+import '../domain/recurring_booking_availability.dart';
 
 abstract interface class PortalRepository {
   Stream<UserProfile?> watchUserProfile(String uid);
@@ -22,6 +23,9 @@ abstract interface class PortalRepository {
   Stream<SiteConfig?> watchSiteConfig();
   Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
     String uid,
+  );
+  Future<RecurringAvailabilitySnapshot> getAvailabilityForDates(
+    List<String> dates,
   );
 
   Future<void> createAppointment(AppointmentRequest request);
@@ -212,6 +216,67 @@ class FirebasePortalRepository implements PortalRepository {
               )
               .toList(growable: false),
         );
+  }
+
+  static const _firestoreInQueryLimit = 30;
+
+  @override
+  Future<RecurringAvailabilitySnapshot> getAvailabilityForDates(
+    List<String> dates,
+  ) async {
+    final uniqueDates = <String>{
+      for (final date in dates)
+        if (date.isNotEmpty) date,
+    }.toList(growable: false);
+    if (uniqueDates.isEmpty) {
+      return const RecurringAvailabilitySnapshot();
+    }
+
+    final occupancy = <SlotOccupancy>[];
+    final blockedSlots = <BlockedSlot>[];
+    final chunks = <List<String>>[];
+    for (
+      var index = 0;
+      index < uniqueDates.length;
+      index += _firestoreInQueryLimit
+    ) {
+      final end = index + _firestoreInQueryLimit;
+      chunks.add(
+        uniqueDates.sublist(
+          index,
+          end > uniqueDates.length ? uniqueDates.length : end,
+        ),
+      );
+    }
+
+    await Future.wait(
+      chunks.map((chunk) async {
+        final occupancyQuery = _firestore
+            .collection('slot_occupancy')
+            .where('date', whereIn: chunk)
+            .get();
+        final blockedQuery = _firestore
+            .collection('blocked_slots')
+            .where('date', whereIn: chunk)
+            .get();
+        final results = await Future.wait([occupancyQuery, blockedQuery]);
+        occupancy.addAll(
+          results[0].docs.map(
+            (doc) => SlotOccupancy.fromMap(doc.id, doc.data()),
+          ),
+        );
+        blockedSlots.addAll(
+          results[1].docs.map(
+            (doc) => BlockedSlot.fromMap(doc.id, doc.data()),
+          ),
+        );
+      }),
+    );
+
+    return RecurringAvailabilitySnapshot(
+      occupancy: occupancy,
+      blockedSlots: blockedSlots,
+    );
   }
 
   @override
@@ -406,6 +471,8 @@ class FakePortalRepository implements PortalRepository {
     SiteConfig? siteConfig,
     Object? deleteOwnAccountFailure,
     Object? recurringSeriesCancelFailure,
+    this.availabilityFailure,
+    this.availabilityGate,
   }) : _profile = profile,
        _appointments = List<Appointment>.from(appointments),
        _bonos = List<Bono>.from(bonos),
@@ -429,6 +496,10 @@ class FakePortalRepository implements PortalRepository {
   final SiteConfig? _siteConfig;
   final Object? _deleteOwnAccountFailure;
   final Object? _recurringSeriesCancelFailure;
+  Object? availabilityFailure;
+  Completer<void>? availabilityGate;
+  int availabilityCalls = 0;
+  final List<List<String>> availabilityRequestedDates = [];
   final StreamController<void> _appointmentsController =
       StreamController<void>.broadcast();
   final StreamController<void> _bonosController =
@@ -529,6 +600,27 @@ class FakePortalRepository implements PortalRepository {
       });
       listener.onCancel = sub.cancel;
     });
+  }
+
+  @override
+  Future<RecurringAvailabilitySnapshot> getAvailabilityForDates(
+    List<String> dates,
+  ) async {
+    availabilityCalls += 1;
+    availabilityRequestedDates.add(List<String>.from(dates));
+    final gate = availabilityGate;
+    if (gate != null) await gate.future;
+    final failure = availabilityFailure;
+    if (failure != null) throw failure;
+    final uniqueDates = dates.toSet();
+    return RecurringAvailabilitySnapshot(
+      occupancy: _slotOccupancy
+          .where((slot) => uniqueDates.contains(slot.date))
+          .toList(growable: false),
+      blockedSlots: _blockedSlots
+          .where((slot) => uniqueDates.contains(slot.date))
+          .toList(growable: false),
+    );
   }
 
   @override

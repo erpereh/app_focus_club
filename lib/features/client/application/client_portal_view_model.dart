@@ -6,6 +6,7 @@ import '../data/portal_repository.dart';
 import '../data/push_notification_service.dart';
 import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
+import '../domain/recurring_booking_availability.dart';
 
 class ClientPortalState {
   const ClientPortalState({
@@ -252,6 +253,12 @@ class ClientPortalViewModel extends ChangeNotifier {
         comment: reason,
       ),
     );
+  }
+
+  Future<RecurringAvailabilitySnapshot> getAvailabilityForDates(
+    List<String> dates,
+  ) {
+    return _repository.getAvailabilityForDates(dates);
   }
 
   Future<void> cancelAppointment(String appointmentId) {

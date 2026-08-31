@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -13,7 +15,9 @@ import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
 import '../domain/portal_models.dart';
 import '../domain/recurring_booking.dart';
+import '../domain/recurring_booking_availability.dart';
 import '../widgets/appointment_display.dart';
+import '../widgets/recurring_hasta_select.dart';
 
 enum _BookingType { single, recurring }
 
@@ -48,6 +52,12 @@ class _BookingScreenState extends State<BookingScreen> {
   int _intervalDays = defaultRecurringIntervalDays;
   String? _selectedEndDate;
   int _stepIndex = 0;
+  RecurringHastaAvailabilityPhase _hastaPhase =
+      RecurringHastaAvailabilityPhase.idle;
+  List<RecurringHastaOptionStatus> _hastaStatuses = const [];
+  int _hastaGeneration = 0;
+  List<String>? _cachedAvailabilityDates;
+  RecurringAvailabilitySnapshot? _cachedAvailabilitySnapshot;
 
   bool get _isEditing => widget.editingAppointment != null;
   bool get _isEditingRecurring =>
@@ -162,13 +172,29 @@ class _BookingScreenState extends State<BookingScreen> {
         ? recalculatedSelectedSlot
         : null;
     final hasta = _currentHasta(state);
-    final selectedEndDate = sanitizeRecurringEndDate(
-      _selectedEndDate,
-      hasta.options,
+    final selectedEndDate = sanitizeRecurringEndDateByAvailability(
+      selectedEndDate: sanitizeRecurringEndDate(
+        _selectedEndDate,
+        hasta.options,
+      ),
+      statuses: _hastaStatuses,
+      phase: _hastaPhase,
     );
+    final selectedStatus = selectedEndDate == null
+        ? null
+        : _hastaStatuses
+              .where((item) => item.option.endDate == selectedEndDate)
+              .firstOrNull;
+    final selectedEndDateInvalid =
+        _hastaPhase == RecurringHastaAvailabilityPhase.ready &&
+        selectedEndDate != null &&
+        selectedStatus?.isAvailable != true;
     final canSubmitRecurring =
         !_isRecurringBooking ||
-        (selectedEndDate != null && _intervalDays >= 1);
+        (selectedEndDate != null &&
+            _intervalDays >= 1 &&
+            _hastaPhase != RecurringHastaAvailabilityPhase.loading &&
+            !selectedEndDateInvalid);
     final canSubmit =
         !_isEditingRecurring &&
         canBook &&
@@ -179,7 +205,9 @@ class _BookingScreenState extends State<BookingScreen> {
     final canContinue = switch (step) {
       _BookingStep.type || _BookingStep.duration => true,
       _BookingStep.schedule => selectedSlot != null && canBook,
-      _BookingStep.recurrence => true,
+      _BookingStep.recurrence =>
+        _hastaPhase != RecurringHastaAvailabilityPhase.loading &&
+            !selectedEndDateInvalid,
       _BookingStep.summary => false,
     };
 
@@ -239,6 +267,7 @@ class _BookingScreenState extends State<BookingScreen> {
                           _selectedSlot = null;
                           _syncRecurringEndDate();
                         });
+                        _requestHastaPreview();
                       },
                     ),
                   if (step == _BookingStep.schedule)
@@ -251,13 +280,18 @@ class _BookingScreenState extends State<BookingScreen> {
                       isRecurring: _isRecurringBooking,
                       isEditing: _isEditing,
                       durationMinutes: _selectedDuration,
-                      onDateSelected: (date) => setState(() {
-                        _selectedDate = date;
-                        _selectedSlot = null;
-                        _syncRecurringEndDate();
-                      }),
-                      onSlotSelected: (slot) =>
-                          setState(() => _selectedSlot = slot),
+                      onDateSelected: (date) {
+                        setState(() {
+                          _selectedDate = date;
+                          _selectedSlot = null;
+                          _syncRecurringEndDate();
+                        });
+                        _requestHastaPreview();
+                      },
+                      onSlotSelected: (slot) {
+                        setState(() => _selectedSlot = slot);
+                        _requestHastaPreview();
+                      },
                     ),
                   if (step == _BookingStep.recurrence)
                     _RecurringControls(
@@ -266,6 +300,8 @@ class _BookingScreenState extends State<BookingScreen> {
                       hasta: hasta,
                       selectedEndDate: selectedEndDate,
                       durationMinutes: _selectedDuration,
+                      phase: _hastaPhase,
+                      statuses: _hastaStatuses,
                       onIntervalChanged: _onIntervalChanged,
                       onEndDateChanged: (endDate) => setState(() {
                         _selectedEndDate = endDate;
@@ -281,6 +317,10 @@ class _BookingScreenState extends State<BookingScreen> {
                       selectedEndDate: selectedEndDate,
                       hasta: hasta,
                       commentController: _commentController,
+                      availabilityPhase: _hastaPhase,
+                      availabilityChecked:
+                          selectedStatus?.isAvailable == true &&
+                          _hastaPhase == RecurringHastaAvailabilityPhase.ready,
                       approvedWarning:
                           _isEditing &&
                           widget.editingAppointment?.status ==
@@ -347,6 +387,11 @@ class _BookingScreenState extends State<BookingScreen> {
   void _handlePortalChange() {
     if (!mounted) return;
     setState(_syncRecurringEndDate);
+    if (_hastaPhase == RecurringHastaAvailabilityPhase.loading ||
+        _hastaPhase == RecurringHastaAvailabilityPhase.error) {
+      return;
+    }
+    _requestHastaPreview();
   }
 
   void _onBookingTypeChanged(_BookingType type) {
@@ -355,11 +400,13 @@ class _BookingScreenState extends State<BookingScreen> {
       _bookingType = type;
       if (type == _BookingType.single) {
         _selectedEndDate = null;
+        _resetHastaPreview();
       } else {
         _syncRecurringEndDate();
       }
       _stepIndex = _stepIndex.clamp(0, _flow.length - 1);
     });
+    _requestHastaPreview();
   }
 
   void _onIntervalChanged(String value) {
@@ -368,6 +415,7 @@ class _BookingScreenState extends State<BookingScreen> {
       _intervalDays = parsed != null && parsed >= 1 ? parsed : 0;
       _syncRecurringEndDate();
     });
+    _requestHastaPreview();
   }
 
   RecurringHastaViewModel _currentHasta(ClientPortalState state) {
@@ -381,10 +429,139 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _syncRecurringEndDate() {
-    _selectedEndDate = sanitizeRecurringEndDate(
-      _selectedEndDate,
-      _currentHasta(widget.viewModel.state).options,
+    _selectedEndDate = sanitizeRecurringEndDateByAvailability(
+      selectedEndDate: sanitizeRecurringEndDate(
+        _selectedEndDate,
+        _currentHasta(widget.viewModel.state).options,
+      ),
+      statuses: _hastaStatuses,
+      phase: _hastaPhase,
     );
+  }
+
+  void _resetHastaPreview() {
+    _hastaGeneration += 1;
+    _hastaPhase = RecurringHastaAvailabilityPhase.idle;
+    _hastaStatuses = const [];
+    _cachedAvailabilityDates = null;
+    _cachedAvailabilitySnapshot = null;
+  }
+
+  bool _sameDates(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
+  }
+
+  void _requestHastaPreview() {
+    if (!mounted) return;
+    if (!_isRecurringBooking) {
+      if (_hastaPhase != RecurringHastaAvailabilityPhase.idle ||
+          _hastaStatuses.isNotEmpty) {
+        setState(_resetHastaPreview);
+      }
+      return;
+    }
+
+    final state = widget.viewModel.state;
+    final siteConfig = state.siteConfig;
+    final time = _selectedSlot?.slot.time;
+    final hasta = _currentHasta(state);
+    if (siteConfig == null ||
+        time == null ||
+        hasta.options.isEmpty ||
+        _intervalDays < 1) {
+      if (_hastaPhase != RecurringHastaAvailabilityPhase.idle ||
+          _hastaStatuses.isNotEmpty) {
+        setState(_resetHastaPreview);
+      }
+      return;
+    }
+
+    final dates = generateRecurringOccurrenceDates(
+      _selectedDate,
+      _intervalDays,
+      hasta.options.last.endDate,
+    );
+    final generation = ++_hastaGeneration;
+    final cachedSnapshot = _cachedAvailabilitySnapshot;
+    final cachedDates = _cachedAvailabilityDates;
+    if (cachedSnapshot != null &&
+        cachedDates != null &&
+        _sameDates(cachedDates, dates)) {
+      setState(() {
+        _hastaPhase = RecurringHastaAvailabilityPhase.ready;
+        _hastaStatuses = evaluateRecurringHastaOptions(
+          startDate: _selectedDate,
+          startTime: time,
+          intervalDays: _intervalDays,
+          durationMinutes: _selectedDuration,
+          options: hasta.options,
+          occupancy: cachedSnapshot.occupancyByKey,
+          blockedKeys: cachedSnapshot.blockedKeys,
+          appointments: state.appointments,
+          siteConfig: siteConfig,
+          now: widget.viewModel.currentTime,
+        );
+        _syncRecurringEndDate();
+      });
+      return;
+    }
+
+    setState(() {
+      _hastaPhase = RecurringHastaAvailabilityPhase.loading;
+      _hastaStatuses = const [];
+    });
+    unawaited(
+      _loadHastaAvailability(
+        generation: generation,
+        dates: dates,
+        startTime: time,
+        hasta: hasta,
+        siteConfig: siteConfig,
+      ),
+    );
+  }
+
+  Future<void> _loadHastaAvailability({
+    required int generation,
+    required List<String> dates,
+    required String startTime,
+    required RecurringHastaViewModel hasta,
+    required SiteConfig siteConfig,
+  }) async {
+    try {
+      final snapshot = await widget.viewModel.getAvailabilityForDates(dates);
+      if (!mounted || generation != _hastaGeneration) return;
+      final state = widget.viewModel.state;
+      final currentConfig = state.siteConfig ?? siteConfig;
+      setState(() {
+        _cachedAvailabilityDates = dates;
+        _cachedAvailabilitySnapshot = snapshot;
+        _hastaPhase = RecurringHastaAvailabilityPhase.ready;
+        _hastaStatuses = evaluateRecurringHastaOptions(
+          startDate: _selectedDate,
+          startTime: startTime,
+          intervalDays: _intervalDays,
+          durationMinutes: _selectedDuration,
+          options: hasta.options,
+          occupancy: snapshot.occupancyByKey,
+          blockedKeys: snapshot.blockedKeys,
+          appointments: state.appointments,
+          siteConfig: currentConfig,
+          now: widget.viewModel.currentTime,
+        );
+        _syncRecurringEndDate();
+      });
+    } catch (_) {
+      if (!mounted || generation != _hastaGeneration) return;
+      setState(() {
+        _hastaPhase = RecurringHastaAvailabilityPhase.error;
+        _hastaStatuses = const [];
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -924,6 +1101,8 @@ class _RecurringControls extends StatelessWidget {
     required this.hasta,
     required this.selectedEndDate,
     required this.durationMinutes,
+    required this.phase,
+    required this.statuses,
     required this.onIntervalChanged,
     required this.onEndDateChanged,
   });
@@ -933,6 +1112,8 @@ class _RecurringControls extends StatelessWidget {
   final RecurringHastaViewModel hasta;
   final String? selectedEndDate;
   final int durationMinutes;
+  final RecurringHastaAvailabilityPhase phase;
+  final List<RecurringHastaOptionStatus> statuses;
   final ValueChanged<String> onIntervalChanged;
   final ValueChanged<String?> onEndDateChanged;
 
@@ -999,30 +1180,12 @@ class _RecurringControls extends StatelessWidget {
             type: FocusStatusType.warning,
           )
         else
-          InputDecorator(
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 12),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                key: const Key('recurring-end-date'),
-                isExpanded: true,
-                value: selectedOption?.endDate,
-                hint: const Text('Selecciona una fecha'),
-                items: [
-                  for (final option in hasta.options)
-                    DropdownMenuItem<String>(
-                      value: option.endDate,
-                      child: Text(
-                        formatRecurringHastaOptionLabel(option),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: onEndDateChanged,
-              ),
-            ),
+          RecurringHastaSelect(
+            hasta: hasta,
+            selectedEndDate: selectedEndDate,
+            phase: phase,
+            statuses: statuses,
+            onEndDateChanged: onEndDateChanged,
           ),
         if (selectedOption != null) ...[
           const SizedBox(height: 20),
@@ -1058,6 +1221,24 @@ class _RecurringControls extends StatelessWidget {
                     color: AppTheme.onBlack.withValues(alpha: 0.72),
                   ),
                 ),
+                if (phase == RecurringHastaAvailabilityPhase.ready) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    recurringHastaCheckedMessage,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.onBlack.withValues(alpha: 0.56),
+                    ),
+                  ),
+                ],
+                if (phase == RecurringHastaAvailabilityPhase.error) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    recurringHastaPreviewErrorHint,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.warning.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1103,6 +1284,8 @@ class _SummaryStep extends StatelessWidget {
     required this.selectedEndDate,
     required this.hasta,
     required this.commentController,
+    required this.availabilityPhase,
+    required this.availabilityChecked,
     required this.approvedWarning,
   });
 
@@ -1114,6 +1297,8 @@ class _SummaryStep extends StatelessWidget {
   final String? selectedEndDate;
   final RecurringHastaViewModel hasta;
   final TextEditingController commentController;
+  final RecurringHastaAvailabilityPhase availabilityPhase;
+  final bool availabilityChecked;
   final bool approvedWarning;
 
   @override
@@ -1171,6 +1356,25 @@ class _SummaryStep extends StatelessWidget {
                       color: AppTheme.onBlack.withValues(alpha: 0.72),
                     ),
                   ),
+                  if (availabilityChecked) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      recurringHastaCheckedMessage,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.onBlack.withValues(alpha: 0.56),
+                      ),
+                    ),
+                  ],
+                  if (availabilityPhase ==
+                      RecurringHastaAvailabilityPhase.error) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      recurringHastaPreviewErrorHint,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.warning.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),

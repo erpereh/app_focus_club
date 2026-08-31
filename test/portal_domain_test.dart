@@ -38,6 +38,44 @@ void main() {
     });
   });
 
+  group('expandAvailabilitySlotKeys', () {
+    test('aligned 60 min session matches 15 min internals', () {
+      expect(expandAvailabilitySlotKeys('11:00', 60), [
+        '11:00',
+        '11:15',
+        '11:30',
+        '11:45',
+      ]);
+    });
+
+    test('11:15 60 min includes the legacy 30 min floor at 11:00', () {
+      expect(expandAvailabilitySlotKeys('11:15', 60), [
+        '11:15',
+        '11:00',
+        '11:30',
+        '11:45',
+        '12:00',
+      ]);
+      expect(
+        expandInternalSlots(
+          const TimeSlot(date: '2026-09-27', time: '11:15'),
+          60,
+        ).map((slot) => slot.time),
+        isNot(contains('11:00')),
+      );
+    });
+
+    test('11:45 60 min includes the legacy 30 min floor at 11:30', () {
+      expect(expandAvailabilitySlotKeys('11:45', 60), [
+        '11:45',
+        '11:30',
+        '12:00',
+        '12:15',
+        '12:30',
+      ]);
+    });
+  });
+
   group('availability', () {
     const config = SiteConfig(
       startHour: 8,
