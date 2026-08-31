@@ -27,7 +27,7 @@ void main() {
     expect(find.text('Legal', skipOffstage: false), findsOneWidget);
     expect(find.text('Política de privacidad'), findsOneWidget);
     expect(find.byIcon(Icons.shield_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right_rounded), findsWidgets);
     expect(find.text('Zona de peligro'), findsOneWidget);
   });
 

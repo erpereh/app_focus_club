@@ -112,12 +112,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.person_outline_rounded,
                 onTap: () => setState(() => _isEditing = true),
               ),
-              if (session?.canChangePassword == true)
-                FocusListRow(
-                  title: 'Seguridad',
-                  icon: Icons.lock_outline_rounded,
-                  onTap: () => setState(() => _isEditing = true),
-                ),
             ],
           ),
           const SizedBox(height: 28),
@@ -720,66 +714,77 @@ class _DangerZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.danger.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Zona de peligro',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 10),
+        FocusListGroup(
           children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppTheme.danger,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Zona de peligro',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleSmall?.copyWith(color: AppTheme.danger),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Eliminar tu cuenta borrara el acceso y limpiara tus datos personales.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: OutlinedButton.icon(
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
                 key: const Key('delete-account-button'),
-                onPressed: onDeleteAccount,
-                icon: isDeleting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.delete_forever_rounded, size: 18),
-                label: Text(
-                  isDeleting ? 'Eliminando cuenta...' : 'Eliminar cuenta',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.danger,
-                  side: BorderSide(
-                    color: AppTheme.danger.withValues(alpha: 0.64),
+                onTap: onDeleteAccount,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 56),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        if (isDeleting)
+                          const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.danger,
+                            ),
+                          )
+                        else
+                          const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 20,
+                            color: AppTheme.danger,
+                          ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            isDeleting
+                                ? 'Eliminando cuenta...'
+                                : 'Eliminar cuenta',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(color: AppTheme.danger),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppTheme.danger,
+                          size: 22,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          'Eliminar tu cuenta borrara el acceso y limpiara tus datos personales.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
     );
   }
 }

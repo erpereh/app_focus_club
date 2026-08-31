@@ -265,33 +265,28 @@ class _NextAppointmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (appointment == null) {
-      return FocusLimeCard(
-        onTap: canBook ? onOpenBooking : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tu agenda esta libre',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.onLime,
+      return SizedBox(
+        width: double.infinity,
+        child: FocusLimeCard(
+          onTap: canBook ? onOpenBooking : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tu agenda esta libre',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppTheme.onLime,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Reserva tu proxima sesion cuando quieras.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.onLime.withValues(alpha: 0.72),
+              const SizedBox(height: 6),
+              Text(
+                'Reserva tu proxima sesion cuando quieras.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.onLime.withValues(alpha: 0.72),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Reservar sesion',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppTheme.onLime,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -301,37 +296,40 @@ class _NextAppointmentCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusHero),
-        child: FocusBlackCard(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: FocusKicker('Proxima cita', onDark: true),
-                  ),
-                  FocusStatusBadge(
-                    label: appointmentDisplayStatusLabel(appointment!),
-                    color: appointmentDisplayStatusColor(appointment!),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                appointment!.dateLabel,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: AppTheme.onBlack,
+        child: SizedBox(
+          width: double.infinity,
+          child: FocusBlackCard(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: FocusKicker('Proxima cita', onDark: true),
+                    ),
+                    FocusStatusBadge(
+                      label: appointmentDisplayStatusLabel(appointment!),
+                      color: appointmentDisplayStatusColor(appointment!),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${appointment!.timeLabel} - ${appointment!.durationMinutes} min',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppTheme.onBlack.withValues(alpha: 0.78),
+                const SizedBox(height: 14),
+                Text(
+                  appointment!.dateLabel,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: AppTheme.onBlack,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  '${appointment!.timeLabel} - ${appointment!.durationMinutes} min',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppTheme.onBlack.withValues(alpha: 0.78),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

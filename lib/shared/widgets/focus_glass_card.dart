@@ -36,16 +36,19 @@ class FocusBlackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.black,
-        borderRadius: BorderRadius.circular(AppTheme.radiusHero),
-      ),
-      child: DefaultTextStyle.merge(
-        style: const TextStyle(color: AppTheme.onBlack),
-        child: IconTheme.merge(
-          data: const IconThemeData(color: AppTheme.onBlack),
-          child: Padding(padding: padding, child: child),
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.black,
+          borderRadius: BorderRadius.circular(AppTheme.radiusHero),
+        ),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: AppTheme.onBlack),
+          child: IconTheme.merge(
+            data: const IconThemeData(color: AppTheme.onBlack),
+            child: Padding(padding: padding, child: child),
+          ),
         ),
       ),
     );
@@ -66,16 +69,19 @@ class FocusLimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.lime,
-        borderRadius: BorderRadius.circular(AppTheme.radiusHero),
-      ),
-      child: DefaultTextStyle.merge(
-        style: const TextStyle(color: AppTheme.onLime),
-        child: IconTheme.merge(
-          data: const IconThemeData(color: AppTheme.onLime),
-          child: Padding(padding: padding, child: child),
+    final content = SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.lime,
+          borderRadius: BorderRadius.circular(AppTheme.radiusHero),
+        ),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: AppTheme.onLime),
+          child: IconTheme.merge(
+            data: const IconThemeData(color: AppTheme.onLime),
+            child: Padding(padding: padding, child: child),
+          ),
         ),
       ),
     );

@@ -1122,7 +1122,7 @@ class _SummaryStep extends StatelessWidget {
         .where((item) => item.endDate == selectedEndDate)
         .firstOrNull;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Tu reserva', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 18),
@@ -1134,43 +1134,46 @@ class _SummaryStep extends StatelessWidget {
           ),
           const SizedBox(height: 18),
         ],
-        FocusBlackCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const FocusKicker('Tu reserva', onDark: true),
-              const SizedBox(height: 16),
-              Text(
-                '$durationMinutes min',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: AppTheme.onBlack,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                selectedSlot == null
-                    ? 'Selecciona fecha y hora'
-                    : '${selectedSlot!.slot.dateLabel}\n${selectedSlot!.slot.time}',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppTheme.onBlack,
-                ),
-              ),
-              if (isRecurring && option != null) ...[
+        SizedBox(
+          width: double.infinity,
+          child: FocusBlackCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const FocusKicker('Tu reserva', onDark: true),
                 const SizedBox(height: 16),
                 Text(
-                  'Cada $intervalDays días · ${option.occurrenceCount} sesiones',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.onBlack.withValues(alpha: 0.72),
+                  '$durationMinutes min',
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    color: AppTheme.onBlack,
                   ),
                 ),
+                const SizedBox(height: 12),
                 Text(
-                  '${option.totalMinutes} min total',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.onBlack.withValues(alpha: 0.72),
+                  selectedSlot == null
+                      ? 'Selecciona fecha y hora'
+                      : '${selectedSlot!.slot.dateLabel}\n${selectedSlot!.slot.time}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppTheme.onBlack,
                   ),
                 ),
+                if (isRecurring && option != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Cada $intervalDays días · ${option.occurrenceCount} sesiones',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.onBlack.withValues(alpha: 0.72),
+                    ),
+                  ),
+                  Text(
+                    '${option.totalMinutes} min total',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.onBlack.withValues(alpha: 0.72),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         if (!isEditing) ...[

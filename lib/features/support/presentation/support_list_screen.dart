@@ -152,6 +152,7 @@ class _SupportListScreenState extends State<SupportListScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.headlineLarge,
                         );
+                        if (state.conversations.isEmpty) return title;
                         final newConversation = FilledButton(
                           onPressed: () => _openNewConversation(context),
                           style: FilledButton.styleFrom(
