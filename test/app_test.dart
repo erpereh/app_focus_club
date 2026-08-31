@@ -3,7 +3,9 @@ import 'package:app_focus_club/features/auth/data/auth_repository.dart';
 import 'package:app_focus_club/features/client/application/client_portal_view_model.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
+import 'package:app_focus_club/features/client/widgets/client_cards.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
+import 'package:app_focus_club/shared/widgets/focus_status_badge.dart';
 import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
@@ -790,6 +792,39 @@ void main() {
     expect(find.byKey(const Key('nav-chat')), findsOneWidget);
     expect(find.byKey(const Key('nav-profile')), findsOneWidget);
     expectNoLayoutException(tester);
+  });
+
+  testWidgets('pass card keeps Activo badge on the trailing edge at 390px', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester, viewportSize: kViewportIphone14);
+
+    final passCard = find.byType(ClientPassCard);
+    expect(passCard, findsOneWidget);
+    final badge = find.descendant(
+      of: passCard,
+      matching: find.byType(FocusStatusBadge),
+    );
+    expect(badge, findsOneWidget);
+    expect(
+      find.descendant(of: passCard, matching: find.text('Activo')),
+      findsOneWidget,
+    );
+    expectNoLayoutException(tester);
+
+    const cardPadding = 22.0;
+    final cardRect = tester.getRect(passCard);
+    final badgeRect = tester.getRect(badge);
+    expect(
+      badgeRect.right,
+      closeTo(cardRect.right - cardPadding, 1.5),
+      reason: 'Activo should sit on the trailing edge, inside card padding',
+    );
+    expect(
+      badgeRect.center.dx,
+      greaterThan(cardRect.center.dx + 40),
+      reason: 'Activo must not sit near the horizontal center of MI BONO',
+    );
   });
 
   testWidgets('profile logout returns to auth', (tester) async {

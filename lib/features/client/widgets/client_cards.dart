@@ -200,12 +200,9 @@ class ClientPassCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(child: FocusKicker('Mi bono', onDark: true)),
-              Flexible(
-                fit: FlexFit.loose,
-                child: FocusStatusBadge(
-                  label: pass.statusLabel,
-                  color: pass.statusColor,
-                ),
+              FocusStatusBadge(
+                label: pass.statusLabel,
+                color: pass.statusColor,
               ),
             ],
           ),
