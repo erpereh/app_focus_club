@@ -10,6 +10,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/layout_harness.dart';
+
 void main() {
   testWidgets('renders splash and moves to auth', (tester) async {
     _setTestViewport(tester);
@@ -490,32 +492,35 @@ void main() {
     expect(repository.requests, isEmpty);
   });
 
-  test('view model keeps individual and recurring callables separate', () async {
-    final repository = FakePortalRepository();
-    final viewModel = ClientPortalViewModel(
-      repository: repository,
-      uid: 'uid',
-    );
+  test(
+    'view model keeps individual and recurring callables separate',
+    () async {
+      final repository = FakePortalRepository();
+      final viewModel = ClientPortalViewModel(
+        repository: repository,
+        uid: 'uid',
+      );
 
-    await viewModel.createAppointment(
-      durationMinutes: 45,
-      preferredSlot: const TimeSlot(date: '2026-09-10', time: '10:00'),
-      reason: '',
-    );
-    await viewModel.createRecurringAppointments(
-      durationMinutes: 60,
-      preferredSlot: const TimeSlot(date: '2026-09-10', time: '18:00'),
-      intervalDays: 3,
-      endDate: '2026-09-19',
-      reason: 'Serie',
-    );
-    await viewModel.cancelRecurringAppointmentSeries('series-1');
+      await viewModel.createAppointment(
+        durationMinutes: 45,
+        preferredSlot: const TimeSlot(date: '2026-09-10', time: '10:00'),
+        reason: '',
+      );
+      await viewModel.createRecurringAppointments(
+        durationMinutes: 60,
+        preferredSlot: const TimeSlot(date: '2026-09-10', time: '18:00'),
+        intervalDays: 3,
+        endDate: '2026-09-19',
+        reason: 'Serie',
+      );
+      await viewModel.cancelRecurringAppointmentSeries('series-1');
 
-    expect(repository.requests, hasLength(1));
-    expect(repository.recurringRequests, hasLength(1));
-    expect(repository.cancelledSeriesIds, ['series-1']);
-    viewModel.dispose();
-  });
+      expect(repository.requests, hasLength(1));
+      expect(repository.recurringRequests, hasLength(1));
+      expect(repository.cancelledSeriesIds, ['series-1']);
+      viewModel.dispose();
+    },
+  );
 
   test('recurring series by id are stored in portal state', () async {
     final series = RecurringAppointmentSeries(
@@ -535,10 +540,8 @@ void main() {
       createdAt: '2026-09-01T10:00:00.000Z',
     );
     final repository = FakePortalRepository(recurringSeries: [series]);
-    final viewModel = ClientPortalViewModel(
-      repository: repository,
-      uid: 'uid',
-    )..start();
+    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid')
+      ..start();
     await Future<void>.delayed(Duration.zero);
 
     expect(viewModel.state.recurringSeriesById['series-1']?.intervalDays, 3);
@@ -546,53 +549,56 @@ void main() {
     viewModel.dispose();
   });
 
-  test('exhausted bono after a series does not hide pending appointments', () async {
-    final pending = Appointment(
-      id: 'pending-1',
-      userId: 'uid',
-      name: 'Cliente',
-      email: 'cliente@example.com',
-      phone: '+34600000000',
-      serviceType: 'Bono Mensual de Entrenamiento',
-      durationMinutes: 60,
-      preferredSlots: const [TimeSlot(date: '2026-09-10', time: '18:00')],
-      reason: '',
-      status: AppointmentStatus.pending,
-      createdAt: '2026-09-01T10:00:00.000Z',
-      recurrenceSeriesId: 'series-1',
-      recurrenceIndex: 0,
-    );
-    final spentBono = Bono(
-      id: 'bono-1',
-      userId: 'uid',
-      tamano: 240,
-      minutosTotales: 240,
-      minutosRestantes: 0,
-      fechaAsignacion: '2026-09-01',
-      fechaExpiracion: '2026-10-31',
-      estado: BonoStatus.agotado,
-      historial: const [],
-      asignadoPor: 'admin',
-      createdAt: '2026-09-01T10:00:00.000Z',
-    );
-    final repository = FakePortalRepository(
-      appointments: [pending],
-      bonos: [spentBono],
-    );
-    final viewModel = ClientPortalViewModel(
-      repository: repository,
-      uid: 'uid',
-    )..start();
-    await Future<void>.delayed(Duration.zero);
+  test(
+    'exhausted bono after a series does not hide pending appointments',
+    () async {
+      final pending = Appointment(
+        id: 'pending-1',
+        userId: 'uid',
+        name: 'Cliente',
+        email: 'cliente@example.com',
+        phone: '+34600000000',
+        serviceType: 'Bono Mensual de Entrenamiento',
+        durationMinutes: 60,
+        preferredSlots: const [TimeSlot(date: '2026-09-10', time: '18:00')],
+        reason: '',
+        status: AppointmentStatus.pending,
+        createdAt: '2026-09-01T10:00:00.000Z',
+        recurrenceSeriesId: 'series-1',
+        recurrenceIndex: 0,
+      );
+      final spentBono = Bono(
+        id: 'bono-1',
+        userId: 'uid',
+        tamano: 240,
+        minutosTotales: 240,
+        minutosRestantes: 0,
+        fechaAsignacion: '2026-09-01',
+        fechaExpiracion: '2026-10-31',
+        estado: BonoStatus.agotado,
+        historial: const [],
+        asignadoPor: 'admin',
+        createdAt: '2026-09-01T10:00:00.000Z',
+      );
+      final repository = FakePortalRepository(
+        appointments: [pending],
+        bonos: [spentBono],
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: repository,
+        uid: 'uid',
+      )..start();
+      await Future<void>.delayed(Duration.zero);
 
-    expect(viewModel.state.activeBono, isNull);
-    expect(viewModel.state.error, isNull);
-    expect(viewModel.state.appointments, hasLength(1));
-    expect(viewModel.state.appointments.single.isRecurring, isTrue);
-    await viewModel.cancelRecurringAppointmentSeries('series-1');
-    expect(repository.cancelledSeriesIds, ['series-1']);
-    viewModel.dispose();
-  });
+      expect(viewModel.state.activeBono, isNull);
+      expect(viewModel.state.error, isNull);
+      expect(viewModel.state.appointments, hasLength(1));
+      expect(viewModel.state.appointments.single.isRecurring, isTrue);
+      await viewModel.cancelRecurringAppointmentSeries('series-1');
+      expect(repository.cancelledSeriesIds, ['series-1']);
+      viewModel.dispose();
+    },
+  );
 
   test('maps createAppointment errors to Spanish messages', () {
     expect(
@@ -757,10 +763,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('pass-available-time')), findsOneWidget);
-    expect(
-      find.text('Reservar Sesion', skipOffstage: false),
-      findsWidgets,
-    );
+    expect(find.text('Reservar Sesion', skipOffstage: false), findsWidgets);
     await tester.scrollUntilVisible(
       find.text('Actividad reciente'),
       250,
@@ -774,6 +777,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Actividad reciente'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home layout stays stable at 320px', (tester) async {
+    await _pumpDashboard(tester, viewportSize: kViewportSe);
+
+    expect(find.byKey(const Key('pass-available-time')), findsOneWidget);
+    expect(find.text('Reservar Sesion', skipOffstage: false), findsWidgets);
+    expect(find.text('PROXIMA CITA', skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const Key('nav-home')), findsOneWidget);
+    expect(find.byKey(const Key('nav-appointments')), findsOneWidget);
+    expect(find.byKey(const Key('nav-chat')), findsOneWidget);
+    expect(find.byKey(const Key('nav-profile')), findsOneWidget);
+    expectNoLayoutException(tester);
   });
 
   testWidgets('profile logout returns to auth', (tester) async {

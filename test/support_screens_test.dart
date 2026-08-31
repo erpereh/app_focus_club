@@ -2,12 +2,15 @@ import 'package:app_focus_club/features/support/application/support_conversation
 import 'package:app_focus_club/features/support/application/support_scope.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
 import 'package:app_focus_club/features/support/domain/support_conversation.dart';
+import 'package:app_focus_club/features/support/domain/support_message.dart';
 import 'package:app_focus_club/features/support/presentation/support_chat_screen.dart';
 import 'package:app_focus_club/features/support/presentation/support_list_screen.dart';
 import 'package:app_focus_club/features/support/presentation/new_support_conversation_screen.dart';
 import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/layout_harness.dart';
 
 void main() {
   testWidgets('support selector preserves suggestion draft and submits it', (
@@ -313,6 +316,138 @@ void main() {
     expect(find.text('Mensaje'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('new conversation pill stays intrinsic at 390px', (tester) async {
+    setLogicalViewport(tester, kViewportIphone14);
+    await _pumpChatListWithConversation(tester);
+    expect(find.text('Nueva conversación'), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    final pill = find.byKey(const Key('new-conversation-pill'));
+    expect(pill, findsOneWidget);
+    final pillSize = tester.getSize(pill);
+    final titleTop = tester
+        .getTopLeft(find.byKey(const Key('chat-header-title')))
+        .dy;
+    final pillTop = tester.getTopLeft(pill).dy;
+    expect(
+      (titleTop - pillTop).abs(),
+      lessThan(12),
+      reason: 'On iPhone 14 width the pill should share a row with Chat',
+    );
+    expect(pillSize.width, lessThan(280));
+    expect(pillSize.width, greaterThan(120));
+  });
+
+  testWidgets('new conversation pill does not overflow at 320px', (
+    tester,
+  ) async {
+    setLogicalViewport(tester, kViewportSe);
+    await _pumpChatListWithConversation(tester, largeText: true);
+    expect(find.text('Nueva conversación'), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    final pill = find.byKey(const Key('new-conversation-pill'));
+    expect(pill, findsOneWidget);
+    expect(tester.getSize(pill).width, lessThan(300));
+  });
+
+  testWidgets('chat conversation with a long message and composer is stable', (
+    tester,
+  ) async {
+    setLogicalViewport(tester, kViewportSe);
+    const conversation = SupportConversation(
+      id: 'conversation-1',
+      userId: 'user-1',
+      userName: 'Laura',
+      userEmail: 'laura@example.com',
+      status: 'open',
+      subject: 'Consulta sobre mi bono y reservas recurrentes',
+      lastMessage: 'Hola',
+      lastMessageAt: null,
+      lastMessageBy: 'user-1',
+      unreadAdminCount: 0,
+      unreadCustomerCount: 0,
+      createdAt: null,
+      updatedAt: null,
+    );
+    const longMessage =
+        'Necesito ayuda para entender los minutos disponibles '
+        'de mi bono mensual y cómo encajan las reservas recurrentes '
+        'cuando el cupo está casi lleno a las 07:00.';
+    final repository = FakeSupportRepository(
+      conversations: [conversation],
+      messages: {
+        'conversation-1': [
+          SupportMessage(
+            id: 'm1',
+            senderId: 'user-1',
+            senderRole: 'customer',
+            text: longMessage,
+            createdAt: DateTime(2026, 8, 31, 10),
+          ),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      _SupportHarness(
+        repository: repository,
+        largeText: true,
+        child: const SupportChatScreen(
+          conversation: conversation,
+          uid: 'user-1',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(longMessage), findsOneWidget);
+    expect(find.byTooltip('Enviar mensaje'), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pump();
+    expect(find.byTooltip('Enviar mensaje'), findsOneWidget);
+    expectNoLayoutException(tester);
+  });
+}
+
+Future<void> _pumpChatListWithConversation(
+  WidgetTester tester, {
+  bool largeText = false,
+}) async {
+  const conversation = SupportConversation(
+    id: 'conversation-1',
+    userId: 'user-1',
+    userName: 'Laura',
+    userEmail: 'laura@example.com',
+    status: 'open',
+    subject: 'Consulta detallada sobre mi bono mensual',
+    lastMessage: 'Necesito ayuda para entender los minutos disponibles.',
+    lastMessageAt: null,
+    lastMessageBy: 'user-1',
+    unreadAdminCount: 0,
+    unreadCustomerCount: 1,
+    createdAt: null,
+    updatedAt: null,
+  );
+  final repository = FakeSupportRepository(conversations: [conversation]);
+  final viewModel = SupportConversationsViewModel(
+    repository: repository,
+    uid: 'user-1',
+  )..start();
+  addTearDown(viewModel.dispose);
+
+  await tester.pumpWidget(
+    _SupportHarness(
+      repository: repository,
+      largeText: largeText,
+      child: SupportListScreen(viewModel: viewModel, uid: 'user-1'),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 class _SupportHarness extends StatelessWidget {

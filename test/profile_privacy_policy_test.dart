@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/layout_harness.dart';
+
 const _privacyPolicyUrl = 'https://focusclub.es/politica-de-privacidad';
 const _privacyPolicyKey = Key('privacy-policy-link');
 
@@ -110,6 +112,45 @@ void main() {
     expect(semanticsData.hasAction(SemanticsAction.tap), isTrue);
     expect(semanticsData.flagsCollection.isLink, isTrue);
   });
+
+  testWidgets('profile keeps long name, settings and legal stable at 320px', (
+    tester,
+  ) async {
+    await _pumpProfile(
+      tester,
+      urlLauncher: (_) async => true,
+      viewportSize: kViewportSe,
+      textSize: AppTextSize.large,
+      profile: const UserProfile(
+        uid: 'test-user',
+        email: 'cliente.con.un.email.extremadamente.largo@focusclub.es',
+        name: 'María del Carmen Hernández de la Fuente',
+        phone: '+34612345678',
+        role: 'user',
+        isTrainer: false,
+        createdAt: '2026-04-01T10:00:00.000Z',
+      ),
+    );
+
+    expect(
+      find.text('María del Carmen Hernández de la Fuente'),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(find.text('María del Carmen Hernández de la Fuente')),
+      isA<Text>().having((text) => text.maxLines, 'maxLines', 1),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('text-size-large')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Tamaño de texto'), findsOneWidget);
+    await _scrollToPrivacyPolicy(tester);
+    expect(find.text('Política de privacidad'), findsOneWidget);
+    expect(find.text('Cerrar sesion', skipOffstage: false), findsOneWidget);
+    expectNoLayoutException(tester);
+  });
 }
 
 Future<void> _pumpProfile(
@@ -117,6 +158,7 @@ Future<void> _pumpProfile(
   required Future<bool> Function(Uri) urlLauncher,
   Size viewportSize = const Size(390, 844),
   AppTextSize textSize = AppTextSize.defaultSize,
+  UserProfile profile = _profile,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = viewportSize;
@@ -127,7 +169,7 @@ Future<void> _pumpProfile(
     AuthScope(
       repository: _ProfileAuthRepository(),
       child: PortalScope(
-        repository: FakePortalRepository(profile: _profile),
+        repository: FakePortalRepository(profile: profile),
         child: MaterialApp(
           theme: AppTheme.dark,
           home: AppTextSizeScope(
@@ -138,7 +180,7 @@ Future<void> _pumpProfile(
                 context,
                 child: Scaffold(
                   body: ProfileScreen(
-                    state: const ClientPortalState(profile: _profile),
+                    state: ClientPortalState(profile: profile),
                     urlLauncher: urlLauncher,
                   ),
                 ),

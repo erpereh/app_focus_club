@@ -335,7 +335,9 @@ class _BookingScreenState extends State<BookingScreen> {
                 children: [
                   if (step == _BookingStep.summary)
                     FocusPrimaryButton(
-                      label: _isEditing ? 'Guardar cambios' : 'Enviar Solicitud',
+                      label: _isEditing
+                          ? 'Guardar cambios'
+                          : 'Enviar Solicitud',
                       isLoading: _isSubmitting,
                       onPressed: canSubmit && !_isSubmitting
                           ? () {
@@ -708,7 +710,9 @@ class _StepDots extends StatelessWidget {
               duration: AppTheme.motion,
               height: 4,
               decoration: BoxDecoration(
-                color: i <= current ? AppTheme.black : AppTheme.backgroundSecondary,
+                color: i <= current
+                    ? AppTheme.black
+                    : AppTheme.backgroundSecondary,
                 borderRadius: BorderRadius.circular(AppTheme.radiusPill),
               ),
             ),
@@ -857,7 +861,8 @@ class _DurationStep extends StatelessWidget {
                     isEnabled:
                         remainingMinutes != null &&
                         duration <= remainingMinutes!,
-                    onTap: remainingMinutes != null &&
+                    onTap:
+                        remainingMinutes != null &&
                             duration <= remainingMinutes!
                         ? () => onSelected(duration)
                         : null,
@@ -1072,7 +1077,7 @@ class _SlotGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: slots.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
@@ -1168,7 +1173,14 @@ class _RecurringControls extends StatelessWidget {
               },
             ),
             const SizedBox(width: 12),
-            Text('días', style: Theme.of(context).textTheme.titleSmall),
+            Flexible(
+              child: Text(
+                'días',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 24),
@@ -1197,9 +1209,9 @@ class _RecurringControls extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   '${selectedOption.occurrenceCount} sesiones',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppTheme.onBlack,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineMedium?.copyWith(color: AppTheme.onBlack),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1329,18 +1341,18 @@ class _SummaryStep extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   '$durationMinutes min',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    color: AppTheme.onBlack,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.displaySmall?.copyWith(color: AppTheme.onBlack),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   selectedSlot == null
                       ? 'Selecciona fecha y hora'
                       : '${selectedSlot!.slot.dateLabel}\n${selectedSlot!.slot.time}',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppTheme.onBlack,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(color: AppTheme.onBlack),
                 ),
                 if (isRecurring && option != null) ...[
                   const SizedBox(height: 16),

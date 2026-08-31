@@ -88,6 +88,8 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                         builder: (context, constraints) {
                           final title = Text(
                             appointment.serviceType,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.headlineMedium,
                           );
                           final badge = FocusStatusBadge(
@@ -174,7 +176,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const FocusSectionHeader(title: 'Entrenamiento recurrente'),
+                        const FocusSectionHeader(
+                          title: 'Entrenamiento recurrente',
+                        ),
                         if (series != null) ...[
                           const SizedBox(height: 14),
                           _DetailLine(
@@ -439,6 +443,8 @@ class _DetailLine extends StatelessWidget {
           );
           final valueText = Text(
             value,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w800,

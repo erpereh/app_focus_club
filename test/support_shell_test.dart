@@ -159,6 +159,18 @@ void main() {
     expect(find.byKey(const Key('nav-appointments')), findsOneWidget);
     expect(find.byKey(const Key('nav-chat')), findsOneWidget);
     expect(find.byKey(const Key('nav-profile')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    for (final key in [
+      'nav-appointments',
+      'nav-chat',
+      'nav-profile',
+      'nav-home',
+    ]) {
+      await tester.tap(find.byKey(Key(key)));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
   });
 }
 

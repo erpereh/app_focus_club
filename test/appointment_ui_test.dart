@@ -15,6 +15,8 @@ import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/layout_harness.dart';
+
 void main() {
   testWidgets('future pending appointment exposes modify and cancel actions', (
     tester,
@@ -72,6 +74,126 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('appointment card keeps 07:00 on one line at 320 and 390', (
+    tester,
+  ) async {
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: '2030-09-10',
+      time: '07:00',
+      assignedTrainer: 'Marta Entrenadora',
+      recurrenceSeriesId: 'series-1',
+    );
+
+    Future<void> pumpAt(Size size, {double textScale = 1}) async {
+      setLogicalViewport(tester, size);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TextScaleHarness(
+            textScaler: TextScaler.linear(textScale),
+            child: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(20),
+                child: ClientAppointmentCard(
+                  appointment: appointment,
+                  trainerName: 'Marta Entrenadora',
+                  onTap: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpAt(kViewportSe);
+    expect(find.byKey(const Key('appointment-start-time')), findsOneWidget);
+    expectSingleLineText(
+      tester,
+      find.byKey(const Key('appointment-start-time')),
+    );
+    expect(find.text('07:00'), findsWidgets);
+    expect(find.text('Pendiente'), findsOneWidget);
+    expect(find.textContaining('Recurrente'), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    await pumpAt(kViewportCompact);
+    expectSingleLineText(
+      tester,
+      find.byKey(const Key('appointment-start-time')),
+    );
+    expectNoLayoutException(tester);
+
+    await pumpAt(kViewportProMax);
+    expectSingleLineText(
+      tester,
+      find.byKey(const Key('appointment-start-time')),
+    );
+    expectNoLayoutException(tester);
+
+    await pumpAt(kViewportIphone14);
+    expectSingleLineText(
+      tester,
+      find.byKey(const Key('appointment-start-time')),
+    );
+    expect(find.text('Pendiente'), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    await pumpAt(kViewportSe, textScale: 1.3);
+    expectSingleLineText(
+      tester,
+      find.byKey(const Key('appointment-start-time')),
+    );
+    expect(find.text('Pendiente'), findsOneWidget);
+    expectNoLayoutException(tester);
+  });
+
+  testWidgets(
+    'appointment card truncates a long description without overflow',
+    (tester) async {
+      setLogicalViewport(tester, kViewportSe);
+      final appointment = Appointment(
+        id: 'appointment-id',
+        userId: 'uid',
+        name: 'Cliente',
+        email: 'cliente@example.com',
+        phone: '+34612345678',
+        serviceType:
+            'Bono Mensual de Entrenamiento Personal Avanzado con movilidad',
+        durationMinutes: 45,
+        preferredSlots: const [TimeSlot(date: '2030-09-10', time: '07:00')],
+        reason: '',
+        status: AppointmentStatus.approved,
+        createdAt: '2030-05-01T10:00:00.000Z',
+        assignedTrainer: 'Entrenador con un nombre especialmente largo',
+        recurrenceSeriesId: 'series-1',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(12),
+              child: ClientAppointmentCard(
+                appointment: appointment,
+                trainerName: 'Entrenador con un nombre especialmente largo',
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expectSingleLineText(
+        tester,
+        find.byKey(const Key('appointment-start-time')),
+      );
+      expect(find.text('Aprobada'), findsOneWidget);
+      expectNoLayoutException(tester);
+    },
+  );
 
   testWidgets('detail refreshes its presentation and actions at the boundary', (
     tester,
@@ -504,7 +626,10 @@ void main() {
       _LargeTextHarness(child: BookingScreen(viewModel: viewModel)),
     );
     await tester.pumpAndSettle();
-    await _bookingContinueUntil(tester, find.byKey(const Key('booking-slot-grid')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('booking-slot-grid')),
+    );
     await tester.scrollUntilVisible(
       find.byKey(const Key('booking-slot-grid')),
       300,
@@ -517,6 +642,7 @@ void main() {
     final delegate =
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
     expect(delegate.crossAxisCount, 3);
+    expect(tester.takeException(), isNull);
     viewModel.dispose();
   });
 
@@ -662,6 +788,66 @@ void main() {
     viewModel.dispose();
   });
 
+  testWidgets('booking flow stays stable at 320px with large text', (
+    tester,
+  ) async {
+    setLogicalViewport(tester, const Size(320, 1800));
+    final viewModel = _bookingViewModel();
+    await tester.pumpWidget(
+      _LargeTextHarness(child: BookingScreen(viewModel: viewModel)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Cita única'), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    await tester.ensureVisible(find.byKey(const Key('booking-type-recurring')));
+    await tester.tap(find.byKey(const Key('booking-type-recurring')));
+    await tester.pumpAndSettle();
+    expectNoLayoutException(tester);
+
+    await _bookingContinueUntil(tester, find.text('10 sep'));
+    await tester.scrollUntilVisible(
+      find.text('10 sep'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('10 sep'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('18:00').first,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('18:00').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('booking-slot-grid')), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    await _bookingContinueUntil(tester, find.text('Cada'));
+    await tester.scrollUntilVisible(
+      find.text('Hasta'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('días'), findsOneWidget);
+    expect(find.text('Hasta'), findsOneWidget);
+    expectNoLayoutException(tester);
+
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
+    await _selectRecurringHasta(tester, '2026-09-19');
+    expect(find.textContaining('sesiones'), findsWidgets);
+    expectNoLayoutException(tester);
+
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enviar Solicitud'), findsOneWidget);
+    expectNoLayoutException(tester);
+    viewModel.dispose();
+  });
+
   testWidgets('switching back to a single booking ignores leftover endDate', (
     tester,
   ) async {
@@ -686,7 +872,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('18:00').first);
     await tester.pumpAndSettle();
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await _selectRecurringHasta(tester, '2026-09-19');
 
     await tester.tap(find.text('Atras'));
@@ -751,7 +940,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('18:00').first);
     await tester.pumpAndSettle();
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await _selectRecurringHasta(tester, '2026-09-19');
     expect(find.text('4 sesiones'), findsWidgets);
     expect(find.text('60 min por sesión'), findsOneWidget);
@@ -820,7 +1012,9 @@ void main() {
     viewModel.dispose();
   });
 
-  testWidgets('changing interval clears an obsolete Hasta date', (tester) async {
+  testWidgets('changing interval clears an obsolete Hasta date', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(800, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -836,13 +1030,22 @@ void main() {
     await tester.tap(find.text('30'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '08 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-interval-days')));
-    await tester.enterText(find.byKey(const Key('recurring-interval-days')), '7');
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-interval-days')),
+    );
+    await tester.enterText(
+      find.byKey(const Key('recurring-interval-days')),
+      '7',
+    );
     await tester.pumpAndSettle();
     await _selectRecurringHasta(tester, '2026-09-29');
     expect(find.text('4 sesiones'), findsWidgets);
 
-    await tester.enterText(find.byKey(const Key('recurring-interval-days')), '10');
+    await tester.enterText(
+      find.byKey(const Key('recurring-interval-days')),
+      '10',
+    );
     await tester.pumpAndSettle();
     expect(find.text('4 sesiones'), findsNothing);
     expect(find.text('29/09/2026 · 4 sesiones · 120 min'), findsNothing);
@@ -867,7 +1070,10 @@ void main() {
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '10 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await tester.pump();
 
     expect(find.text('Comprobando disponibilidad...'), findsWidgets);
@@ -899,12 +1105,17 @@ void main() {
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '10 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await tester.tap(find.byKey(const Key('recurring-end-date')));
     await tester.pumpAndSettle();
 
     expect(find.text('Disponible'), findsWidgets);
-    await tester.tap(find.byKey(const Key('recurring-hasta-option-2026-09-13')));
+    await tester.tap(
+      find.byKey(const Key('recurring-hasta-option-2026-09-13')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('2 sesiones'), findsWidgets);
     viewModel.dispose();
@@ -933,7 +1144,10 @@ void main() {
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '10 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await tester.tap(find.byKey(const Key('recurring-end-date')));
     await tester.pumpAndSettle();
 
@@ -946,7 +1160,9 @@ void main() {
       find.byKey(const Key('recurring-hasta-option-2026-09-19')),
     );
     expect(laterTile.enabled, isFalse);
-    await tester.tap(find.byKey(const Key('recurring-hasta-option-2026-09-16')));
+    await tester.tap(
+      find.byKey(const Key('recurring-hasta-option-2026-09-16')),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(ListTile), findsWidgets);
     viewModel.dispose();
@@ -980,7 +1196,10 @@ void main() {
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '10 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await tester.tap(find.byKey(const Key('recurring-end-date')));
     await tester.pumpAndSettle();
 
@@ -1023,7 +1242,10 @@ void main() {
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '10 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await tester.tap(find.byKey(const Key('recurring-end-date')));
     await tester.pumpAndSettle();
 
@@ -1063,8 +1285,14 @@ void main() {
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '10 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
-    expect(find.text('No se ha podido comprobar la disponibilidad.'), findsWidgets);
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
+    expect(
+      find.text('No se ha podido comprobar la disponibilidad.'),
+      findsWidgets,
+    );
 
     await _selectRecurringHasta(tester, '2026-09-19');
     expect(find.text('4 sesiones'), findsWidgets);
@@ -1137,7 +1365,10 @@ void main() {
     await tester.tap(find.text('60'));
     await tester.pumpAndSettle();
     await _bookingSelectSlot(tester, dateLabel: '10 sep');
-    await _bookingContinueUntil(tester, find.byKey(const Key('recurring-end-date')));
+    await _bookingContinueUntil(
+      tester,
+      find.byKey(const Key('recurring-end-date')),
+    );
     await _selectRecurringHasta(tester, '2026-09-19');
     expect(find.text('4 sesiones'), findsWidgets);
 
@@ -1192,7 +1423,10 @@ void main() {
     expect(find.text('Cancelar cita'), findsNothing);
     await tester.tap(find.text('Cancelar solicitud recurrente'));
     await tester.pumpAndSettle();
-    expect(find.text('¿Cancelar toda la solicitud recurrente?'), findsOneWidget);
+    expect(
+      find.text('¿Cancelar toda la solicitud recurrente?'),
+      findsOneWidget,
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Cancelar solicitud'));
     await tester.pumpAndSettle();
     expect(repository.cancelledSeriesIds, ['series-1']);
@@ -1389,6 +1623,7 @@ Appointment _appointment({
   String createdAt = '2030-05-01T10:00:00.000Z',
   String? recurrenceSeriesId,
   int? recurrenceIndex,
+  String? assignedTrainer,
 }) {
   return Appointment(
     id: id,
@@ -1404,6 +1639,7 @@ Appointment _appointment({
     createdAt: createdAt,
     recurrenceSeriesId: recurrenceSeriesId,
     recurrenceIndex: recurrenceIndex,
+    assignedTrainer: assignedTrainer,
   );
 }
 

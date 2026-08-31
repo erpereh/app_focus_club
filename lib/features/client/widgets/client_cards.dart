@@ -48,70 +48,96 @@ class ClientAppointmentCard extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 56,
-                  child: Column(
-                    children: [
-                      Text(
-                        dateLabel,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w800,
-                        ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final startTime = timeLabel.split(' - ').first;
+                final timeStyle = Theme.of(context).textTheme.titleMedium;
+                final timeWidth = _singleLineWidth(
+                  startTime,
+                  timeStyle,
+                  MediaQuery.textScalerOf(context),
+                );
+                final leftWidth = timeWidth < 64 ? 64.0 : timeWidth;
+                return Row(
+                  children: [
+                    SizedBox(
+                      width: leftWidth,
+                      child: Column(
+                        children: [
+                          Text(
+                            dateLabel,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            startTime,
+                            key: const Key('appointment-start-time'),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: timeStyle,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        timeLabel.split(' - ').first,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            serviceType,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$timeLabel - $durationMinutes min',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            [
+                              ?assignedTrainer,
+                              if (isRecurring) 'Recurrente',
+                            ].where((part) => part.isNotEmpty).join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            statusDescription,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        serviceType,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.42,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$timeLabel - $durationMinutes min',
-                        style: Theme.of(context).textTheme.titleSmall,
+                      child: FocusStatusBadge(
+                        label: statusLabel,
+                        color: statusColor,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        [
-                          ?assignedTrainer,
-                          if (isRecurring) 'Recurrente',
-                        ].where((part) => part.isNotEmpty).join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        statusDescription,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FocusStatusBadge(label: statusLabel, color: statusColor),
-              ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -173,12 +199,13 @@ class ClientPassCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: FocusKicker('Mi bono', onDark: true),
-              ),
-              FocusStatusBadge(
-                label: pass.statusLabel,
-                color: pass.statusColor,
+              const Expanded(child: FocusKicker('Mi bono', onDark: true)),
+              Flexible(
+                fit: FlexFit.loose,
+                child: FocusStatusBadge(
+                  label: pass.statusLabel,
+                  color: pass.statusColor,
+                ),
               ),
             ],
           ),
@@ -186,13 +213,15 @@ class ClientPassCard extends StatelessWidget {
           Text(
             pass.availableTimeLabel,
             key: const Key('pass-available-time'),
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-              color: AppTheme.onBlack,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.displaySmall?.copyWith(color: AppTheme.onBlack),
           ),
           const SizedBox(height: 8),
           Text(
             pass.nameLabel,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.onBlack.withValues(alpha: 0.72),
             ),
@@ -210,6 +239,8 @@ class ClientPassCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             '${pass.minutesLabel} · ${pass.expiresAtLabel}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.onBlack.withValues(alpha: 0.72),
             ),
@@ -237,12 +268,17 @@ class PassHistoryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   item.nameLabel,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
-              FocusStatusBadge(
-                label: item.statusLabel,
-                color: item.statusColor,
+              Flexible(
+                fit: FlexFit.loose,
+                child: FocusStatusBadge(
+                  label: item.statusLabel,
+                  color: item.statusColor,
+                ),
               ),
             ],
           ),
@@ -257,4 +293,16 @@ class PassHistoryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+double _singleLineWidth(String text, TextStyle? style, TextScaler textScaler) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+    textScaler: textScaler,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
 }

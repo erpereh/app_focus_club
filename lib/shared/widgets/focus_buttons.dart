@@ -51,7 +51,7 @@ class FocusPrimaryButton extends StatelessWidget {
                       color: foreground,
                     ),
                   )
-                : Text(label),
+                : Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
       ),

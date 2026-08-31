@@ -64,6 +64,8 @@ class FocusTimeSlot extends StatelessWidget {
               children: [
                 Text(
                   time,
+                  maxLines: 1,
+                  softWrap: false,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: foreground,
                     fontWeight: FontWeight.w800,

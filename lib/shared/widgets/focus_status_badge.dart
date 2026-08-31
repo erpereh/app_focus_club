@@ -28,6 +28,8 @@ class FocusStatusBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Text(
           label,
+          maxLines: 1,
+          softWrap: false,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: color,
             fontWeight: FontWeight.w800,

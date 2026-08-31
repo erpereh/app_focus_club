@@ -89,6 +89,8 @@ class _DateChip extends StatelessWidget {
             children: [
               Text(
                 item.weekday,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: selected ? AppTheme.onLime : AppTheme.textSecondary,
                   fontWeight: FontWeight.w700,

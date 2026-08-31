@@ -240,6 +240,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     activeColor: AppTheme.lime,
                     title: Text(
                       'Acepto la Politica de Privacidad',
+                      softWrap: true,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppTheme.textPrimary,
                       ),

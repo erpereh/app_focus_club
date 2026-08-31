@@ -236,29 +236,39 @@ class _MessageBubble extends StatelessWidget {
     final foreground = isCustomer ? AppTheme.onBlack : AppTheme.textPrimary;
     return Align(
       alignment: alignment,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 300),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
-              bottomLeft: Radius.circular(isCustomer ? 18 : 4),
-              bottomRight: Radius.circular(isCustomer ? 4 : 18),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxWidth = constraints.maxWidth * 0.82;
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth < 300 ? maxWidth : 300,
             ),
-            border: isCustomer ? null : null,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            child: Text(
-              message.text,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: foreground),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(isCustomer ? 18 : 4),
+                  bottomRight: Radius.circular(isCustomer ? 4 : 18),
+                ),
+                border: isCustomer ? null : null,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                child: Text(
+                  message.text,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: foreground),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

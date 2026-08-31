@@ -5,8 +5,11 @@ import 'package:app_focus_club/features/auth/data/auth_repository.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:app_focus_club/features/support/data/support_repository.dart';
+import 'package:app_focus_club/features/app_update/presentation/force_update_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/layout_harness.dart';
 
 void main() {
   const storeUrl = 'https://example.com/focus-club-android';
@@ -213,6 +216,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(openedUrls, [Uri.parse(storeUrl)]);
+    });
+
+    testWidgets('force update screen stays stable at 320px', (tester) async {
+      setLogicalViewport(tester, kViewportSe);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForceUpdateScreen(
+            storeUrl: Uri.parse(storeUrl),
+            onOpenStore: (_) async => true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Actualizacion necesaria'), findsOneWidget);
+      expect(find.text('Actualizar ahora'), findsOneWidget);
+      expectNoLayoutException(tester);
     });
 
     testWidgets('does not block when PackageInfo cannot be read', (

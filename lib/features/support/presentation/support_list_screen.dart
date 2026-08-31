@@ -146,47 +146,70 @@ class _SupportListScreenState extends State<SupportListScreen> {
                   children: [
                     LayoutBuilder(
                       builder: (context, constraints) {
+                        final titleStyle = Theme.of(
+                          context,
+                        ).textTheme.headlineLarge;
                         final title = Text(
                           'Chat',
+                          key: const Key('chat-header-title'),
                           maxLines: 1,
+                          softWrap: false,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.headlineLarge,
+                          style: titleStyle,
                         );
                         if (state.conversations.isEmpty) return title;
-                        final newConversation = FilledButton(
-                          onPressed: () => _openNewConversation(context),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.lime,
-                            foregroundColor: AppTheme.onLime,
-                            minimumSize: const Size(0, 40),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
+                        final actionStyle = Theme.of(context)
+                            .textTheme
+                            .labelLarge
+                            ?.copyWith(
+                              color: AppTheme.onLime,
+                              fontWeight: FontWeight.w700,
+                            );
+                        final pill = Material(
+                          key: const Key('new-conversation-pill'),
+                          color: AppTheme.lime,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusPill,
+                          ),
+                          child: InkWell(
+                            onTap: () => _openNewConversation(context),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusPill,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: Text(
+                                'Nueva conversación',
+                                maxLines: 1,
+                                softWrap: false,
+                                textWidthBasis: TextWidthBasis.longestLine,
+                                style: actionStyle,
+                              ),
                             ),
                           ),
-                          child: const Text(
-                            'Nueva conversación',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
                         );
-                        if (constraints.maxWidth < 360) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        final pillWidth =
+                            _singleLineWidth(
+                              'Nueva conversación',
+                              actionStyle,
+                              MediaQuery.textScalerOf(context),
+                            ) +
+                            24;
+                        if (pillWidth + 8 <= constraints.maxWidth) {
+                          return Row(
                             children: [
-                              title,
-                              const SizedBox(height: 12),
-                              newConversation,
+                              Expanded(child: title),
+                              const SizedBox(width: 8),
+                              pill,
                             ],
                           );
                         }
-                        return Row(
-                          children: [
-                            Expanded(child: title),
-                            const SizedBox(width: 8),
-                            newConversation,
-                          ],
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [title, const SizedBox(height: 12), pill],
                         );
                       },
                     ),
@@ -263,7 +286,8 @@ class _ConversationContent extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 120),
       itemCount: state.conversations.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, color: AppTheme.border),
+      separatorBuilder: (_, _) =>
+          const Divider(height: 1, color: AppTheme.border),
       itemBuilder: (context, index) {
         final conversation = state.conversations[index];
         return _ConversationCard(
@@ -300,7 +324,11 @@ class _ConversationCard extends StatelessWidget {
               ),
               child: SizedBox.square(
                 dimension: 44,
-                child: Icon(Icons.forum_rounded, color: AppTheme.lime, size: 20),
+                child: Icon(
+                  Icons.forum_rounded,
+                  color: AppTheme.lime,
+                  size: 20,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -331,14 +359,18 @@ class _ConversationCard extends StatelessWidget {
                     const SizedBox(height: 8),
                   Row(
                     children: [
-                      _StatusPill(
-                        label: conversation.isClosed ? 'Cerrada' : 'Abierta',
-                        color: statusColor,
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _StatusPill(
+                          label: conversation.isClosed ? 'Cerrada' : 'Abierta',
+                          color: statusColor,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           _shortDate(conversation.lastMessageAt),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
@@ -376,6 +408,8 @@ class _StatusPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         child: Text(
           label,
+          maxLines: 1,
+          softWrap: false,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
         ),
       ),
@@ -401,6 +435,8 @@ class _UnreadBadge extends StatelessWidget {
         child: Center(
           child: Text(
             label,
+            maxLines: 1,
+            softWrap: false,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppTheme.onLime,
               fontWeight: FontWeight.w900,
@@ -432,4 +468,16 @@ String _shortDate(DateTime? date) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '${local.day} ${months[local.month - 1]} · $hour:$minute';
+}
+
+double _singleLineWidth(String text, TextStyle? style, TextScaler textScaler) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+    textScaler: textScaler,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
 }

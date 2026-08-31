@@ -39,12 +39,14 @@ class DashboardScreen extends StatelessWidget {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, AppTheme.navContentInset),
+        padding: const EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          AppTheme.navContentInset,
+        ),
         children: [
-          _DashboardHeader(
-            profile: profile,
-            onOpenProfile: onOpenProfile,
-          ),
+          _DashboardHeader(profile: profile, onOpenProfile: onOpenProfile),
           const SizedBox(height: 28),
           if (pass == null)
             const FocusEmptyState(
@@ -128,10 +130,7 @@ class DashboardScreen extends StatelessWidget {
 }
 
 class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader({
-    required this.profile,
-    required this.onOpenProfile,
-  });
+  const _DashboardHeader({required this.profile, required this.onOpenProfile});
 
   final UserProfile? profile;
   final VoidCallback onOpenProfile;
@@ -173,18 +172,15 @@ class _DashboardHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                greeting,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              Text(greeting, style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 2),
               Text(
                 profile?.name ?? 'Cliente',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontSize: 24,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineMedium?.copyWith(fontSize: 24),
               ),
             ],
           ),
@@ -274,9 +270,9 @@ class _NextAppointmentCard extends StatelessWidget {
             children: [
               Text(
                 'Tu agenda esta libre',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppTheme.onLime,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: AppTheme.onLime),
               ),
               const SizedBox(height: 6),
               Text(
@@ -308,22 +304,29 @@ class _NextAppointmentCard extends StatelessWidget {
                     const Expanded(
                       child: FocusKicker('Proxima cita', onDark: true),
                     ),
-                    FocusStatusBadge(
-                      label: appointmentDisplayStatusLabel(appointment!),
-                      color: appointmentDisplayStatusColor(appointment!),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: FocusStatusBadge(
+                        label: appointmentDisplayStatusLabel(appointment!),
+                        color: appointmentDisplayStatusColor(appointment!),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
                 Text(
                   appointment!.dateLabel,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppTheme.onBlack,
-                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineMedium?.copyWith(color: AppTheme.onBlack),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '${appointment!.timeLabel} - ${appointment!.durationMinutes} min',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppTheme.onBlack.withValues(alpha: 0.78),
                   ),

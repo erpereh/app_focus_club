@@ -132,19 +132,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (_statusMessage != null) ...[
             const SizedBox(height: 16),
-            FocusStatusMessage(
-              message: _statusMessage!,
-              type: _statusType,
-            ),
+            FocusStatusMessage(message: _statusMessage!, type: _statusType),
           ],
           const SizedBox(height: 28),
           const FocusSectionHeader(title: 'Legal'),
           const SizedBox(height: 10),
-          FocusListGroup(
-            children: [
-              _LegalLinkRow(onTap: _openPrivacyPolicy),
-            ],
-          ),
+          FocusListGroup(children: [_LegalLinkRow(onTap: _openPrivacyPolicy)]),
           const SizedBox(height: 24),
           FocusGhostButton(
             label: 'Cerrar sesion',
@@ -543,37 +536,50 @@ class _TextSizeSetting extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Tamaño de texto', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        Text(
-          'Aumenta el tamaño de texto en toda la aplicación.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 16),
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
-          child: SegmentedButton<AppTextSize>(
-            segments: const [
-              ButtonSegment(
-                value: AppTextSize.defaultSize,
-                label: Text('Predeterminado', key: Key('text-size-default')),
-              ),
-              ButtonSegment(
-                value: AppTextSize.large,
-                label: Text('Grande', key: Key('text-size-large')),
-              ),
-            ],
-            selected: {current},
-            showSelectedIcon: false,
-            expandedInsets: EdgeInsets.zero,
-            onSelectionChanged: (selection) {
-              AppTextSizeScope.set(context, selection.single);
-            },
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Tamaño de texto',
+            style: Theme.of(context).textTheme.titleSmall,
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            'Aumenta el tamaño de texto en toda la aplicación.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: SegmentedButton<AppTextSize>(
+              segments: const [
+                ButtonSegment(
+                  value: AppTextSize.defaultSize,
+                  label: Text(
+                    'Predeterminado',
+                    key: Key('text-size-default'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                ButtonSegment(
+                  value: AppTextSize.large,
+                  label: Text(
+                    'Grande',
+                    key: Key('text-size-large'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+              selected: {current},
+              showSelectedIcon: false,
+              expandedInsets: EdgeInsets.zero,
+              onSelectionChanged: (selection) {
+                AppTextSizeScope.set(context, selection.single);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -669,12 +675,16 @@ class _CenteredProfileHeader extends StatelessWidget {
         Text(
           profile?.name ?? 'Cliente',
           textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 4),
         Text(
           profile?.email ?? '',
           textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
@@ -697,9 +707,9 @@ class _InitialsAvatar extends StatelessWidget {
       child: Center(
         child: Text(
           profile?.displayInitials ?? '?',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: AppTheme.lime,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(color: AppTheme.lime),
         ),
       ),
     );
