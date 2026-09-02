@@ -649,6 +649,16 @@ void main() {
       ),
       'Esta serie ya no se puede cancelar.',
     );
+    expect(
+      recurringSeriesMutationErrorMessage(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message: 'Las citas no se pueden modificar ni cancelar el mismo día.',
+          details: <Object?, Object?>{'reason': 'same_day_change_not_allowed'},
+        ),
+      ),
+      'Esta serie incluye una cita de hoy y ya no puede cancelarse.',
+    );
   });
 
   test('maps deleteOwnAccount errors to Spanish messages', () {
@@ -1253,7 +1263,11 @@ Future<void> _pumpDashboard(
 }
 
 class _FakeFunctionsException extends FirebaseFunctionsException {
-  _FakeFunctionsException({required super.code, required super.message});
+  _FakeFunctionsException({
+    required super.code,
+    required super.message,
+    super.details,
+  });
 }
 
 Future<void> _login(WidgetTester tester) async {

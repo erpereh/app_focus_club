@@ -65,6 +65,20 @@ class _BookingScreenState extends State<BookingScreen> {
   bool get _isRecurringBooking =>
       !_isEditing && _bookingType == _BookingType.recurring;
 
+  Appointment? _liveEditingAppointment() {
+    final original = widget.editingAppointment;
+    if (original == null) return null;
+    return resolveLiveAppointment(
+      fallback: original,
+      appointments: widget.viewModel.state.appointments,
+    );
+  }
+
+  bool _isEditingSameDay(Appointment? appointment, DateTime now) {
+    if (appointment == null) return false;
+    return isAppointmentTodayInMadrid(appointment, now);
+  }
+
   List<_BookingStep> get _flow {
     if (_isEditing) {
       return const [_BookingStep.schedule, _BookingStep.summary];
@@ -97,7 +111,9 @@ class _BookingScreenState extends State<BookingScreen> {
     final editingSlot = widget.editingAppointment?.schedulingSlot;
     final isFutureEditingSlot =
         editingSlot != null &&
-        (appointmentSlotDateTime(editingSlot)?.isAfter(DateTime.now()) ??
+        (appointmentSlotDateTime(
+              editingSlot,
+            )?.isAfter(widget.viewModel.currentTime) ??
             false);
     _selectedDuration = widget.editingAppointment?.durationMinutes ?? 45;
     _selectedDate = isFutureEditingSlot
@@ -133,15 +149,16 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   Widget build(BuildContext context) {
     final state = widget.viewModel.state;
+    final now = widget.viewModel.currentTime;
     final activeBono = state.activeBono;
     final siteConfig = state.siteConfig;
-    final editingSlot = widget.editingAppointment?.schedulingSlot;
+    final liveEditingAppointment = _liveEditingAppointment();
+    final editingSlot = liveEditingAppointment?.schedulingSlot;
     final dates = {
-      ...buildBookingDates(now: widget.viewModel.currentTime),
+      ...buildBookingDates(now: now),
       if (_isEditing &&
           editingSlot != null &&
-          (appointmentSlotDateTime(editingSlot)?.isAfter(DateTime.now()) ??
-              false))
+          (appointmentSlotDateTime(editingSlot)?.isAfter(now) ?? false))
         editingSlot.date,
     }.toList(growable: false)..sort();
     final canBook = _isEditing
@@ -162,6 +179,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   occupancy: state.slotOccupancy,
                   activeAppointments: state.activeAppointments,
                   excludedAppointmentId: widget.editingAppointment?.id,
+                  now: now,
                 ),
               )
               .toList(growable: false);
@@ -195,8 +213,10 @@ class _BookingScreenState extends State<BookingScreen> {
             _intervalDays >= 1 &&
             _hastaPhase != RecurringHastaAvailabilityPhase.loading &&
             !selectedEndDateInvalid);
+    final isEditingSameDay = _isEditingSameDay(liveEditingAppointment, now);
     final canSubmit =
         !_isEditingRecurring &&
+        !isEditingSameDay &&
         canBook &&
         selectedSlot != null &&
         canSubmitRecurring;
@@ -246,6 +266,13 @@ class _BookingScreenState extends State<BookingScreen> {
                     const FocusStatusMessage(
                       message:
                           'Las citas recurrentes no se pueden modificar individualmente.',
+                      type: FocusStatusType.warning,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  if (isEditingSameDay) ...[
+                    const FocusStatusMessage(
+                      message: sameDayChangeNotAllowedMessage,
                       type: FocusStatusType.warning,
                     ),
                     const SizedBox(height: 18),
@@ -605,6 +632,7 @@ class _BookingScreenState extends State<BookingScreen> {
         return;
       }
     }
+    final now = widget.viewModel.currentTime;
     final latestSlot = bookingSlotState(
       slot: selectedSlot.slot,
       durationMinutes: _selectedDuration,
@@ -613,10 +641,15 @@ class _BookingScreenState extends State<BookingScreen> {
       occupancy: state.slotOccupancy,
       activeAppointments: state.activeAppointments,
       excludedAppointmentId: widget.editingAppointment?.id,
+      now: now,
     );
     if (!latestSlot.isEnabled) {
       _showError(_messageForDisabledSlot(latestSlot));
       setState(() => _selectedSlot = null);
+      return;
+    }
+    if (_isEditingSameDay(_liveEditingAppointment(), now)) {
+      _showError(sameDayChangeNotAllowedMessage);
       return;
     }
 
@@ -626,6 +659,10 @@ class _BookingScreenState extends State<BookingScreen> {
     });
     try {
       if (_isEditing) {
+        if (_isEditingSameDay(_liveEditingAppointment(), now)) {
+          _showError(sameDayChangeNotAllowedMessage);
+          return;
+        }
         await widget.viewModel.updateAppointmentSlot(
           appointmentId: widget.editingAppointment!.id,
           preferredSlot: latestSlot.slot,

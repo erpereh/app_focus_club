@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_focus_club/features/client/application/client_portal_view_model.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
+import 'package:app_focus_club/features/client/domain/madrid_date.dart';
 import 'package:app_focus_club/features/client/domain/portal_availability.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:app_focus_club/features/client/widgets/appointment_display.dart';
@@ -345,6 +346,47 @@ void main() {
       },
     );
 
+    test(
+      'schedules the next Madrid midnight when there are no future appointments',
+      () async {
+        var now = DateTime(2030, 5, 20, 9, 30);
+        final timers = <_TestTimer>[];
+        final viewModel = ClientPortalViewModel(
+          repository: FakePortalRepository(),
+          uid: 'uid',
+          now: () => now,
+          appointmentTimerFactory: (duration, callback) {
+            final timer = _TestTimer(duration, callback);
+            timers.add(timer);
+            return timer;
+          },
+        );
+        var notifications = 0;
+        viewModel.addListener(() => notifications++);
+        viewModel.start();
+        await _flushStreams();
+
+        Duration expectedDelay(DateTime instant) {
+          final remaining = nextMadridMidnightUtc(instant).difference(instant);
+          return remaining < const Duration(milliseconds: 1)
+              ? const Duration(milliseconds: 1)
+              : remaining;
+        }
+
+        expect(timers, hasLength(1));
+        expect(timers.single.duration, expectedDelay(now));
+        final notificationsBeforeBoundary = notifications;
+
+        now = nextMadridMidnightUtc(now);
+        timers.single.fire();
+
+        expect(notifications, notificationsBeforeBoundary + 1);
+        expect(timers, hasLength(2));
+        expect(timers.last.duration, expectedDelay(now));
+        viewModel.dispose();
+      },
+    );
+
     test('dispose cancels the timer and ignores a queued callback', () async {
       final timers = <_TestTimer>[];
       final viewModel = ClientPortalViewModel(
@@ -504,6 +546,212 @@ void main() {
       ),
       'Esta franja ya no está disponible.',
     );
+    expect(
+      appointmentMutationErrorMessage(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message: 'Las citas no se pueden modificar ni cancelar el mismo día.',
+          details: <Object?, Object?>{'reason': 'same_day_change_not_allowed'},
+        ),
+      ),
+      'Las citas no se pueden modificar ni cancelar el mismo día.',
+    );
+    expect(
+      recurringSeriesMutationErrorMessage(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message: 'Las citas no se pueden modificar ni cancelar el mismo día.',
+          details: <Object?, Object?>{'reason': 'same_day_change_not_allowed'},
+        ),
+      ),
+      'Esta serie incluye una cita de hoy y ya no puede cancelarse.',
+    );
+    expect(
+      callableErrorReason(
+        _FakeFunctionsException(
+          code: 'failed-precondition',
+          message: 'other',
+          details: <Object?, Object?>{'reason': 'slot_full'},
+        ),
+      ),
+      isNull,
+    );
+  });
+
+  group('same-day appointment actions', () {
+    final now = DateTime.utc(2026, 9, 2, 10);
+
+    test('blocks simple pending and approved appointments on Madrid today', () {
+      final pending = _appointment(
+        id: 'pending-today',
+        date: '2026-09-02',
+        time: '23:00',
+      );
+      final approved = _appointment(
+        id: 'approved-today',
+        date: '2026-09-02',
+        time: '23:00',
+        status: AppointmentStatus.approved,
+      );
+      final pastHour = _appointment(
+        id: 'past-hour',
+        date: '2026-09-02',
+        time: '09:00',
+      );
+
+      expect(isAppointmentTodayInMadrid(pending, now), isTrue);
+      expect(canModifyAppointment(pending, now), isFalse);
+      expect(canCancelAppointmentOccurrence(pending, now), isFalse);
+      expect(canModifyAppointment(approved, now), isFalse);
+      expect(canCancelAppointmentOccurrence(approved, now), isFalse);
+      expect(isAppointmentTodayInMadrid(pastHour, now), isTrue);
+      expect(canManageAppointmentAt(pastHour, now), isFalse);
+      expect(canModifyAppointment(pastHour, now), isFalse);
+    });
+
+    test('keeps current actions for a simple appointment tomorrow', () {
+      final tomorrow = _appointment(
+        id: 'tomorrow',
+        date: '2026-09-03',
+        time: '23:00',
+      );
+
+      expect(canManageAppointmentAt(tomorrow, now), isTrue);
+      expect(canModifyAppointment(tomorrow, now), isTrue);
+      expect(canCancelAppointmentOccurrence(tomorrow, now), isTrue);
+    });
+
+    test('blocks cancelling an approved recurring occurrence today', () {
+      final today = _appointment(
+        id: 'recurring-today',
+        date: '2026-09-02',
+        time: '23:00',
+        status: AppointmentStatus.approved,
+        recurrenceSeriesId: 'series-1',
+      );
+      final tomorrow = _appointment(
+        id: 'recurring-tomorrow',
+        date: '2026-09-03',
+        time: '23:00',
+        status: AppointmentStatus.approved,
+        recurrenceSeriesId: 'series-1',
+      );
+
+      expect(canCancelAppointmentOccurrence(today, now), isFalse);
+      expect(canModifyAppointment(today, now), isFalse);
+      expect(canCancelAppointmentOccurrence(tomorrow, now), isTrue);
+      expect(canModifyAppointment(tomorrow, now), isFalse);
+    });
+
+    test('blocks cancelling a pending series if any occurrence is today', () {
+      final selected = _appointment(
+        id: 'later',
+        date: '2026-09-04',
+        time: '23:00',
+        recurrenceSeriesId: 'series-1',
+      );
+      final siblingToday = _appointment(
+        id: 'today',
+        date: '2026-09-02',
+        time: '09:00',
+        recurrenceSeriesId: 'series-1',
+      );
+
+      expect(
+        recurringPendingSeriesHasOccurrenceToday(
+          appointment: selected,
+          appointments: [selected, siblingToday],
+          now: now,
+        ),
+        isTrue,
+      );
+      expect(
+        canCancelRecurringSeries(selected, [selected, siblingToday], now),
+        isFalse,
+      );
+    });
+
+    test(
+      'allows cancelling a pending series when every occurrence is future',
+      () {
+        final first = _appointment(
+          id: 'first',
+          date: '2026-09-03',
+          time: '23:00',
+          recurrenceSeriesId: 'series-1',
+        );
+        final second = _appointment(
+          id: 'second',
+          date: '2026-09-05',
+          time: '23:00',
+          recurrenceSeriesId: 'series-1',
+        );
+
+        expect(canCancelRecurringSeries(first, [first, second], now), isTrue);
+      },
+    );
+
+    test('ignores rejected and cancelled siblings when blocking a series', () {
+      final selected = _appointment(
+        id: 'later',
+        date: '2026-09-04',
+        time: '23:00',
+        recurrenceSeriesId: 'series-1',
+      );
+      final rejected = _appointment(
+        id: 'rejected',
+        date: '2026-09-02',
+        time: '09:00',
+        status: AppointmentStatus.rejected,
+        recurrenceSeriesId: 'series-1',
+      );
+      final cancelled = _appointment(
+        id: 'cancelled',
+        date: '2026-09-02',
+        time: '10:00',
+        status: AppointmentStatus.cancelled,
+        recurrenceSeriesId: 'series-1',
+      );
+
+      expect(
+        recurringPendingSeriesHasOccurrenceToday(
+          appointment: selected,
+          appointments: [selected, rejected, cancelled],
+          now: now,
+        ),
+        isFalse,
+      );
+      expect(
+        canCancelRecurringSeries(selected, [
+          selected,
+          rejected,
+          cancelled,
+        ], now),
+        isTrue,
+      );
+    });
+
+    test('treats a legacy date/time appointment as same-day', () {
+      final legacy = Appointment(
+        id: 'legacy',
+        userId: 'uid',
+        name: 'Cliente',
+        email: 'cliente@example.com',
+        phone: '+34612345678',
+        serviceType: 'Bono Mensual de Entrenamiento',
+        durationMinutes: 45,
+        preferredSlots: const [],
+        reason: '',
+        status: AppointmentStatus.pending,
+        createdAt: '2026-08-01T10:00:00.000Z',
+        legacyDate: '2026-09-02',
+        legacyTime: '09:00',
+      );
+
+      expect(legacy.schedulingSlot?.date, '2026-09-02');
+      expect(isAppointmentTodayInMadrid(legacy, now), isTrue);
+      expect(canModifyAppointment(legacy, now), isFalse);
+    });
   });
 }
 
@@ -524,7 +772,11 @@ Bono _bono({required int total, required int remaining, int? size}) {
 }
 
 class _FakeFunctionsException extends FirebaseFunctionsException {
-  _FakeFunctionsException({required super.code, required super.message});
+  _FakeFunctionsException({
+    required super.code,
+    required super.message,
+    super.details,
+  });
 }
 
 Appointment _appointment({
@@ -533,6 +785,7 @@ Appointment _appointment({
   required String time,
   AppointmentStatus status = AppointmentStatus.pending,
   String createdAt = '2030-05-01T10:00:00.000Z',
+  String? recurrenceSeriesId,
 }) {
   return Appointment(
     id: id,
@@ -546,6 +799,7 @@ Appointment _appointment({
     reason: '',
     status: status,
     createdAt: createdAt,
+    recurrenceSeriesId: recurrenceSeriesId,
   );
 }
 

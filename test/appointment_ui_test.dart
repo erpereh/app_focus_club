@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_focus_club/features/client/application/client_portal_view_model.dart';
 import 'package:app_focus_club/features/client/data/portal_repository.dart';
+import 'package:app_focus_club/features/client/domain/madrid_date.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
 import 'package:app_focus_club/features/client/presentation/appointment_detail_screen.dart';
 import 'package:app_focus_club/features/client/presentation/appointments_screen.dart';
@@ -9,6 +10,7 @@ import 'package:app_focus_club/features/client/presentation/booking_screen.dart'
 import 'package:app_focus_club/features/client/presentation/dashboard_screen.dart';
 import 'package:app_focus_club/features/client/widgets/appointment_display.dart';
 import 'package:app_focus_club/features/client/widgets/client_cards.dart';
+import 'package:app_focus_club/shared/widgets/focus_buttons.dart';
 import 'package:app_focus_club/shared/widgets/focus_empty_state.dart';
 import 'package:app_focus_club/shared/widgets/focus_glass_card.dart';
 import 'package:app_focus_club/theme/app_text_size.dart';
@@ -25,7 +27,7 @@ void main() {
     final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid');
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
     );
 
     await tester.pumpWidget(
@@ -219,11 +221,13 @@ void main() {
     );
     expect(find.text('Aprobada'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('Modificar cita'),
+      find.text(sameDayChangeNotAllowedMessage),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Modificar cita'), findsOneWidget);
+    expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
+    expect(find.text('Modificar cita'), findsNothing);
+    expect(find.text('Cancelar cita'), findsNothing);
 
     now = DateTime(2030, 5, 20, 10);
     viewModel.refreshTemporalState();
@@ -233,6 +237,12 @@ void main() {
 
     expect(find.text('Realizada'), findsOneWidget);
     expect(find.text('Esta cita ya se ha realizado.'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text(sameDayChangeNotAllowedMessage),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
     expect(find.text('Modificar cita'), findsNothing);
     expect(find.text('Cancelar cita'), findsNothing);
     viewModel.dispose();
@@ -247,7 +257,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
     );
     final viewModel = ClientPortalViewModel(
       repository: FakePortalRepository(),
@@ -568,7 +578,7 @@ void main() {
     final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid');
     final appointment = _appointment(
       status: AppointmentStatus.approved,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
     );
 
     await tester.pumpWidget(
@@ -657,7 +667,7 @@ void main() {
     final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid');
     final appointment = _appointment(
       status: AppointmentStatus.approved,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
     );
 
     await tester.pumpWidget(
@@ -701,7 +711,7 @@ void main() {
   ) async {
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
     );
     final repository = FakePortalRepository(
       appointments: [appointment],
@@ -1389,7 +1399,7 @@ void main() {
   ) async {
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
       recurrenceSeriesId: 'series-1',
       recurrenceIndex: 0,
     );
@@ -1439,7 +1449,7 @@ void main() {
   ) async {
     final appointment = _appointment(
       status: AppointmentStatus.approved,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
       recurrenceSeriesId: 'series-1',
       recurrenceIndex: 1,
     );
@@ -1476,7 +1486,7 @@ void main() {
   ) async {
     final pending = _appointment(
       status: AppointmentStatus.pending,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
       recurrenceSeriesId: 'series-1',
       recurrenceIndex: 0,
     );
@@ -1520,7 +1530,7 @@ void main() {
   ) async {
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
       recurrenceSeriesId: 'series-1',
     );
     await tester.pumpWidget(
@@ -1545,7 +1555,7 @@ void main() {
   ) async {
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _wireDate(DateTime.now().add(const Duration(days: 1))),
+      date: _madridTomorrow(),
       recurrenceSeriesId: 'series-1',
     );
     final repository = FakePortalRepository(
@@ -1576,6 +1586,343 @@ void main() {
     expect(repository.cancelledSeriesIds, ['series-1']);
     viewModel.dispose();
   });
+
+  testWidgets(
+    'simple appointment today hides actions and shows same-day warning',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 2, 10);
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: getMadridDateKey(now),
+        time: '23:00',
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(appointments: [appointment]),
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: appointment,
+            viewModel: viewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text(sameDayChangeNotAllowedMessage),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
+      expect(find.text('Modificar cita'), findsNothing);
+      expect(find.text('Cancelar cita'), findsNothing);
+      viewModel.dispose();
+    },
+  );
+
+  testWidgets(
+    'same-day warning stays visible after the appointment hour has passed',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 2, 12);
+      final appointment = _appointment(
+        status: AppointmentStatus.approved,
+        date: getMadridDateKey(now),
+        time: '09:00',
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(appointments: [appointment]),
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: appointment,
+            viewModel: viewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text(sameDayChangeNotAllowedMessage),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
+      expect(find.text('Modificar cita'), findsNothing);
+      expect(find.text('Cancelar cita'), findsNothing);
+      viewModel.dispose();
+    },
+  );
+
+  testWidgets('simple appointment tomorrow keeps current actions', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 9, 2, 10);
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: _madridTomorrow(now),
+      time: '23:00',
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: FakePortalRepository(appointments: [appointment]),
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppointmentDetailScreen(
+          appointment: appointment,
+          viewModel: viewModel,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text(sameDayChangeNotAllowedMessage), findsNothing);
+    expect(find.text('Modificar cita'), findsOneWidget);
+    expect(find.text('Cancelar cita'), findsOneWidget);
+    viewModel.dispose();
+  });
+
+  testWidgets(
+    'approved recurring occurrence today hides cancel and shows warning',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 2, 10);
+      final appointment = _appointment(
+        status: AppointmentStatus.approved,
+        date: getMadridDateKey(now),
+        time: '23:00',
+        recurrenceSeriesId: 'series-1',
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(appointments: [appointment]),
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: appointment,
+            viewModel: viewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text(sameDayChangeNotAllowedMessage),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
+      expect(find.text('Cancelar cita'), findsNothing);
+      expect(find.text('Modificar cita'), findsNothing);
+      viewModel.dispose();
+    },
+  );
+
+  testWidgets(
+    'pending series with a sibling today hides series cancel on a later occurrence',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 2, 10);
+      final selected = _appointment(
+        id: 'later',
+        status: AppointmentStatus.pending,
+        date: _madridTomorrow(now),
+        time: '23:00',
+        recurrenceSeriesId: 'series-1',
+      );
+      final siblingToday = _appointment(
+        id: 'today',
+        status: AppointmentStatus.pending,
+        date: getMadridDateKey(now),
+        time: '09:00',
+        recurrenceSeriesId: 'series-1',
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(
+          appointments: [selected, siblingToday],
+          recurringSeries: [_series()],
+        ),
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: selected,
+            viewModel: viewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text(pendingSeriesHasOccurrenceTodayMessage),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text(pendingSeriesHasOccurrenceTodayMessage), findsOneWidget);
+      expect(find.text('Cancelar solicitud recurrente'), findsNothing);
+      expect(find.text(sameDayChangeNotAllowedMessage), findsNothing);
+      viewModel.dispose();
+    },
+  );
+
+  testWidgets(
+    'pending series with only future occurrences keeps series cancel',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 2, 10);
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: _madridTomorrow(now),
+        time: '23:00',
+        recurrenceSeriesId: 'series-1',
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(
+          appointments: [appointment],
+          recurringSeries: [_series()],
+        ),
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: appointment,
+            viewModel: viewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Cancelar solicitud recurrente'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text(pendingSeriesHasOccurrenceTodayMessage), findsNothing);
+      expect(find.text('Cancelar solicitud recurrente'), findsOneWidget);
+      viewModel.dispose();
+    },
+  );
+
+  testWidgets(
+    'editing a same-day appointment shows a warning and disables save',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 2, 8);
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: getMadridDateKey(now),
+        time: '23:00',
+      );
+      final repository = FakePortalRepository(
+        appointments: [appointment],
+        siteConfig: const SiteConfig(
+          startHour: 8,
+          endHour: 24,
+          slotInterval: 30,
+          bonoExpirationMonths: 1,
+          maintenanceMode: false,
+        ),
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: repository,
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BookingScreen(
+            viewModel: viewModel,
+            editingAppointment: appointment,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
+      await _bookingContinueUntil(tester, find.text('Guardar cambios'));
+      expect(find.text('Guardar cambios'), findsOneWidget);
+      expect(
+        tester
+            .widget<FocusPrimaryButton>(
+              find.widgetWithText(FocusPrimaryButton, 'Guardar cambios'),
+            )
+            .onPressed,
+        isNull,
+      );
+      viewModel.dispose();
+    },
+  );
+
+  testWidgets(
+    'detail hides actions after the Madrid midnight boundary without recreating the view model',
+    (tester) async {
+      var now = DateTime.utc(2026, 9, 1, 21, 30);
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: _madridTomorrow(now),
+        time: '23:00',
+      );
+      final timers = <_UiTestTimer>[];
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(appointments: [appointment]),
+        uid: 'uid',
+        now: () => now,
+        appointmentTimerFactory: (duration, callback) {
+          final timer = _UiTestTimer(duration, callback);
+          timers.add(timer);
+          return timer;
+        },
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: appointment,
+            viewModel: viewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Modificar cita'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Modificar cita'), findsOneWidget);
+      expect(find.text('Cancelar cita'), findsOneWidget);
+
+      now = nextMadridMidnightUtc(now);
+      final timer = timers.lastWhere((item) => item.isActive);
+      timer.fire();
+      await tester.pump();
+
+      expect(find.text('Modificar cita'), findsNothing);
+      expect(find.text('Cancelar cita'), findsNothing);
+      expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
+      viewModel.dispose();
+    },
+  );
 }
 
 class _LargeTextHarness extends StatelessWidget {
@@ -1714,6 +2061,19 @@ ClientPortalViewModel _bookingViewModel({
   )..start();
 }
 
+String _madridTomorrow([DateTime? now]) {
+  final today = getMadridDateKey(now ?? DateTime.now());
+  final parts = today.split('-');
+  final next = DateTime.utc(
+    int.parse(parts[0]),
+    int.parse(parts[1]),
+    int.parse(parts[2]),
+  ).add(const Duration(days: 1));
+  final month = next.month.toString().padLeft(2, '0');
+  final day = next.day.toString().padLeft(2, '0');
+  return '${next.year}-$month-$day';
+}
+
 String _wireDate(DateTime value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
@@ -1757,4 +2117,27 @@ Future<void> _selectRecurringHasta(WidgetTester tester, String endDate) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(Key('recurring-hasta-option-$endDate')));
   await tester.pumpAndSettle();
+}
+
+class _UiTestTimer implements Timer {
+  _UiTestTimer(this.duration, this._callback);
+
+  final Duration duration;
+  final void Function() _callback;
+  bool _isActive = true;
+
+  void fire() {
+    if (!_isActive) return;
+    _isActive = false;
+    _callback();
+  }
+
+  @override
+  void cancel() => _isActive = false;
+
+  @override
+  bool get isActive => _isActive;
+
+  @override
+  int get tick => _isActive ? 0 : 1;
 }

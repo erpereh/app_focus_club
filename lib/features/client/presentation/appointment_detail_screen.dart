@@ -57,13 +57,32 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
             ? null
             : state.recurringSeriesById[appointment.recurrenceSeriesId];
         final showModify = canModifyAppointment(appointment, now);
-        final showCancelSeries = canCancelRecurringSeries(appointment, now);
+        final showCancelSeries = canCancelRecurringSeries(
+          appointment,
+          state.appointments,
+          now,
+        );
         final showCancelOccurrence = canCancelAppointmentOccurrence(
           appointment,
           now,
         );
         final showActions =
             showModify || showCancelSeries || showCancelOccurrence;
+        final showSeriesTodayWarning = recurringPendingSeriesHasOccurrenceToday(
+          appointment: appointment,
+          appointments: state.appointments,
+          now: now,
+        );
+        final showSameDayWarning =
+            !showSeriesTodayWarning &&
+            (appointment.status == AppointmentStatus.pending ||
+                appointment.status == AppointmentStatus.approved) &&
+            isAppointmentTodayInMadrid(appointment, now);
+        final warningMessage = showSeriesTodayWarning
+            ? pendingSeriesHasOccurrenceTodayMessage
+            : showSameDayWarning
+            ? sameDayChangeNotAllowedMessage
+            : null;
 
         return Scaffold(
           backgroundColor: AppTheme.background,
@@ -228,12 +247,21 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     ],
                   ),
                 ),
-                if (showActions) ...[
+                if (_errorMessage != null ||
+                    warningMessage != null ||
+                    showActions) ...[
                   const SizedBox(height: 22),
                   if (_errorMessage != null) ...[
                     FocusStatusMessage(
                       message: _errorMessage!,
                       type: FocusStatusType.error,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (warningMessage != null) ...[
+                    FocusStatusMessage(
+                      message: warningMessage,
+                      type: FocusStatusType.warning,
                     ),
                     const SizedBox(height: 14),
                   ],

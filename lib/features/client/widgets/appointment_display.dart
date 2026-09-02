@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
+import '../domain/madrid_date.dart';
 import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
+
+const sameDayChangeNotAllowedMessage =
+    'Las citas no se pueden modificar ni cancelar el mismo día.';
+
+const pendingSeriesHasOccurrenceTodayMessage =
+    'Esta serie incluye una cita de hoy y ya no puede cancelarse.';
 
 const portalServiceLabel = 'Bono Mensual de Entrenamiento';
 
@@ -110,26 +117,63 @@ Appointment resolveLiveAppointment({
   required Appointment fallback,
   required Iterable<Appointment> appointments,
 }) {
-  return appointments
-          .where((item) => item.id == fallback.id)
-          .firstOrNull ??
+  return appointments.where((item) => item.id == fallback.id).firstOrNull ??
       fallback;
 }
 
-bool canModifyAppointment(Appointment appointment, DateTime now) {
-  return canManageAppointmentAt(appointment, now) && !appointment.isRecurring;
+bool isAppointmentTodayInMadrid(Appointment appointment, DateTime now) {
+  final dateKey = appointment.schedulingSlot?.date;
+  if (dateKey == null || dateKey.isEmpty) return false;
+  return isDateKeyTodayInMadrid(dateKey, now);
 }
 
-bool canCancelRecurringSeries(Appointment appointment, DateTime now) {
+bool recurringPendingSeriesHasOccurrenceToday({
+  required Appointment appointment,
+  required Iterable<Appointment> appointments,
+  required DateTime now,
+}) {
+  final seriesId = appointment.recurrenceSeriesId;
+  if (seriesId == null) return false;
+  if (appointment.status != AppointmentStatus.pending) return false;
+
+  final byId = <String, Appointment>{appointment.id: appointment};
+  for (final item in appointments) {
+    byId[item.id] = item;
+  }
+  return byId.values.any(
+    (item) =>
+        item.recurrenceSeriesId == seriesId &&
+        item.status == AppointmentStatus.pending &&
+        isAppointmentTodayInMadrid(item, now),
+  );
+}
+
+bool canModifyAppointment(Appointment appointment, DateTime now) {
+  return canManageAppointmentAt(appointment, now) &&
+      !appointment.isRecurring &&
+      !isAppointmentTodayInMadrid(appointment, now);
+}
+
+bool canCancelRecurringSeries(
+  Appointment appointment,
+  Iterable<Appointment> appointments,
+  DateTime now,
+) {
   return canManageAppointmentAt(appointment, now) &&
       appointment.isRecurring &&
-      appointment.status == AppointmentStatus.pending;
+      appointment.status == AppointmentStatus.pending &&
+      !recurringPendingSeriesHasOccurrenceToday(
+        appointment: appointment,
+        appointments: appointments,
+        now: now,
+      );
 }
 
 bool canCancelAppointmentOccurrence(Appointment appointment, DateTime now) {
   return canManageAppointmentAt(appointment, now) &&
       !(appointment.isRecurring &&
-          appointment.status == AppointmentStatus.pending);
+          appointment.status == AppointmentStatus.pending) &&
+      !isAppointmentTodayInMadrid(appointment, now);
 }
 
 extension PortalUserDisplay on UserProfile {

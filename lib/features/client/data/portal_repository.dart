@@ -266,9 +266,7 @@ class FirebasePortalRepository implements PortalRepository {
           ),
         );
         blockedSlots.addAll(
-          results[1].docs.map(
-            (doc) => BlockedSlot.fromMap(doc.id, doc.data()),
-          ),
+          results[1].docs.map((doc) => BlockedSlot.fromMap(doc.id, doc.data())),
         );
       }),
     );
@@ -385,8 +383,8 @@ String appointmentRequestErrorMessage(Object error) {
         'Ya tienes una sesion en esa franja.',
       'failed-precondition' when message.contains('more than one') =>
         'Hay una incidencia con tu bono activo. Contacta con Focus Club.',
-      'failed-precondition' || 'invalid-argument' when original != null =>
-        original,
+      'failed-precondition' ||
+      'invalid-argument' when original != null => original,
       _ => 'No hemos podido enviar la solicitud. Intentalo de nuevo.',
     };
   }
@@ -396,8 +394,21 @@ String appointmentRequestErrorMessage(Object error) {
   return 'No hemos podido enviar la solicitud. Intentalo de nuevo.';
 }
 
+const _sameDayChangeNotAllowedReason = 'same_day_change_not_allowed';
+
+String? callableErrorReason(FirebaseFunctionsException error) {
+  final details = error.details;
+  if (details is Map && details['reason'] == _sameDayChangeNotAllowedReason) {
+    return _sameDayChangeNotAllowedReason;
+  }
+  return null;
+}
+
 String appointmentMutationErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
+    if (callableErrorReason(error) == _sameDayChangeNotAllowedReason) {
+      return 'Las citas no se pueden modificar ni cancelar el mismo día.';
+    }
     final message = (error.message ?? '').toLowerCase();
     final original = _originalCallableMessage(error);
     return switch (error.code) {
@@ -416,8 +427,8 @@ String appointmentMutationErrorMessage(Object error) {
         'Esta franja ya no está disponible.',
       'unavailable' || 'deadline-exceeded' =>
         'No hay conexión. Revisa la red e inténtalo de nuevo.',
-      'failed-precondition' || 'invalid-argument' when original != null =>
-        original,
+      'failed-precondition' ||
+      'invalid-argument' when original != null => original,
       _ => 'No hemos podido actualizar la cita. Inténtalo de nuevo.',
     };
   }
@@ -426,11 +437,13 @@ String appointmentMutationErrorMessage(Object error) {
 
 String recurringSeriesMutationErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
+    if (callableErrorReason(error) == _sameDayChangeNotAllowedReason) {
+      return 'Esta serie incluye una cita de hoy y ya no puede cancelarse.';
+    }
     final original = _originalCallableMessage(error);
     return switch (error.code) {
       'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
-      'permission-denied' =>
-        'No tienes permisos para cancelar esta solicitud.',
+      'permission-denied' => 'No tienes permisos para cancelar esta solicitud.',
       'not-found' => 'No hemos encontrado esta solicitud recurrente.',
       'unavailable' || 'deadline-exceeded' =>
         'No hay conexión. Revisa la red e inténtalo de nuevo.',

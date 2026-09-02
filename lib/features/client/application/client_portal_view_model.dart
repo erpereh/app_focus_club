@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/portal_repository.dart';
 import '../data/push_notification_service.dart';
+import '../domain/madrid_date.dart';
 import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
 import '../domain/recurring_booking_availability.dart';
@@ -325,7 +326,7 @@ class ClientPortalViewModel extends ChangeNotifier {
     if (_isDisposed) return;
 
     final now = _now();
-    DateTime? nextBoundary;
+    DateTime nextBoundary = nextMadridMidnightUtc(now);
     for (final appointment in _state.appointments) {
       if (appointment.status != AppointmentStatus.pending &&
           appointment.status != AppointmentStatus.approved) {
@@ -333,11 +334,10 @@ class ClientPortalViewModel extends ChangeNotifier {
       }
       final date = appointment.schedulingDateTime;
       if (date == null || !date.isAfter(now)) continue;
-      if (nextBoundary == null || date.isBefore(nextBoundary)) {
+      if (date.isBefore(nextBoundary)) {
         nextBoundary = date;
       }
     }
-    if (nextBoundary == null) return;
 
     final remaining = nextBoundary.difference(now);
     final delay = remaining < const Duration(milliseconds: 1)
@@ -388,9 +388,7 @@ class ClientPortalViewModel extends ChangeNotifier {
 
   void _setRecurringSeries(List<RecurringAppointmentSeries> series) {
     _state = _state.copyWith(
-      recurringSeriesById: {
-        for (final item in series) item.id: item,
-      },
+      recurringSeriesById: {for (final item in series) item.id: item},
       isLoading: false,
     );
     notifyListeners();
