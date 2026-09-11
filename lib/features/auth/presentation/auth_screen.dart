@@ -339,6 +339,21 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+      final verificationEmailFailed =
+          error is AuthFailure && error.code == 'verification-email-failed';
+      if (verificationEmailFailed) {
+        final email = _registerEmailController.text.trim();
+        final password = _registerPasswordController.text;
+        setState(() {
+          _mode = _AuthMode.login;
+          _loginEmailController.text = email;
+          _lastUnverifiedEmail = email;
+          _lastUnverifiedPassword = password;
+          _statusType = FocusStatusType.warning;
+          _statusMessage = authErrorMessage(error);
+        });
+        return;
+      }
       setState(() {
         _statusType = FocusStatusType.error;
         _statusMessage = authErrorMessage(error);

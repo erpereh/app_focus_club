@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../client/domain/portal_models.dart';
+import 'auth_registration_provisioning.dart';
+
+export 'auth_registration_provisioning.dart' show AuthFailure;
 
 abstract interface class AuthRepository {
   Stream<AuthSession?> authStateChanges();
@@ -129,32 +132,40 @@ class FirebaseAuthRepository implements AuthRepository {
     required String phone,
     required String password,
   }) async {
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
-    final user = credential.user;
-    if (user == null) {
-      throw const AuthFailure('missing-user');
-    }
-
-    await user.updateDisplayName(name.trim());
-    await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .set(
-          UserProfile(
-            uid: user.uid,
-            email: email.trim(),
-            name: name.trim(),
-            phone: phone.trim(),
-            role: 'user',
-            isTrainer: false,
-            createdAt: DateTime.now().toIso8601String(),
-          ).toMap(),
+    firebase_auth.User? createdUser;
+    await runEmailRegistrationProvisioning(
+      createAuthUser: () async {
+        final credential = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
         );
-    await user.sendEmailVerification();
-    await _auth.signOut();
+        createdUser = credential.user;
+        if (createdUser == null) {
+          throw const AuthFailure('missing-user');
+        }
+      },
+      updateDisplayName: () => createdUser!.updateDisplayName(name.trim()),
+      writeProfile: () {
+        final user = createdUser!;
+        return _firestore
+            .collection('users')
+            .doc(user.uid)
+            .set(
+              UserProfile(
+                uid: user.uid,
+                email: email.trim(),
+                name: name.trim(),
+                phone: phone.trim(),
+                role: 'user',
+                isTrainer: false,
+                createdAt: DateTime.now().toIso8601String(),
+              ).toMap(),
+            );
+      },
+      sendVerification: () => createdUser!.sendEmailVerification(),
+      deleteCreatedUser: () => createdUser!.delete(),
+      signOut: () => _auth.signOut(),
+    );
   }
 
   @override
@@ -171,12 +182,17 @@ class FirebaseAuthRepository implements AuthRepository {
       throw const AuthFailure('missing-user');
     }
 
-    UserProfile profile;
-    try {
-      final profileRef = _firestore.collection('users').doc(user.uid);
-      final snapshot = await profileRef.get();
-      if (!snapshot.exists) {
-        profile = UserProfile(
+    final isNewAuthUser = userCredential.additionalUserInfo?.isNewUser == true;
+    final profileRef = _firestore.collection('users').doc(user.uid);
+    final profile = await runGoogleProfileProvisioning<UserProfile>(
+      isNewAuthUser: isNewAuthUser,
+      readExistingProfile: () async {
+        final snapshot = await profileRef.get();
+        if (!snapshot.exists) return null;
+        return UserProfile.fromMap(snapshot.data()!);
+      },
+      createProfile: () async {
+        final created = UserProfile(
           uid: user.uid,
           email: user.email ?? '',
           name: user.displayName ?? '',
@@ -185,14 +201,12 @@ class FirebaseAuthRepository implements AuthRepository {
           createdAt: DateTime.now().toIso8601String(),
           photoUrl: user.photoURL,
         );
-        await profileRef.set(profile.toMap());
-      } else {
-        profile = UserProfile.fromMap(snapshot.data()!);
-      }
-    } catch (_) {
-      await _auth.signOut();
-      rethrow;
-    }
+        await profileRef.set(created.toMap());
+        return created;
+      },
+      deleteCreatedUser: () => user.delete(),
+      signOut: () => _auth.signOut(),
+    );
 
     return GoogleAuthResult(
       status: _hasPhone(profile)
@@ -269,15 +283,6 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 }
 
-class AuthFailure implements Exception {
-  const AuthFailure(this.code);
-
-  final String code;
-
-  @override
-  String toString() => 'AuthFailure($code)';
-}
-
 extension on firebase_auth.User {
   AuthSession toAuthSession() {
     return AuthSession(
@@ -299,6 +304,10 @@ String authErrorMessage(Object error) {
       'email-not-verified' =>
         'Tu email aun no esta verificado. Te hemos enviado un nuevo enlace.',
       'missing-user' => 'No hemos podido recuperar la sesion de usuario.',
+      'registration-rollback-failed' =>
+        'No hemos podido completar el registro. Inténtalo de nuevo o contacta con Focus Club.',
+      'verification-email-failed' =>
+        'Tu cuenta se ha creado, pero no hemos podido enviar el email de verificación. Inicia sesión para volver a solicitarlo.',
       _ => 'No hemos podido completar la autenticacion.',
     };
   }
