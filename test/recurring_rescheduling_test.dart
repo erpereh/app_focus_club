@@ -2,6 +2,7 @@ import 'package:app_focus_club/features/client/data/portal_repository.dart';
 import 'package:app_focus_club/features/client/domain/madrid_date.dart';
 import 'package:app_focus_club/features/client/domain/portal_availability.dart';
 import 'package:app_focus_club/features/client/domain/portal_models.dart';
+import 'package:app_focus_club/features/client/domain/recurring_booking.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -328,51 +329,134 @@ void main() {
   });
 
   group('series replacement accounting', () {
-    test('restores only future active series minutes', () {
-      const bono = Bono(
-        id: 'bono-1',
-        userId: 'uid',
-        tamano: 240,
-        minutosTotales: 240,
-        minutosRestantes: 30,
-        fechaAsignacion: '2026-09-01',
-        fechaExpiracion: '2026-10-31',
-        estado: BonoStatus.agotado,
-        historial: [],
-        asignadoPor: 'admin',
-        createdAt: '2026-09-01T00:00:00Z',
-      );
-      final appointments = [
-        _appointment(id: 'past', date: '2026-09-19', time: '10:00'),
-        _appointment(id: 'pending', date: '2026-09-21', time: '10:00'),
-        _appointment(
-          id: 'approved',
-          date: '2026-09-23',
-          time: '10:00',
-          status: AppointmentStatus.approved,
-        ),
-        _appointment(
-          id: 'cancelled',
-          date: '2026-09-25',
-          time: '10:00',
-          status: AppointmentStatus.cancelled,
-        ),
-        _appointment(
-          id: 'rejected',
-          date: '2026-09-27',
-          time: '10:00',
-          status: AppointmentStatus.rejected,
-        ),
-      ];
+    final now = DateTime.utc(2026, 9, 20, 8);
 
-      expect(
-        availableMinutesForSeriesReplacement(
+    List<Appointment> futureOccurrences(int count) => List.generate(
+      count,
+      (index) => _appointment(
+        id: 'future-$index',
+        date: '2026-09-${21 + index * 2}',
+        time: '10:00',
+      ),
+    );
+
+    test('active bono adds remaining minutes to the reserved 90', () {
+      final policy = recurringSeriesReplacementBonoPolicy(
+        bono: _replacementBono(status: BonoStatus.activo, remainingMinutes: 60),
+        seriesId: 'series-1',
+        appointments: futureOccurrences(2),
+        now: now,
+      );
+
+      expect(policy.isAvailable, isTrue);
+      expect(policy.availableMinutes, 150);
+      expect(policy.expirationDate, '2026-10-31');
+    });
+
+    test('exhausted bono exposes only the reserved 90 minutes', () {
+      final policy = recurringSeriesReplacementBonoPolicy(
+        bono: _replacementBono(status: BonoStatus.agotado, remainingMinutes: 0),
+        seriesId: 'series-1',
+        appointments: futureOccurrences(2),
+        now: now,
+      );
+
+      expect(policy.isAvailable, isTrue);
+      expect(policy.availableMinutes, 90);
+      expect(policy.expirationDate, '2026-10-31');
+    });
+
+    test('expired bono ignores remaining minutes and expiration cap', () {
+      final policy = recurringSeriesReplacementBonoPolicy(
+        bono: _replacementBono(
+          status: BonoStatus.expirado,
+          remainingMinutes: 60,
+        ),
+        seriesId: 'series-1',
+        appointments: futureOccurrences(2),
+        now: now,
+      );
+
+      expect(policy.isAvailable, isTrue);
+      expect(policy.availableMinutes, 90);
+      expect(policy.expirationDate, isNull);
+    });
+
+    test('stale active status uses the backend expiration instant', () {
+      final utcNow = DateTime.utc(2026, 9, 20, 8);
+      final tokyoEncodedNow = DateTime.parse('2026-09-20T17:00:00+09:00');
+
+      for (final representedNow in [utcNow, tokyoEncodedNow]) {
+        final policy = recurringSeriesReplacementBonoPolicy(
+          bono: _replacementBono(
+            status: BonoStatus.activo,
+            remainingMinutes: 60,
+            expirationDate: '2026-09-20T07:59:59Z',
+          ),
+          seriesId: 'series-1',
+          appointments: futureOccurrences(2),
+          now: representedNow,
+        );
+
+        expect(policy.availableMinutes, 90);
+        expect(policy.expirationDate, isNull);
+      }
+    });
+
+    test('expired bono can maintain or reduce but cannot expand', () {
+      final policy = recurringSeriesReplacementBonoPolicy(
+        bono: _replacementBono(
+          status: BonoStatus.expirado,
+          remainingMinutes: 60,
+          expirationDate: '2026-09-19T00:00:00Z',
+        ),
+        seriesId: 'series-1',
+        appointments: futureOccurrences(3),
+        now: now,
+      );
+      final options = getRecurringEndDateOptions(
+        startDate: '2026-09-21',
+        intervalDays: 2,
+        durationMinutes: 45,
+        remainingMinutes: policy.availableMinutes,
+        bonoExpirationDate: policy.expirationDate,
+      );
+
+      expect(options.map((option) => option.occurrenceCount), [2, 3]);
+    });
+
+    test('deleted or missing bono is unavailable for full replacement', () {
+      final appointments = futureOccurrences(2);
+
+      for (final bono in <Bono?>[
+        null,
+        _replacementBono(status: BonoStatus.eliminado, remainingMinutes: 60),
+      ]) {
+        final policy = recurringSeriesReplacementBonoPolicy(
           bono: bono,
           seriesId: 'series-1',
           appointments: appointments,
-          now: DateTime.utc(2026, 9, 20, 8),
+          now: now,
+        );
+
+        expect(policy.isAvailable, isFalse);
+        expect(policy.availableMinutes, 0);
+        expect(policy.expirationDate, isNull);
+      }
+    });
+
+    test('temporal series eligibility remains independent from bono state', () {
+      final appointments = [
+        _appointment(id: 'future', date: '2026-09-22', time: '10:00'),
+      ];
+
+      expect(
+        canCustomerReplaceRecurringSeries(
+          seriesId: 'series-1',
+          appointments: appointments,
+          now: now,
         ),
-        120,
+        isTrue,
       );
     });
   });
@@ -551,5 +635,25 @@ Appointment _appointment({
     approvedSlot: status == AppointmentStatus.approved ? slot : null,
     createdAt: '2026-09-01T00:00:00Z',
     recurrenceSeriesId: 'series-1',
+  );
+}
+
+Bono _replacementBono({
+  required BonoStatus status,
+  required int remainingMinutes,
+  String expirationDate = '2026-10-31',
+}) {
+  return Bono(
+    id: 'bono-1',
+    userId: 'uid',
+    tamano: 240,
+    minutosTotales: 240,
+    minutosRestantes: remainingMinutes,
+    fechaAsignacion: '2026-09-01',
+    fechaExpiracion: expirationDate,
+    estado: status,
+    historial: const [],
+    asignadoPor: 'admin',
+    createdAt: '2026-09-01T00:00:00Z',
   );
 }

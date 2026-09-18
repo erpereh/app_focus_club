@@ -268,18 +268,84 @@ bool canCustomerReplaceRecurringSeries({
   });
 }
 
+class RecurringSeriesReplacementBonoPolicy {
+  const RecurringSeriesReplacementBonoPolicy({
+    required this.isAvailable,
+    required this.availableMinutes,
+    required this.expirationDate,
+  });
+
+  final bool isAvailable;
+  final int availableMinutes;
+  final String? expirationDate;
+}
+
+RecurringSeriesReplacementBonoPolicy recurringSeriesReplacementBonoPolicy({
+  required Bono? bono,
+  required String seriesId,
+  required Iterable<Appointment> appointments,
+  required DateTime now,
+}) {
+  if (bono == null || bono.estado == BonoStatus.eliminado) {
+    return const RecurringSeriesReplacementBonoPolicy(
+      isAvailable: false,
+      availableMinutes: 0,
+      expirationDate: null,
+    );
+  }
+
+  final reserved = futureActiveOccurrencesForSeries(
+    seriesId: seriesId,
+    appointments: appointments,
+    now: now,
+  ).fold<int>(0, (total, item) => total + item.durationMinutes);
+  final expiration = _backendExpirationInstant(bono.fechaExpiracion);
+  final isExpired =
+      bono.estado == BonoStatus.expirado ||
+      (expiration != null && expiration.isBefore(now.toUtc()));
+  final canExpand = bono.estado == BonoStatus.activo && !isExpired;
+
+  return RecurringSeriesReplacementBonoPolicy(
+    isAvailable: true,
+    availableMinutes: reserved + (canExpand ? bono.minutosRestantes : 0),
+    expirationDate: isExpired ? null : bono.fechaExpiracion,
+  );
+}
+
 int availableMinutesForSeriesReplacement({
   required Bono bono,
   required String seriesId,
   required Iterable<Appointment> appointments,
   required DateTime now,
 }) {
-  final reserved = futureActiveOccurrencesForSeries(
+  return recurringSeriesReplacementBonoPolicy(
+    bono: bono,
     seriesId: seriesId,
     appointments: appointments,
     now: now,
-  ).fold<int>(0, (total, item) => total + item.durationMinutes);
-  return bono.minutosRestantes + reserved;
+  ).availableMinutes;
+}
+
+DateTime? _backendExpirationInstant(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return null;
+
+  final civilMatch = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(trimmed);
+  if (civilMatch != null) {
+    final year = int.parse(civilMatch.group(1)!);
+    final month = int.parse(civilMatch.group(2)!);
+    final day = int.parse(civilMatch.group(3)!);
+    final parsed = DateTime.utc(year, month, day);
+    return parsed.year == year && parsed.month == month && parsed.day == day
+        ? parsed
+        : null;
+  }
+
+  final hasExplicitZone = RegExp(
+    r'(?:[zZ]|[+-]\d{2}:?\d{2})$',
+  ).hasMatch(trimmed);
+  final parsed = DateTime.tryParse(hasExplicitZone ? trimmed : '${trimmed}Z');
+  return parsed?.toUtc();
 }
 
 enum BookingSlotAvailability {

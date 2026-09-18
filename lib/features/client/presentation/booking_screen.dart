@@ -193,12 +193,11 @@ class _BookingScreenState extends State<BookingScreen> {
     return state.bonos.where((item) => item.id == bonoId).firstOrNull;
   }
 
-  int _availableMinutes(ClientPortalState state) {
-    final bono = _replacementBono(state);
-    if (bono == null) return 0;
-    if (!_isRecurringSeries) return bono.minutosRestantes;
-    return availableMinutesForSeriesReplacement(
-      bono: bono,
+  RecurringSeriesReplacementBonoPolicy _replacementBonoPolicy(
+    ClientPortalState state,
+  ) {
+    return recurringSeriesReplacementBonoPolicy(
+      bono: _replacementBono(state),
       seriesId: widget.sourceSeries!.id,
       appointments: state.appointments,
       now: widget.viewModel.currentTime,
@@ -260,7 +259,9 @@ class _BookingScreenState extends State<BookingScreen> {
     final state = widget.viewModel.state;
     final now = widget.viewModel.currentTime;
     final activeBono = state.activeBono;
-    final replacementBono = _replacementBono(state);
+    final replacementBonoPolicy = _isRecurringSeries
+        ? _replacementBonoPolicy(state)
+        : null;
     final siteConfig = state.siteConfig;
     final liveEditingAppointment = _liveEditingAppointment();
     final editingSlot = liveEditingAppointment?.schedulingSlot;
@@ -276,7 +277,7 @@ class _BookingScreenState extends State<BookingScreen> {
         editingSlot.date,
     }.toList(growable: false)..sort();
     final canBook = _isRecurringSeries
-        ? siteConfig != null && replacementBono != null
+        ? siteConfig != null && replacementBonoPolicy!.isAvailable
         : _isEditing
         ? siteConfig != null
         : activeBono?.canBook == true &&
@@ -401,6 +402,14 @@ class _BookingScreenState extends State<BookingScreen> {
                       message: _isRecurringSeries
                           ? 'Una de las sesiones de esta serie ya está dentro del plazo de 24 horas previo y no puede reprogramarse toda la serie.'
                           : 'Esta cita ya está dentro del plazo de 24 horas previo al entrenamiento y no puede modificarse.',
+                      type: FocusStatusType.warning,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  if (_isRecurringSeries &&
+                      replacementBonoPolicy?.isAvailable == false) ...[
+                    const FocusStatusMessage(
+                      message: 'El bono asociado ya no está disponible.',
                       type: FocusStatusType.warning,
                     ),
                     const SizedBox(height: 18),
@@ -593,13 +602,23 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   RecurringHastaViewModel _currentHasta(ClientPortalState state) {
-    final bono = _replacementBono(state);
+    if (!_isRecurringSeries) {
+      final bono = _replacementBono(state);
+      return getRecurringHastaViewModel(
+        startDate: _selectedDate,
+        intervalDays: _intervalDays,
+        durationMinutes: _selectedDuration,
+        remainingMinutes: bono?.minutosRestantes ?? 0,
+        bonoExpirationDate: bono?.fechaExpiracion,
+      );
+    }
+    final replacementPolicy = _replacementBonoPolicy(state);
     return getRecurringHastaViewModel(
       startDate: _selectedDate,
       intervalDays: _intervalDays,
       durationMinutes: _selectedDuration,
-      remainingMinutes: _availableMinutes(state),
-      bonoExpirationDate: bono?.fechaExpiracion,
+      remainingMinutes: replacementPolicy.availableMinutes,
+      bonoExpirationDate: replacementPolicy.expirationDate,
     );
   }
 
@@ -749,7 +768,6 @@ class _BookingScreenState extends State<BookingScreen> {
     if (_isSubmitting) return;
     final state = widget.viewModel.state;
     final activeBono = state.activeBono;
-    final replacementBono = _replacementBono(state);
     final selectedSlot = _selectedSlot;
     final siteConfig = state.siteConfig;
     if (siteConfig == null) {
@@ -758,10 +776,6 @@ class _BookingScreenState extends State<BookingScreen> {
     }
     if (!_isEditing && activeBono == null) {
       _showError('No tienes un bono activo disponible.');
-      return;
-    }
-    if (_isRecurringSeries && replacementBono == null) {
-      _showError('El bono asociado ya no está disponible.');
       return;
     }
     if (!_isEditing && activeBono!.minutosRestantes < _selectedDuration) {
@@ -837,6 +851,15 @@ class _BookingScreenState extends State<BookingScreen> {
             : 'Esta cita ya está dentro del plazo de 24 horas previo al entrenamiento y no puede modificarse.',
       );
       return;
+    }
+    if (_isRecurringSeries) {
+      final liveReplacementPolicy = _replacementBonoPolicy(
+        widget.viewModel.state,
+      );
+      if (!liveReplacementPolicy.isAvailable) {
+        _showError('El bono asociado ya no está disponible.');
+        return;
+      }
     }
 
     setState(() {

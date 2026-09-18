@@ -229,7 +229,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                           ),
                           _DetailLine(
                             label: 'Hasta',
-                            value: formatIsoDateEs(series.endDate),
+                            value: formatIsoDateEs(
+                              series.futureEndDate ?? series.endDate,
+                            ),
                           ),
                         ],
                       ],
@@ -324,13 +326,23 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     if (appointment.isRecurring) {
       final state = widget.viewModel.state;
       series = state.recurringSeriesById[appointment.recurrenceSeriesId];
-      final canReplaceSeries =
+      final canReplaceSeriesTemporally =
           series != null &&
           canCustomerReplaceRecurringSeries(
             seriesId: series.id,
             appointments: state.appointments,
             now: widget.viewModel.currentTime,
           );
+      final replacementBonoId = series?.bonoId;
+      final replacementBono = replacementBonoId == null
+          ? null
+          : state.bonos
+                .where((bono) => bono.id == replacementBonoId)
+                .firstOrNull;
+      final hasReplacementBono =
+          replacementBono != null &&
+          replacementBono.estado != BonoStatus.eliminado;
+      final canReplaceSeries = canReplaceSeriesTemporally && hasReplacementBono;
       final selected = await showModalBottomSheet<BookingEditMode>(
         context: context,
         backgroundColor: Colors.transparent,
@@ -338,6 +350,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         builder: (sheetContext) => _RecurringEditScopeSheet(
           canReplaceSeries: canReplaceSeries,
           hasSeries: series != null,
+          hasReplacementBono: hasReplacementBono,
         ),
       );
       if (!mounted || selected == null) return;
@@ -346,6 +359,8 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         setState(() {
           _errorMessage = series == null
               ? 'No hemos podido cargar todavía los datos de esta serie.'
+              : !hasReplacementBono
+              ? 'El bono asociado ya no está disponible.'
               : 'Una de las sesiones de esta serie ya está dentro del plazo de 24 horas previo y no puede reprogramarse toda la serie.';
         });
         return;
@@ -478,10 +493,12 @@ class _RecurringEditScopeSheet extends StatelessWidget {
   const _RecurringEditScopeSheet({
     required this.canReplaceSeries,
     required this.hasSeries,
+    required this.hasReplacementBono,
   });
 
   final bool canReplaceSeries;
   final bool hasSeries;
+  final bool hasReplacementBono;
 
   @override
   Widget build(BuildContext context) {
@@ -525,9 +542,11 @@ class _RecurringEditScopeSheet extends StatelessWidget {
               title: 'Toda la serie',
               subtitle: canReplaceSeries
                   ? 'Reprograma las sesiones futuras de esta serie.'
-                  : hasSeries
-                  ? 'Una sesión futura ya está dentro del plazo de 24 horas.'
-                  : 'Los datos de la serie todavía no están disponibles.',
+                  : !hasSeries
+                  ? 'Los datos de la serie todavía no están disponibles.'
+                  : !hasReplacementBono
+                  ? 'El bono asociado ya no está disponible.'
+                  : 'Una sesión futura ya está dentro del plazo de 24 horas.',
               enabled: canReplaceSeries,
               onTap: () =>
                   Navigator.of(context).pop(BookingEditMode.recurringSeries),

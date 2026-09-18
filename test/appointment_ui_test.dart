@@ -23,11 +23,16 @@ void main() {
   testWidgets('future pending appointment exposes modify and cancel actions', (
     tester,
   ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
     final repository = FakePortalRepository();
-    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid');
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    );
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _madridTomorrow(),
+      date: '2026-09-12',
     );
 
     await tester.pumpWidget(
@@ -709,9 +714,10 @@ void main() {
   testWidgets('editing keeps duration fixed and updates the selected slot', (
     tester,
   ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _madridTomorrow(),
+      date: '2026-09-12',
     );
     final repository = FakePortalRepository(
       appointments: [appointment],
@@ -723,8 +729,11 @@ void main() {
         maintenanceMode: false,
       ),
     );
-    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid')
-      ..start();
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1578,6 +1587,164 @@ void main() {
     viewModel.dispose();
   });
 
+  testWidgets(
+    'deleted bono disables only full recurring replacement with exact message',
+    (tester) async {
+      final now = DateTime.utc(2026, 9, 10, 8);
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: '2026-09-12',
+        time: '18:00',
+        recurrenceSeriesId: 'series-1',
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: FakePortalRepository(
+          appointments: [appointment],
+          recurringSeries: [_series()],
+          bonos: [_bonoWithMinutes(60, status: BonoStatus.eliminado)],
+          siteConfig: const SiteConfig(
+            startHour: 8,
+            endHour: 20,
+            slotInterval: 30,
+            bonoExpirationMonths: 1,
+            maintenanceMode: false,
+          ),
+        ),
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppointmentDetailScreen(
+            appointment: appointment,
+            viewModel: viewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Modificar cita'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Modificar cita'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('El bono asociado ya no está disponible.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Toda la serie'), warnIfMissed: false);
+      await tester.pump();
+      expect(find.text('¿Qué quieres modificar?'), findsOneWidget);
+
+      await tester.tap(find.text('Solo esta sesión'));
+      await tester.pumpAndSettle();
+      expect(find.text('Fecha y hora'), findsOneWidget);
+      viewModel.dispose();
+    },
+  );
+
+  testWidgets('expired bono preview can maintain or reduce but not expand', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
+    final appointments = [
+      _appointment(
+        id: 'first',
+        status: AppointmentStatus.pending,
+        date: '2026-09-12',
+        time: '18:00',
+        durationMinutes: 45,
+        recurrenceSeriesId: 'series-1',
+      ),
+      _appointment(
+        id: 'second',
+        status: AppointmentStatus.approved,
+        date: '2026-09-15',
+        time: '18:00',
+        durationMinutes: 45,
+        recurrenceSeriesId: 'series-1',
+      ),
+      _appointment(
+        id: 'third',
+        status: AppointmentStatus.pending,
+        date: '2026-09-18',
+        time: '18:00',
+        durationMinutes: 45,
+        recurrenceSeriesId: 'series-1',
+      ),
+    ];
+    final viewModel = ClientPortalViewModel(
+      repository: FakePortalRepository(
+        appointments: appointments,
+        recurringSeries: [
+          _series(
+            durationMinutes: 45,
+            startDate: '2026-09-12',
+            endDate: '2026-09-18',
+            futureStartDate: '2026-09-12',
+            futureStartTime: '18:00',
+            futureEndDate: '2026-09-18',
+          ),
+        ],
+        bonos: [
+          _bonoWithMinutes(
+            60,
+            status: BonoStatus.expirado,
+            expirationDate: '2026-09-09T00:00:00Z',
+          ),
+        ],
+        siteConfig: const SiteConfig(
+          startHour: 8,
+          endHour: 20,
+          slotInterval: 30,
+          bonoExpirationMonths: 1,
+          maintenanceMode: false,
+        ),
+      ),
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppointmentDetailScreen(
+          appointment: appointments.first,
+          viewModel: viewModel,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Modificar cita'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Toda la serie'));
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('Recurrencia'));
+
+    await tester.tap(find.byKey(const Key('recurring-end-date')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('recurring-hasta-option-2026-09-15')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('recurring-hasta-option-2026-09-18')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('recurring-hasta-option-2026-09-21')),
+      findsNothing,
+    );
+    viewModel.dispose();
+  });
+
   testWidgets('recurring modify opens future series mode with mixed statuses', (
     tester,
   ) async {
@@ -1668,6 +1835,91 @@ void main() {
       'endDate': '2026-09-15',
     });
     await tester.pump(const Duration(seconds: 1));
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring series submit revalidates an eliminated live bono', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
+    final appointments = [
+      _appointment(
+        id: 'first',
+        status: AppointmentStatus.pending,
+        date: '2026-09-12',
+        time: '18:00',
+        durationMinutes: 60,
+        recurrenceSeriesId: 'series-1',
+      ),
+      _appointment(
+        id: 'second',
+        status: AppointmentStatus.approved,
+        date: '2026-09-15',
+        time: '18:00',
+        durationMinutes: 60,
+        recurrenceSeriesId: 'series-1',
+      ),
+    ];
+    final repository = FakePortalRepository(
+      appointments: appointments,
+      recurringSeries: [
+        _series(
+          startDate: '2026-09-12',
+          endDate: '2026-09-15',
+          futureStartDate: '2026-09-12',
+          futureStartTime: '18:00',
+          futureEndDate: '2026-09-15',
+        ),
+      ],
+      bonos: [_bonoWithMinutes(0, status: BonoStatus.agotado)],
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 20,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      ),
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingScreen(
+          viewModel: viewModel,
+          editMode: BookingEditMode.recurringSeries,
+          sourceAppointment: appointments.first,
+          sourceSeries: _series(
+            startDate: '2026-09-12',
+            endDate: '2026-09-15',
+            futureStartDate: '2026-09-12',
+            futureStartTime: '18:00',
+            futureEndDate: '2026-09-15',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('Guardar cambios'));
+    final staleSubmit = tester
+        .widget<FocusPrimaryButton>(
+          find.widgetWithText(FocusPrimaryButton, 'Guardar cambios'),
+        )
+        .onPressed!;
+
+    repository.emitBonos([_bonoWithMinutes(0, status: BonoStatus.eliminado)]);
+    await tester.pumpAndSettle();
+    staleSubmit();
+    await tester.pump();
+
+    expect(repository.seriesReplacementRequests, isEmpty);
+    expect(
+      find.text('El bono asociado ya no está disponible.'),
+      findsOneWidget,
+    );
     viewModel.dispose();
   });
 
@@ -1896,6 +2148,45 @@ void main() {
     expect(find.text('Entrenamiento recurrente'), findsOneWidget);
     expect(find.text('3 días'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('recurring detail prefers future end date and falls back', (
+    tester,
+  ) async {
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: '2026-09-22',
+      recurrenceSeriesId: 'series-1',
+    );
+    final repository = FakePortalRepository(
+      appointments: [appointment],
+      recurringSeries: [
+        _series(endDate: '2026-09-20', futureEndDate: '2026-09-26'),
+      ],
+    );
+    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid')
+      ..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppointmentDetailScreen(
+          appointment: appointment,
+          viewModel: viewModel,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('26/09/2026'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('26/09/2026'), findsOneWidget);
+
+    repository.emitRecurringSeries([_series(endDate: '2026-09-20')]);
+    await tester.pumpAndSettle();
+    expect(find.text('20/09/2026'), findsOneWidget);
+    viewModel.dispose();
   });
 
   testWidgets('pending recurring can be cancelled with a spent bono', (
@@ -2343,7 +2634,11 @@ Appointment _appointment({
   );
 }
 
-Bono _bonoWithMinutes(int remaining, {BonoStatus status = BonoStatus.activo}) {
+Bono _bonoWithMinutes(
+  int remaining, {
+  BonoStatus status = BonoStatus.activo,
+  String expirationDate = '2026-10-31',
+}) {
   return Bono(
     id: 'bono-id',
     userId: 'uid',
@@ -2351,7 +2646,7 @@ Bono _bonoWithMinutes(int remaining, {BonoStatus status = BonoStatus.activo}) {
     minutosTotales: 240,
     minutosRestantes: remaining,
     fechaAsignacion: '2026-09-01',
-    fechaExpiracion: '2026-10-31',
+    fechaExpiracion: expirationDate,
     estado: status,
     historial: const [],
     asignadoPor: 'admin',

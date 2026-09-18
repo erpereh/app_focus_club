@@ -13,9 +13,12 @@ escrituras directas sobre citas, bonos u ocupación.
 - En una cita recurrente se elige entre "Solo esta sesión" y "Toda la serie".
 - La opción de serie requiere el documento de serie y que todas sus sesiones
   futuras activas sustituibles estén fuera de la ventana inclusiva de 24 horas.
-- La modificación individual conserva servicio, duración y entrenador.
-- La modificación de serie conserva servicio, duración, entrenador y bono;
-  permite elegir inicio, intervalo y fecha final.
+- La modificación recurrente conserva servicio, duración, `sessionType` y
+  trazabilidad. En el reemplazo completo también se mantiene el bono asociado y
+  se puede elegir inicio, intervalo y fecha final.
+- Cuando una occurrence pasa de `approved` a `pending`, se elimina su
+  aprobación y la asignación de entrenador. El backend decidirá de nuevo la
+  asignación cuando Admin vuelva a aprobarla.
 - La disponibilidad se vuelve a validar inmediatamente antes de enviar y el
   estado local no se actualiza de forma optimista.
 
