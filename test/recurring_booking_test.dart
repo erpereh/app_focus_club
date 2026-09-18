@@ -7,12 +7,15 @@ void main() {
       expect(civilDateFromExpiration('2026-10-31'), '2026-10-31');
     });
 
-    test('extracts the civil date from a full ISO timestamp without shifting', () {
-      expect(
-        civilDateFromExpiration('2026-10-31T23:59:59.000Z'),
-        '2026-10-31',
-      );
-    });
+    test(
+      'extracts the civil date from a full ISO timestamp without shifting',
+      () {
+        expect(
+          civilDateFromExpiration('2026-10-31T23:59:59.000Z'),
+          '2026-10-31',
+        );
+      },
+    );
 
     test('rejects impossible calendar dates', () {
       expect(civilDateFromExpiration('2026-13-99'), isNull);
@@ -25,24 +28,29 @@ void main() {
 
   group('generateRecurringOccurrenceDates', () {
     test('creates every-3-days dates from 10/09 through 19/09', () {
-      expect(
-        generateRecurringOccurrenceDates('2026-09-10', 3, '2026-09-19'),
-        ['2026-09-10', '2026-09-13', '2026-09-16', '2026-09-19'],
-      );
+      expect(generateRecurringOccurrenceDates('2026-09-10', 3, '2026-09-19'), [
+        '2026-09-10',
+        '2026-09-13',
+        '2026-09-16',
+        '2026-09-19',
+      ]);
     });
 
     test('creates consecutive daily dates', () {
-      expect(
-        generateRecurringOccurrenceDates('2026-09-10', 1, '2026-09-12'),
-        ['2026-09-10', '2026-09-11', '2026-09-12'],
-      );
+      expect(generateRecurringOccurrenceDates('2026-09-10', 1, '2026-09-12'), [
+        '2026-09-10',
+        '2026-09-11',
+        '2026-09-12',
+      ]);
     });
 
     test('creates weekly dates with intervalDays 7', () {
-      expect(
-        generateRecurringOccurrenceDates('2026-09-07', 7, '2026-09-28'),
-        ['2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28'],
-      );
+      expect(generateRecurringOccurrenceDates('2026-09-07', 7, '2026-09-28'), [
+        '2026-09-07',
+        '2026-09-14',
+        '2026-09-21',
+        '2026-09-28',
+      ]);
     });
 
     test('throws when intervalDays is 0', () {
@@ -82,17 +90,20 @@ void main() {
       );
     });
 
-    test('returns no recurring options when remaining minutes cover one session', () {
-      expect(
-        getRecurringEndDateOptions(
-          startDate: '2026-09-10',
-          intervalDays: 3,
-          durationMinutes: 60,
-          remainingMinutes: 60,
-        ),
-        isEmpty,
-      );
-    });
+    test(
+      'returns no recurring options when remaining minutes cover one session',
+      () {
+        expect(
+          getRecurringEndDateOptions(
+            startDate: '2026-09-10',
+            intervalDays: 3,
+            durationMinutes: 60,
+            remainingMinutes: 60,
+          ),
+          isEmpty,
+        );
+      },
+    );
 
     test('caps Hasta at bono expiration including the same day', () {
       expect(
@@ -151,7 +162,10 @@ void main() {
         remainingMinutes: 360,
         bonoExpirationDate: '2026-10-31',
       );
-      expect(everyTenDays.any((option) => option.endDate == '2026-09-29'), isFalse);
+      expect(
+        everyTenDays.any((option) => option.endDate == '2026-09-29'),
+        isFalse,
+      );
       expect(sanitizeRecurringEndDate('2026-09-29', everyTenDays), isNull);
     });
   });

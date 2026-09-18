@@ -1,6 +1,7 @@
 import 'portal_availability.dart';
 import 'portal_models.dart';
 import 'recurring_booking.dart';
+import 'madrid_date.dart';
 
 enum RecurringHastaAvailability {
   available,
@@ -59,13 +60,8 @@ class RecurringHastaOptionStatus {
   }
 
   @override
-  int get hashCode => Object.hash(
-    option,
-    availability,
-    problemDate,
-    problemTime,
-    message,
-  );
+  int get hashCode =>
+      Object.hash(option, availability, problemDate, problemTime, message);
 }
 
 class _OccurrenceProblem {
@@ -95,21 +91,38 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
   required Map<String, int> occupancy,
   required Set<String> blockedKeys,
   required Iterable<Appointment> appointments,
+  required Set<String> excludedAppointmentIds,
+  required Map<String, int> occupancyCreditsByKey,
+  required bool enforceRescheduleLeadTime,
   required SiteConfig siteConfig,
   required DateTime now,
 }) {
   final slot = TimeSlot(date: date, time: startTime);
-  final slotDateTime = DateTime.tryParse('${date}T$startTime:00');
+  final slotDateTime = madridCivilSlotToUtc(date: date, time: startTime);
   final dateShort = _formatDateShort(date);
   final dateEs = formatIsoDateEs(date);
 
-  if (slotDateTime == null || !slotDateTime.isAfter(now)) {
+  if (slotDateTime == null || !slotDateTime.isAfter(now.toUtc())) {
     return _OccurrenceProblem(
       availability: RecurringHastaAvailability.past,
       problemDate: date,
       problemTime: startTime,
       message:
           'La franja del $dateShort a las $startTime ya no está disponible.',
+    );
+  }
+
+  if (enforceRescheduleLeadTime &&
+      isInsideCustomerRescheduleLockWindow(
+        date: date,
+        time: startTime,
+        now: now,
+      )) {
+    return _OccurrenceProblem(
+      availability: RecurringHastaAvailability.past,
+      problemDate: date,
+      problemTime: startTime,
+      message: 'La sesión del $dateShort comienza dentro de 24 horas.',
     );
   }
 
@@ -128,10 +141,7 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
     );
   }
 
-  final availabilityKeys = expandAvailabilitySlotKeys(
-    startTime,
-    durationMinutes,
-  ).map((time) => '${date}_$time');
+  final availabilityKeys = availabilityKeysForSlot(slot, durationMinutes);
 
   if (availabilityKeys.any(blockedKeys.contains)) {
     return _OccurrenceProblem(
@@ -142,26 +152,32 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
     );
   }
 
-  final maxCapacity = siteConfig.maxCapacity;
-  if (availabilityKeys.any((key) => (occupancy[key] ?? 0) >= maxCapacity)) {
-    return _OccurrenceProblem(
-      availability: RecurringHastaAvailability.full,
-      problemDate: date,
-      problemTime: startTime,
-      message: 'Franja completa el $dateShort',
-    );
-  }
-
   if (overlapsActiveAppointment(
     start: slot,
     durationMinutes: durationMinutes,
     appointments: appointments,
+    excludedAppointmentIds: excludedAppointmentIds,
   )) {
     return _OccurrenceProblem(
       availability: RecurringHastaAvailability.conflict,
       problemDate: date,
       problemTime: startTime,
       message: 'Ya tienes una sesión que se solapa el $dateEs.',
+    );
+  }
+
+  final maxCapacity = siteConfig.maxCapacity;
+  final effectiveOccupancy = availabilityKeys.fold<int>(0, (maximum, key) {
+    final count = ((occupancy[key] ?? 0) - (occupancyCreditsByKey[key] ?? 0))
+        .clamp(0, 1 << 30);
+    return count > maximum ? count : maximum;
+  });
+  if (effectiveOccupancy >= maxCapacity) {
+    return _OccurrenceProblem(
+      availability: RecurringHastaAvailability.full,
+      problemDate: date,
+      problemTime: startTime,
+      message: 'Franja completa el $dateShort',
     );
   }
 
@@ -177,51 +193,59 @@ List<RecurringHastaOptionStatus> evaluateRecurringHastaOptions({
   required Map<String, int> occupancy,
   required Set<String> blockedKeys,
   required Iterable<Appointment> appointments,
+  Set<String> excludedAppointmentIds = const {},
+  Map<String, int> occupancyCreditsByKey = const {},
+  bool enforceRescheduleLeadTime = false,
   required SiteConfig siteConfig,
   required DateTime now,
 }) {
   _OccurrenceProblem? firstProblem;
   final checkedDates = <String>{};
 
-  return options.map((option) {
-    if (firstProblem == null) {
-      final dates = generateRecurringOccurrenceDates(
-        startDate,
-        intervalDays,
-        option.endDate,
-      );
-      for (final date in dates) {
-        if (checkedDates.contains(date)) continue;
-        checkedDates.add(date);
-        firstProblem = _evaluateRecurringOccurrence(
-          date: date,
-          startTime: startTime,
-          durationMinutes: durationMinutes,
-          occupancy: occupancy,
-          blockedKeys: blockedKeys,
-          appointments: appointments,
-          siteConfig: siteConfig,
-          now: now,
-        );
-        if (firstProblem != null) break;
-      }
-    }
+  return options
+      .map((option) {
+        if (firstProblem == null) {
+          final dates = generateRecurringOccurrenceDates(
+            startDate,
+            intervalDays,
+            option.endDate,
+          );
+          for (final date in dates) {
+            if (checkedDates.contains(date)) continue;
+            checkedDates.add(date);
+            firstProblem = _evaluateRecurringOccurrence(
+              date: date,
+              startTime: startTime,
+              durationMinutes: durationMinutes,
+              occupancy: occupancy,
+              blockedKeys: blockedKeys,
+              appointments: appointments,
+              excludedAppointmentIds: excludedAppointmentIds,
+              occupancyCreditsByKey: occupancyCreditsByKey,
+              enforceRescheduleLeadTime: enforceRescheduleLeadTime,
+              siteConfig: siteConfig,
+              now: now,
+            );
+            if (firstProblem != null) break;
+          }
+        }
 
-    final problem = firstProblem;
-    if (problem == null) {
-      return RecurringHastaOptionStatus(
-        option: option,
-        availability: RecurringHastaAvailability.available,
-      );
-    }
-    return RecurringHastaOptionStatus(
-      option: option,
-      availability: problem.availability,
-      problemDate: problem.problemDate,
-      problemTime: problem.problemTime,
-      message: problem.message,
-    );
-  }).toList(growable: false);
+        final problem = firstProblem;
+        if (problem == null) {
+          return RecurringHastaOptionStatus(
+            option: option,
+            availability: RecurringHastaAvailability.available,
+          );
+        }
+        return RecurringHastaOptionStatus(
+          option: option,
+          availability: problem.availability,
+          problemDate: problem.problemDate,
+          problemTime: problem.problemTime,
+          message: problem.message,
+        );
+      })
+      .toList(growable: false);
 }
 
 String? sanitizeRecurringEndDateByAvailability({

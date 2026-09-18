@@ -8,6 +8,8 @@ import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
+import '../domain/madrid_date.dart';
+import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
 import '../domain/recurring_booking.dart';
 import '../widgets/appointment_display.dart';
@@ -78,10 +80,27 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
             (appointment.status == AppointmentStatus.pending ||
                 appointment.status == AppointmentStatus.approved) &&
             isAppointmentTodayInMadrid(appointment, now);
+        final appointmentSlot = appointment.schedulingSlot;
+        final showRescheduleLockWarning =
+            (appointment.status == AppointmentStatus.pending ||
+                appointment.status == AppointmentStatus.approved) &&
+            appointmentSlot != null &&
+            isMadridSlotFuture(
+              date: appointmentSlot.date,
+              time: appointmentSlot.time,
+              now: now,
+            ) &&
+            isInsideCustomerRescheduleLockWindow(
+              date: appointmentSlot.date,
+              time: appointmentSlot.time,
+              now: now,
+            );
         final warningMessage = showSeriesTodayWarning
             ? pendingSeriesHasOccurrenceTodayMessage
             : showSameDayWarning
             ? sameDayChangeNotAllowedMessage
+            : showRescheduleLockWarning
+            ? 'Esta cita ya está dentro del plazo de 24 horas previo al entrenamiento y no puede modificarse.'
             : null;
 
         return Scaffold(
@@ -299,13 +318,46 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     );
   }
 
-  Future<void> _openEdit(Appointment appointment) {
-    if (appointment.isRecurring) return Future<void>.value();
-    return Navigator.of(context).push(
+  Future<void> _openEdit(Appointment appointment) async {
+    var mode = BookingEditMode.singleAppointment;
+    RecurringAppointmentSeries? series;
+    if (appointment.isRecurring) {
+      final state = widget.viewModel.state;
+      series = state.recurringSeriesById[appointment.recurrenceSeriesId];
+      final canReplaceSeries =
+          series != null &&
+          canCustomerReplaceRecurringSeries(
+            seriesId: series.id,
+            appointments: state.appointments,
+            now: widget.viewModel.currentTime,
+          );
+      final selected = await showModalBottomSheet<BookingEditMode>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (sheetContext) => _RecurringEditScopeSheet(
+          canReplaceSeries: canReplaceSeries,
+          hasSeries: series != null,
+        ),
+      );
+      if (!mounted || selected == null) return;
+      mode = selected;
+      if (mode == BookingEditMode.recurringSeries && !canReplaceSeries) {
+        setState(() {
+          _errorMessage = series == null
+              ? 'No hemos podido cargar todavía los datos de esta serie.'
+              : 'Una de las sesiones de esta serie ya está dentro del plazo de 24 horas previo y no puede reprogramarse toda la serie.';
+        });
+        return;
+      }
+    }
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => BookingScreen(
           viewModel: widget.viewModel,
-          editingAppointment: appointment,
+          editMode: mode,
+          sourceAppointment: appointment,
+          sourceSeries: mode == BookingEditMode.recurringSeries ? series : null,
         ),
       ),
     );
@@ -419,6 +471,141 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     } finally {
       if (mounted) setState(() => _isCancelling = false);
     }
+  }
+}
+
+class _RecurringEditScopeSheet extends StatelessWidget {
+  const _RecurringEditScopeSheet({
+    required this.canReplaceSeries,
+    required this.hasSeries,
+  });
+
+  final bool canReplaceSeries;
+  final bool hasSeries;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.textSecondary.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Text(
+              '¿Qué quieres modificar?',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 18),
+            _ScopeCard(
+              icon: Icons.event_outlined,
+              title: 'Solo esta sesión',
+              subtitle: 'Modifica únicamente este entrenamiento.',
+              onTap: () =>
+                  Navigator.of(context).pop(BookingEditMode.recurringSingle),
+            ),
+            const SizedBox(height: 12),
+            _ScopeCard(
+              icon: Icons.event_repeat_rounded,
+              title: 'Toda la serie',
+              subtitle: canReplaceSeries
+                  ? 'Reprograma las sesiones futuras de esta serie.'
+                  : hasSeries
+                  ? 'Una sesión futura ya está dentro del plazo de 24 horas.'
+                  : 'Los datos de la serie todavía no están disponibles.',
+              enabled: canReplaceSeries,
+              onTap: () =>
+                  Navigator.of(context).pop(BookingEditMode.recurringSeries),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScopeCard extends StatelessWidget {
+  const _ScopeCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: FocusGlassCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppTheme.lime.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: AppTheme.success),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (enabled)
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppTheme.textSecondary,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

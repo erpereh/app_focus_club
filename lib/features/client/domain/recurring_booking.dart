@@ -108,9 +108,7 @@ List<RecurringEndDateOption> getRecurringEndDateOptions({
 }) {
   if (!isIsoDate(startDate)) return const [];
   if (intervalDays < 1) return const [];
-  if (durationMinutes != 30 &&
-      durationMinutes != 45 &&
-      durationMinutes != 60) {
+  if (durationMinutes != 30 && durationMinutes != 45 && durationMinutes != 60) {
     return const [];
   }
 

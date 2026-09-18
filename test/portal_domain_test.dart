@@ -128,7 +128,7 @@ void main() {
         siteConfig: config,
         blockedSlots: const [],
         occupancy: const [],
-        activeAppointments: const [],
+        appointments: const [],
         now: DateTime(2026, 4, 17, 10),
       );
 
@@ -227,7 +227,7 @@ void main() {
         siteConfig: config,
         blockedSlots: const [],
         occupancy: const [],
-        activeAppointments: const [ownAppointment],
+        appointments: const [ownAppointment],
         now: DateTime(2026, 4, 17, 10),
       );
       final fortyFive = bookingSlotState(
@@ -236,7 +236,7 @@ void main() {
         siteConfig: config,
         blockedSlots: const [],
         occupancy: const [],
-        activeAppointments: const [ownAppointment],
+        appointments: const [ownAppointment],
         now: DateTime(2026, 4, 17, 10),
       );
       final sixty = bookingSlotState(
@@ -245,16 +245,16 @@ void main() {
         siteConfig: config,
         blockedSlots: const [],
         occupancy: const [],
-        activeAppointments: const [ownAppointment],
+        appointments: const [ownAppointment],
         now: DateTime(2026, 4, 17, 10),
       );
 
       expect(thirty.isEnabled, isTrue);
       expect(thirty.label, 'Disponible');
       expect(fortyFive.isEnabled, isFalse);
-      expect(fortyFive.label, 'Tu sesion');
+      expect(fortyFive.label, 'Tu sesión');
       expect(sixty.isEnabled, isFalse);
-      expect(sixty.label, 'Tu sesion');
+      expect(sixty.label, 'Tu sesión');
     });
 
     test('full occupancy in any covered sub-slot disables the duration', () {
@@ -271,7 +271,7 @@ void main() {
             count: 2,
           ),
         ],
-        activeAppointments: const [],
+        appointments: const [],
         now: DateTime(2026, 4, 17, 10),
       );
 
@@ -293,12 +293,12 @@ void main() {
             count: 1,
           ),
         ],
-        activeAppointments: const [],
+        appointments: const [],
         now: DateTime(2026, 4, 17, 10),
       );
 
       expect(state.isEnabled, isTrue);
-      expect(state.label, '1 plaza');
+      expect(state.label, 'Casi lleno · 1 plaza');
     });
   });
 
@@ -435,6 +435,9 @@ void main() {
         'bonoId': 'bono-1',
         'status': 'pending',
         'origin': 'client',
+        'futureStartDate': '2026-09-13',
+        'futureStartTime': '18:30',
+        'futureEndDate': '2026-09-22',
         'createdAt': '2026-09-01T10:00:00.000Z',
       });
 
@@ -443,6 +446,9 @@ void main() {
       expect(series.occurrenceCount, 4);
       expect(series.origin, RecurringSeriesOrigin.client);
       expect(series.status, AppointmentStatus.pending);
+      expect(series.futureStartDate, '2026-09-13');
+      expect(series.futureStartTime, '18:30');
+      expect(series.futureEndDate, '2026-09-22');
     });
 
     test('site config accepts observed logo fields', () {

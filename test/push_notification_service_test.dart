@@ -194,6 +194,32 @@ class _RecordingPortalRepository implements PortalRepository {
   }) async {}
 
   @override
+  Future<void> rescheduleOwnRecurringAppointment({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) async {}
+
+  @override
+  Future<RecurringSeriesReplacementResult> replaceOwnRecurringSeriesSchedule({
+    required String appointmentId,
+    required TimeSlot startSlot,
+    required int intervalDays,
+    required String endDate,
+  }) async {
+    return const RecurringSeriesReplacementResult(
+      success: true,
+      seriesId: 'series-id',
+      affectedAppointmentIds: [],
+      reusedAppointmentIds: [],
+      createdAppointmentIds: [],
+      cancelledAppointmentIds: [],
+      occurrenceCount: 0,
+      totalMinutes: 0,
+      status: AppointmentStatus.pending,
+    );
+  }
+
+  @override
   Future<void> createRecurringAppointments(
     RecurringAppointmentRequest request,
   ) async {}

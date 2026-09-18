@@ -510,7 +510,7 @@ void main() {
         start: const TimeSlot(date: '2030-05-20', time: '10:00'),
         durationMinutes: 45,
         appointments: const [appointment],
-        excludedAppointmentId: appointment.id,
+        excludedAppointmentIds: {appointment.id},
       ),
       isFalse,
     );
@@ -640,7 +640,7 @@ void main() {
       expect(canCancelAppointmentOccurrence(today, now), isFalse);
       expect(canModifyAppointment(today, now), isFalse);
       expect(canCancelAppointmentOccurrence(tomorrow, now), isTrue);
-      expect(canModifyAppointment(tomorrow, now), isFalse);
+      expect(canModifyAppointment(tomorrow, now), isTrue);
     });
 
     test('blocks cancelling a pending series if any occurrence is today', () {

@@ -109,7 +109,11 @@ class _BookButton extends StatelessWidget {
               ),
               child: const SizedBox.square(
                 dimension: 46,
-                child: Icon(Icons.add_rounded, color: AppTheme.onLime, size: 26),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: AppTheme.onLime,
+                  size: 26,
+                ),
               ),
             ),
           ),

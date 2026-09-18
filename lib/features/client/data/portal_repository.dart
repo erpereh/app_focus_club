@@ -7,6 +7,60 @@ import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
 import '../domain/recurring_booking_availability.dart';
 
+const portalFunctionsRegion = 'europe-west1';
+const rescheduleOwnRecurringAppointmentCallable =
+    'rescheduleOwnRecurringAppointment';
+const replaceOwnRecurringSeriesScheduleCallable =
+    'replaceOwnRecurringSeriesSchedule';
+
+typedef PortalCallableInvoker =
+    Future<Object?> Function(String name, Map<String, Object?> payload);
+
+class PortalFunctionsGateway {
+  PortalFunctionsGateway({
+    FirebaseFunctions? functions,
+    PortalCallableInvoker? invoker,
+  }) : _functions = invoker == null
+           ? functions ??
+                 FirebaseFunctions.instanceFor(region: portalFunctionsRegion)
+           : functions,
+       _invoker = invoker;
+
+  final FirebaseFunctions? _functions;
+  final PortalCallableInvoker? _invoker;
+
+  Future<Object?> call(String name, Map<String, Object?> payload) async {
+    final invoker = _invoker;
+    if (invoker != null) return invoker(name, payload);
+    final result = await _functions!.httpsCallable(name).call<Object?>(payload);
+    return result.data;
+  }
+
+  Future<void> rescheduleRecurringOccurrence(
+    RecurringOccurrenceRescheduleRequest request,
+  ) async {
+    await call(
+      rescheduleOwnRecurringAppointmentCallable,
+      request.toCallablePayload(),
+    );
+  }
+
+  Future<RecurringSeriesReplacementResult> replaceRecurringSeriesSchedule(
+    RecurringSeriesReplacementRequest request,
+  ) async {
+    final data = await call(
+      replaceOwnRecurringSeriesScheduleCallable,
+      request.toCallablePayload(),
+    );
+    if (data is! Map<Object?, Object?>) {
+      throw const FormatException(
+        'Expected recurring series replacement response map.',
+      );
+    }
+    return RecurringSeriesReplacementResult.fromMap(data);
+  }
+}
+
 abstract interface class PortalRepository {
   Stream<UserProfile?> watchUserProfile(String uid);
   Stream<List<Appointment>> watchAppointmentsByUser(String uid);
@@ -35,6 +89,16 @@ abstract interface class PortalRepository {
   Future<void> updateOwnAppointmentSlot({
     required String appointmentId,
     required TimeSlot preferredSlot,
+  });
+  Future<void> rescheduleOwnRecurringAppointment({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  });
+  Future<RecurringSeriesReplacementResult> replaceOwnRecurringSeriesSchedule({
+    required String appointmentId,
+    required TimeSlot startSlot,
+    required int intervalDays,
+    required String endDate,
   });
   Future<void> deleteOwnAccount();
   Future<void> setPushNotificationsEnabled({
@@ -95,16 +159,58 @@ class RecurringAppointmentRequest {
   }
 }
 
+class RecurringOccurrenceRescheduleRequest {
+  const RecurringOccurrenceRescheduleRequest({
+    required this.appointmentId,
+    required this.preferredSlot,
+  });
+
+  final String appointmentId;
+  final TimeSlot preferredSlot;
+
+  Map<String, Object?> toCallablePayload() => {
+    'appointmentId': appointmentId,
+    'preferredSlot': preferredSlot.toMap(),
+    'scope': 'single',
+  };
+}
+
+class RecurringSeriesReplacementRequest {
+  const RecurringSeriesReplacementRequest({
+    required this.appointmentId,
+    required this.startSlot,
+    required this.intervalDays,
+    required this.endDate,
+  });
+
+  final String appointmentId;
+  final TimeSlot startSlot;
+  final int intervalDays;
+  final String endDate;
+
+  Map<String, Object?> toCallablePayload() => {
+    'appointmentId': appointmentId,
+    'startSlot': startSlot.toMap(),
+    'intervalDays': intervalDays,
+    'endDate': endDate,
+  };
+}
+
 class FirebasePortalRepository implements PortalRepository {
   FirebasePortalRepository({
     FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
+    PortalFunctionsGateway? functionsGateway,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _functions =
-           functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
+           functions ??
+           FirebaseFunctions.instanceFor(region: portalFunctionsRegion),
+       _functionsGateway =
+           functionsGateway ?? PortalFunctionsGateway(functions: functions);
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
+  final PortalFunctionsGateway _functionsGateway;
 
   @override
   Stream<UserProfile?> watchUserProfile(String uid) {
@@ -319,6 +425,34 @@ class FirebasePortalRepository implements PortalRepository {
   }
 
   @override
+  Future<void> rescheduleOwnRecurringAppointment({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) async {
+    final request = RecurringOccurrenceRescheduleRequest(
+      appointmentId: appointmentId,
+      preferredSlot: preferredSlot,
+    );
+    await _functionsGateway.rescheduleRecurringOccurrence(request);
+  }
+
+  @override
+  Future<RecurringSeriesReplacementResult> replaceOwnRecurringSeriesSchedule({
+    required String appointmentId,
+    required TimeSlot startSlot,
+    required int intervalDays,
+    required String endDate,
+  }) async {
+    final request = RecurringSeriesReplacementRequest(
+      appointmentId: appointmentId,
+      startSlot: startSlot,
+      intervalDays: intervalDays,
+      endDate: endDate,
+    );
+    return _functionsGateway.replaceRecurringSeriesSchedule(request);
+  }
+
+  @override
   Future<void> deleteOwnAccount() async {
     await _functions.httpsCallable('deleteOwnAccount').call<Object?>();
   }
@@ -402,6 +536,65 @@ String? callableErrorReason(FirebaseFunctionsException error) {
     return _sameDayChangeNotAllowedReason;
   }
   return null;
+}
+
+enum CustomerRescheduleErrorContext { single, series }
+
+String recurringRescheduleErrorMessage(
+  Object error, {
+  required CustomerRescheduleErrorContext context,
+}) {
+  if (error is FirebaseFunctionsException) {
+    final reason = _callableReason(error);
+    final isSeries = context == CustomerRescheduleErrorContext.series;
+    final mapped = switch (reason) {
+      'one_day_change_not_allowed' =>
+        isSeries
+            ? 'Una de las sesiones de esta serie ya está dentro del plazo de 24 horas previo y no puede reprogramarse toda la serie.'
+            : 'Esta cita ya está dentro del plazo de 24 horas previo al entrenamiento y no puede modificarse.',
+      'slot_blocked' => 'Una de las franjas seleccionadas está bloqueada.',
+      'slot_full' => 'Una de las franjas seleccionadas ya está completa.',
+      'appointment_conflict' =>
+        'Ya tienes otro entrenamiento que coincide con ese horario.',
+      'outside_schedule' =>
+        'Una de las franjas seleccionadas queda fuera del horario del centro.',
+      'slot_not_future' => 'Selecciona una franja futura.',
+      'invalid_occupancy' =>
+        'Hay una incidencia con la ocupación. Contacta con Focus Club.',
+      'recurring_occurrence_unavailable' =>
+        'Una de las sesiones recurrentes ya no está disponible.',
+      'series_unavailable' => 'Esta serie ya no se puede modificar.',
+      'bono_unavailable' => 'El bono asociado ya no está disponible.',
+      'insufficient_bono_minutes' =>
+        'No tienes suficientes minutos disponibles para ampliar la serie.',
+      'invalid_financial_reservation' =>
+        'Hay una incidencia con la reserva de minutos. Contacta con Focus Club.',
+      'invalid_series_length' =>
+        'La serie debe contener entre dos y veinte sesiones.',
+      _ => null,
+    };
+    if (mapped != null) return mapped;
+    return switch (error.code) {
+      'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
+      'permission-denied' => 'No tienes permisos para modificar esta cita.',
+      'unavailable' || 'deadline-exceeded' =>
+        'No hay conexión. Revisa la red e inténtalo de nuevo.',
+      _ =>
+        isSeries
+            ? 'No hemos podido modificar la serie. Inténtalo de nuevo.'
+            : 'No hemos podido modificar la cita. Inténtalo de nuevo.',
+    };
+  }
+  return context == CustomerRescheduleErrorContext.series
+      ? 'No hemos podido modificar la serie. Inténtalo de nuevo.'
+      : 'No hemos podido modificar la cita. Inténtalo de nuevo.';
+}
+
+String? _callableReason(FirebaseFunctionsException error) {
+  final details = error.details;
+  if (details is! Map) return null;
+  final reason = details['reason'];
+  return reason is String && reason.isNotEmpty ? reason : null;
 }
 
 String appointmentMutationErrorMessage(Object error) {
@@ -524,6 +717,13 @@ class FakePortalRepository implements PortalRepository {
   final List<String> cancelledAppointmentIds = [];
   final List<String> cancelledSeriesIds = [];
   final List<({String appointmentId, TimeSlot preferredSlot})> slotUpdates = [];
+  final List<RecurringOccurrenceRescheduleRequest>
+  recurringOccurrenceRescheduleRequests = [];
+  final List<RecurringSeriesReplacementRequest> seriesReplacementRequests = [];
+  Object? recurringOccurrenceRescheduleFailure;
+  Object? seriesReplacementFailure;
+  Completer<void>? recurringOccurrenceRescheduleGate;
+  Completer<void>? seriesReplacementGate;
   int deleteOwnAccountCalls = 0;
 
   void emitAppointments(List<Appointment> appointments) {
@@ -669,6 +869,55 @@ class FakePortalRepository implements PortalRepository {
       appointmentId: appointmentId,
       preferredSlot: preferredSlot,
     ));
+  }
+
+  @override
+  Future<void> rescheduleOwnRecurringAppointment({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) async {
+    final gate = recurringOccurrenceRescheduleGate;
+    if (gate != null) await gate.future;
+    final failure = recurringOccurrenceRescheduleFailure;
+    if (failure != null) throw failure;
+    recurringOccurrenceRescheduleRequests.add(
+      RecurringOccurrenceRescheduleRequest(
+        appointmentId: appointmentId,
+        preferredSlot: preferredSlot,
+      ),
+    );
+  }
+
+  @override
+  Future<RecurringSeriesReplacementResult> replaceOwnRecurringSeriesSchedule({
+    required String appointmentId,
+    required TimeSlot startSlot,
+    required int intervalDays,
+    required String endDate,
+  }) async {
+    final gate = seriesReplacementGate;
+    if (gate != null) await gate.future;
+    final failure = seriesReplacementFailure;
+    if (failure != null) throw failure;
+    seriesReplacementRequests.add(
+      RecurringSeriesReplacementRequest(
+        appointmentId: appointmentId,
+        startSlot: startSlot,
+        intervalDays: intervalDays,
+        endDate: endDate,
+      ),
+    );
+    return const RecurringSeriesReplacementResult(
+      success: true,
+      seriesId: 'series-1',
+      affectedAppointmentIds: [],
+      reusedAppointmentIds: [],
+      createdAppointmentIds: [],
+      cancelledAppointmentIds: [],
+      occurrenceCount: 2,
+      totalMinutes: 60,
+      status: AppointmentStatus.pending,
+    );
   }
 
   @override

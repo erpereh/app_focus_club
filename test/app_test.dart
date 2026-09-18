@@ -352,7 +352,7 @@ void main() {
     await _scrollToBookingSlot(tester, '13:00');
 
     expect(find.text('13:00'), findsOneWidget);
-    expect(find.text('Tu sesion'), findsWidgets);
+    expect(find.text('Tu sesión'), findsWidgets);
     await tester.tap(find.text('13:00'));
     await tester.pumpAndSettle();
 
@@ -423,7 +423,7 @@ void main() {
     await _scrollToBookingSlot(tester, '13:00');
 
     expect(find.text('13:00'), findsOneWidget);
-    expect(find.text('1 plaza'), findsWidgets);
+    expect(find.text('Casi lleno · 1 plaza'), findsWidgets);
     await tester.tap(find.text('13:00'));
     await tester.pumpAndSettle();
 

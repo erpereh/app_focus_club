@@ -51,17 +51,20 @@ void main() {
     ]);
   });
 
-  test('marks later options blocked when an intermediate occurrence is blocked', () {
-    final statuses = evaluate(blockedKeys: {'2026-09-27_11:00'});
+  test(
+    'marks later options blocked when an intermediate occurrence is blocked',
+    () {
+      final statuses = evaluate(blockedKeys: {'2026-09-27_11:00'});
 
-    expect(statuses[0].availability, RecurringHastaAvailability.available);
-    expect(statuses[1].availability, RecurringHastaAvailability.blocked);
-    expect(statuses[1].problemDate, '2026-09-27');
-    expect(statuses[1].problemTime, '11:00');
-    expect(statuses[2].availability, RecurringHastaAvailability.blocked);
-    expect(statuses[2].problemDate, '2026-09-27');
-    expect(statuses[1].message, contains('27/09'));
-  });
+      expect(statuses[0].availability, RecurringHastaAvailability.available);
+      expect(statuses[1].availability, RecurringHastaAvailability.blocked);
+      expect(statuses[1].problemDate, '2026-09-27');
+      expect(statuses[1].problemTime, '11:00');
+      expect(statuses[2].availability, RecurringHastaAvailability.blocked);
+      expect(statuses[2].problemDate, '2026-09-27');
+      expect(statuses[1].message, contains('27/09'));
+    },
+  );
 
   test('propagates an intermediate full slot to later options', () {
     final statuses = evaluate(occupancy: {'2026-09-27_11:00': 5});
@@ -75,9 +78,7 @@ void main() {
 
   test('propagates an intermediate client conflict to later options', () {
     final statuses = evaluate(
-      appointments: [
-        _appointment(date: '2026-09-27', time: '11:00'),
-      ],
+      appointments: [_appointment(date: '2026-09-27', time: '11:00')],
     );
 
     expect(statuses[0].availability, RecurringHastaAvailability.available);
@@ -116,17 +117,23 @@ void main() {
     );
   });
 
-  test('invalidates a 60 min session when a later duration block is blocked or full', () {
-    final blockedLater = evaluate(blockedKeys: {'2026-09-27_11:30'});
-    expect(blockedLater[0].availability, RecurringHastaAvailability.available);
-    expect(blockedLater[1].availability, RecurringHastaAvailability.blocked);
-    expect(blockedLater[1].problemDate, '2026-09-27');
+  test(
+    'invalidates a 60 min session when a later duration block is blocked or full',
+    () {
+      final blockedLater = evaluate(blockedKeys: {'2026-09-27_11:30'});
+      expect(
+        blockedLater[0].availability,
+        RecurringHastaAvailability.available,
+      );
+      expect(blockedLater[1].availability, RecurringHastaAvailability.blocked);
+      expect(blockedLater[1].problemDate, '2026-09-27');
 
-    final fullLater = evaluate(occupancy: {'2026-09-27_11:45': 5});
-    expect(fullLater[0].availability, RecurringHastaAvailability.available);
-    expect(fullLater[1].availability, RecurringHastaAvailability.full);
-    expect(fullLater[1].problemDate, '2026-09-27');
-  });
+      final fullLater = evaluate(occupancy: {'2026-09-27_11:45': 5});
+      expect(fullLater[0].availability, RecurringHastaAvailability.available);
+      expect(fullLater[1].availability, RecurringHastaAvailability.full);
+      expect(fullLater[1].problemDate, '2026-09-27');
+    },
+  );
 
   test('uses siteConfig.maxCapacity instead of a hardcoded limit', () {
     final underCapacity = evaluate(occupancy: {'2026-09-25_11:00': 4});

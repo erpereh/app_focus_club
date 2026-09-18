@@ -13,6 +13,8 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/app_text_size.dart';
 import '../application/client_portal_view_model.dart';
 import '../data/portal_repository.dart';
+import '../domain/madrid_date.dart';
+import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
 import '../domain/recurring_booking.dart';
 import '../domain/recurring_booking_availability.dart';
@@ -23,15 +25,35 @@ enum _BookingType { single, recurring }
 
 enum _BookingStep { type, duration, schedule, recurrence, summary }
 
+enum BookingEditMode {
+  none,
+  singleAppointment,
+  recurringSingle,
+  recurringSeries,
+}
+
 class BookingScreen extends StatefulWidget {
   const BookingScreen({
     required this.viewModel,
-    this.editingAppointment,
+    this.editMode = BookingEditMode.none,
+    this.sourceAppointment,
+    this.sourceSeries,
     super.key,
-  });
+  }) : assert(
+         editMode == BookingEditMode.none
+             ? sourceAppointment == null && sourceSeries == null
+             : sourceAppointment != null,
+       ),
+       assert(
+         editMode == BookingEditMode.recurringSeries
+             ? sourceSeries != null
+             : sourceSeries == null,
+       );
 
   final ClientPortalViewModel viewModel;
-  final Appointment? editingAppointment;
+  final BookingEditMode editMode;
+  final Appointment? sourceAppointment;
+  final RecurringAppointmentSeries? sourceSeries;
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -59,14 +81,17 @@ class _BookingScreenState extends State<BookingScreen> {
   List<String>? _cachedAvailabilityDates;
   RecurringAvailabilitySnapshot? _cachedAvailabilitySnapshot;
 
-  bool get _isEditing => widget.editingAppointment != null;
-  bool get _isEditingRecurring =>
-      widget.editingAppointment?.isRecurring == true;
+  bool get _isEditing => widget.editMode != BookingEditMode.none;
+  bool get _isRecurringSingle =>
+      widget.editMode == BookingEditMode.recurringSingle;
+  bool get _isRecurringSeries =>
+      widget.editMode == BookingEditMode.recurringSeries;
   bool get _isRecurringBooking =>
-      !_isEditing && _bookingType == _BookingType.recurring;
+      _isRecurringSeries ||
+      (!_isEditing && _bookingType == _BookingType.recurring);
 
   Appointment? _liveEditingAppointment() {
-    final original = widget.editingAppointment;
+    final original = widget.sourceAppointment;
     if (original == null) return null;
     return resolveLiveAppointment(
       fallback: original,
@@ -74,12 +99,14 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  bool _isEditingSameDay(Appointment? appointment, DateTime now) {
-    if (appointment == null) return false;
-    return isAppointmentTodayInMadrid(appointment, now);
-  }
-
   List<_BookingStep> get _flow {
+    if (_isRecurringSeries) {
+      return const [
+        _BookingStep.schedule,
+        _BookingStep.recurrence,
+        _BookingStep.summary,
+      ];
+    }
     if (_isEditing) {
       return const [_BookingStep.schedule, _BookingStep.summary];
     }
@@ -108,26 +135,108 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    final editingSlot = widget.editingAppointment?.schedulingSlot;
+    final editingSlot = _initialEditingSlot();
     final isFutureEditingSlot =
         editingSlot != null &&
-        (appointmentSlotDateTime(
-              editingSlot,
-            )?.isAfter(widget.viewModel.currentTime) ??
-            false);
-    _selectedDuration = widget.editingAppointment?.durationMinutes ?? 45;
+        isMadridSlotFuture(
+          date: editingSlot.date,
+          time: editingSlot.time,
+          now: widget.viewModel.currentTime,
+        );
+    _selectedDuration =
+        widget.sourceSeries?.durationMinutes ??
+        widget.sourceAppointment?.durationMinutes ??
+        45;
+    if (_isRecurringSeries) {
+      _intervalDays = widget.sourceSeries!.intervalDays;
+      _intervalController.text = '$_intervalDays';
+      _selectedEndDate = _initialSeriesEndDate();
+    }
     _selectedDate = isFutureEditingSlot
         ? editingSlot.date
         : buildBookingDates(now: widget.viewModel.currentTime).first;
     if (isFutureEditingSlot) {
       _selectedSlot = BookingSlotState(
         slot: editingSlot,
+        availability: BookingSlotAvailability.available,
+        occupied: 0,
+        remaining: widget.viewModel.state.siteConfig?.maxCapacity ?? 0,
+        maxCapacity: widget.viewModel.state.siteConfig?.maxCapacity ?? 0,
         label: 'Disponible',
-        color: AppTheme.success,
-        isEnabled: true,
       );
     }
     widget.viewModel.addListener(_handlePortalChange);
+  }
+
+  List<Appointment> _replacedOccurrences(ClientPortalState state) {
+    final series = widget.sourceSeries;
+    if (!_isRecurringSeries || series == null) {
+      final appointment = _liveEditingAppointment();
+      return appointment == null ? const [] : [appointment];
+    }
+    return futureActiveOccurrencesForSeries(
+      seriesId: series.id,
+      appointments: state.appointments,
+      now: widget.viewModel.currentTime,
+    );
+  }
+
+  Set<String> _excludedAppointmentIds(ClientPortalState state) =>
+      _replacedOccurrences(state).map((item) => item.id).toSet();
+
+  Map<String, int> _occupancyCredits(ClientPortalState state) =>
+      buildOccupancyCreditsByKey(_replacedOccurrences(state));
+
+  Bono? _replacementBono(ClientPortalState state) {
+    final bonoId = widget.sourceSeries?.bonoId;
+    if (bonoId == null) return state.activeBono;
+    return state.bonos.where((item) => item.id == bonoId).firstOrNull;
+  }
+
+  int _availableMinutes(ClientPortalState state) {
+    final bono = _replacementBono(state);
+    if (bono == null) return 0;
+    if (!_isRecurringSeries) return bono.minutosRestantes;
+    return availableMinutesForSeriesReplacement(
+      bono: bono,
+      seriesId: widget.sourceSeries!.id,
+      appointments: state.appointments,
+      now: widget.viewModel.currentTime,
+    );
+  }
+
+  TimeSlot? _initialEditingSlot() {
+    if (!_isRecurringSeries) return widget.sourceAppointment?.schedulingSlot;
+    final series = widget.sourceSeries!;
+    final futureSlot =
+        series.futureStartDate == null || series.futureStartTime == null
+        ? null
+        : TimeSlot(
+            date: series.futureStartDate!,
+            time: series.futureStartTime!,
+          );
+    if (futureSlot != null &&
+        isMadridSlotFuture(
+          date: futureSlot.date,
+          time: futureSlot.time,
+          now: widget.viewModel.currentTime,
+        )) {
+      return futureSlot;
+    }
+    final occurrences = futureActiveOccurrencesForSeries(
+      seriesId: series.id,
+      appointments: widget.viewModel.state.appointments,
+      now: widget.viewModel.currentTime,
+    );
+    return occurrences.firstOrNull?.schedulingSlot ??
+        widget.sourceAppointment?.schedulingSlot;
+  }
+
+  String? _initialSeriesEndDate() {
+    final series = widget.sourceSeries!;
+    final preferred = series.futureEndDate;
+    if (preferred != null && isIsoDate(preferred)) return preferred;
+    return isIsoDate(series.endDate) ? series.endDate : null;
   }
 
   @override
@@ -151,6 +260,7 @@ class _BookingScreenState extends State<BookingScreen> {
     final state = widget.viewModel.state;
     final now = widget.viewModel.currentTime;
     final activeBono = state.activeBono;
+    final replacementBono = _replacementBono(state);
     final siteConfig = state.siteConfig;
     final liveEditingAppointment = _liveEditingAppointment();
     final editingSlot = liveEditingAppointment?.schedulingSlot;
@@ -158,15 +268,22 @@ class _BookingScreenState extends State<BookingScreen> {
       ...buildBookingDates(now: now),
       if (_isEditing &&
           editingSlot != null &&
-          (appointmentSlotDateTime(editingSlot)?.isAfter(now) ?? false))
+          isMadridSlotFuture(
+            date: editingSlot.date,
+            time: editingSlot.time,
+            now: now,
+          ))
         editingSlot.date,
     }.toList(growable: false)..sort();
-    final canBook = _isEditing
+    final canBook = _isRecurringSeries
+        ? siteConfig != null && replacementBono != null
+        : _isEditing
         ? siteConfig != null
-        : !_isEditingRecurring &&
-              activeBono?.canBook == true &&
+        : activeBono?.canBook == true &&
               siteConfig != null &&
               _selectedDuration <= (activeBono?.minutosRestantes ?? 0);
+    final excludedAppointmentIds = _excludedAppointmentIds(state);
+    final occupancyCreditsByKey = _occupancyCredits(state);
     final slots = siteConfig == null
         ? const <BookingSlotState>[]
         : buildBookingSlotsForDate(date: _selectedDate, siteConfig: siteConfig)
@@ -177,8 +294,10 @@ class _BookingScreenState extends State<BookingScreen> {
                   siteConfig: siteConfig,
                   blockedSlots: state.blockedSlots,
                   occupancy: state.slotOccupancy,
-                  activeAppointments: state.activeAppointments,
-                  excludedAppointmentId: widget.editingAppointment?.id,
+                  appointments: state.appointments,
+                  excludedAppointmentIds: excludedAppointmentIds,
+                  occupancyCreditsByKey: occupancyCreditsByKey,
+                  enforceRescheduleLeadTime: _isEditing,
                   now: now,
                 ),
               )
@@ -213,10 +332,19 @@ class _BookingScreenState extends State<BookingScreen> {
             _intervalDays >= 1 &&
             _hastaPhase != RecurringHastaAvailabilityPhase.loading &&
             !selectedEndDateInvalid);
-    final isEditingSameDay = _isEditingSameDay(liveEditingAppointment, now);
+    final sourceCanBeEdited = switch (widget.editMode) {
+      BookingEditMode.none => true,
+      BookingEditMode.singleAppointment || BookingEditMode.recurringSingle =>
+        liveEditingAppointment != null &&
+            canCustomerRescheduleAppointment(liveEditingAppointment, now),
+      BookingEditMode.recurringSeries => canCustomerReplaceRecurringSeries(
+        seriesId: widget.sourceSeries!.id,
+        appointments: state.appointments,
+        now: now,
+      ),
+    };
     final canSubmit =
-        !_isEditingRecurring &&
-        !isEditingSameDay &&
+        sourceCanBeEdited &&
         canBook &&
         selectedSlot != null &&
         canSubmitRecurring;
@@ -234,7 +362,13 @@ class _BookingScreenState extends State<BookingScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(_isEditing ? 'Modificar cita' : 'Reservar Sesion'),
+        title: Text(
+          _isRecurringSeries
+              ? 'Modificar serie'
+              : _isEditing
+              ? 'Modificar cita'
+              : 'Reservar Sesion',
+        ),
         leading: IconButton(
           tooltip: 'Cancelar',
           onPressed: () => Navigator.of(context).pop(),
@@ -262,17 +396,19 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                     const SizedBox(height: 18),
                   ],
-                  if (_isEditingRecurring) ...[
-                    const FocusStatusMessage(
-                      message:
-                          'Las citas recurrentes no se pueden modificar individualmente.',
+                  if (_isEditing && !sourceCanBeEdited) ...[
+                    FocusStatusMessage(
+                      message: _isRecurringSeries
+                          ? 'Una de las sesiones de esta serie ya está dentro del plazo de 24 horas previo y no puede reprogramarse toda la serie.'
+                          : 'Esta cita ya está dentro del plazo de 24 horas previo al entrenamiento y no puede modificarse.',
                       type: FocusStatusType.warning,
                     ),
                     const SizedBox(height: 18),
                   ],
-                  if (isEditingSameDay) ...[
+                  if (_isEditing && step == _BookingStep.schedule) ...[
                     const FocusStatusMessage(
-                      message: sameDayChangeNotAllowedMessage,
+                      message:
+                          'El nuevo horario debe comenzar dentro de más de 24 horas.',
                       type: FocusStatusType.warning,
                     ),
                     const SizedBox(height: 18),
@@ -292,7 +428,8 @@ class _BookingScreenState extends State<BookingScreen> {
                         setState(() {
                           _selectedDuration = duration;
                           _selectedSlot = null;
-                          _syncRecurringEndDate();
+                          _selectedEndDate = null;
+                          _resetHastaPreview();
                         });
                         _requestHastaPreview();
                       },
@@ -305,18 +442,24 @@ class _BookingScreenState extends State<BookingScreen> {
                       selectedSlot: selectedSlot,
                       canBook: canBook,
                       isRecurring: _isRecurringBooking,
-                      isEditing: _isEditing,
+                      showFixedDuration:
+                          widget.editMode == BookingEditMode.singleAppointment,
                       durationMinutes: _selectedDuration,
                       onDateSelected: (date) {
                         setState(() {
                           _selectedDate = date;
                           _selectedSlot = null;
-                          _syncRecurringEndDate();
+                          _selectedEndDate = null;
+                          _resetHastaPreview();
                         });
                         _requestHastaPreview();
                       },
                       onSlotSelected: (slot) {
-                        setState(() => _selectedSlot = slot);
+                        setState(() {
+                          _selectedSlot = slot;
+                          _selectedEndDate = null;
+                          _resetHastaPreview();
+                        });
                         _requestHastaPreview();
                       },
                     ),
@@ -336,7 +479,12 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                   if (step == _BookingStep.summary)
                     _SummaryStep(
-                      isEditing: _isEditing,
+                      editMode: widget.editMode,
+                      showApprovedEditWarning:
+                          widget.editMode ==
+                              BookingEditMode.singleAppointment &&
+                          liveEditingAppointment?.status ==
+                              AppointmentStatus.approved,
                       isRecurring: _isRecurringBooking,
                       durationMinutes: _selectedDuration,
                       selectedSlot: selectedSlot,
@@ -348,10 +496,6 @@ class _BookingScreenState extends State<BookingScreen> {
                       availabilityChecked:
                           selectedStatus?.isAvailable == true &&
                           _hastaPhase == RecurringHastaAvailabilityPhase.ready,
-                      approvedWarning:
-                          _isEditing &&
-                          widget.editingAppointment?.status ==
-                              AppointmentStatus.approved,
                     ),
                 ],
               ),
@@ -442,18 +586,20 @@ class _BookingScreenState extends State<BookingScreen> {
     final parsed = int.tryParse(value.trim());
     setState(() {
       _intervalDays = parsed != null && parsed >= 1 ? parsed : 0;
-      _syncRecurringEndDate();
+      _selectedEndDate = null;
+      _resetHastaPreview();
     });
     _requestHastaPreview();
   }
 
   RecurringHastaViewModel _currentHasta(ClientPortalState state) {
+    final bono = _replacementBono(state);
     return getRecurringHastaViewModel(
       startDate: _selectedDate,
       intervalDays: _intervalDays,
       durationMinutes: _selectedDuration,
-      remainingMinutes: state.activeBono?.minutosRestantes ?? 0,
-      bonoExpirationDate: state.activeBono?.fechaExpiracion,
+      remainingMinutes: _availableMinutes(state),
+      bonoExpirationDate: bono?.fechaExpiracion,
     );
   }
 
@@ -531,6 +677,9 @@ class _BookingScreenState extends State<BookingScreen> {
           occupancy: cachedSnapshot.occupancyByKey,
           blockedKeys: cachedSnapshot.blockedKeys,
           appointments: state.appointments,
+          excludedAppointmentIds: _excludedAppointmentIds(state),
+          occupancyCreditsByKey: _occupancyCredits(state),
+          enforceRescheduleLeadTime: _isEditing,
           siteConfig: siteConfig,
           now: widget.viewModel.currentTime,
         );
@@ -579,6 +728,9 @@ class _BookingScreenState extends State<BookingScreen> {
           occupancy: snapshot.occupancyByKey,
           blockedKeys: snapshot.blockedKeys,
           appointments: state.appointments,
+          excludedAppointmentIds: _excludedAppointmentIds(state),
+          occupancyCreditsByKey: _occupancyCredits(state),
+          enforceRescheduleLeadTime: _isEditing,
           siteConfig: currentConfig,
           now: widget.viewModel.currentTime,
         );
@@ -594,8 +746,10 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     final state = widget.viewModel.state;
     final activeBono = state.activeBono;
+    final replacementBono = _replacementBono(state);
     final selectedSlot = _selectedSlot;
     final siteConfig = state.siteConfig;
     if (siteConfig == null) {
@@ -606,6 +760,10 @@ class _BookingScreenState extends State<BookingScreen> {
       _showError('No tienes un bono activo disponible.');
       return;
     }
+    if (_isRecurringSeries && replacementBono == null) {
+      _showError('El bono asociado ya no está disponible.');
+      return;
+    }
     if (!_isEditing && activeBono!.minutosRestantes < _selectedDuration) {
       _showError('No tienes minutos suficientes para esta sesion.');
       return;
@@ -614,22 +772,33 @@ class _BookingScreenState extends State<BookingScreen> {
       _showError('Selecciona una franja horaria.');
       return;
     }
-    if (_isEditingRecurring) {
-      _showError(
-        'Las citas recurrentes no se pueden modificar individualmente.',
-      );
-      return;
-    }
+    String? validatedEndDate;
     if (_isRecurringBooking) {
-      final endDate = sanitizeRecurringEndDate(
+      validatedEndDate = sanitizeRecurringEndDate(
         _selectedEndDate,
         _currentHasta(state).options,
       );
-      if (endDate == null || _intervalDays < 1) {
+      if (validatedEndDate == null || _intervalDays < 1) {
         _showError(
           'Selecciona hasta que fecha quieres repetir el entrenamiento.',
         );
         return;
+      }
+      if (_hastaPhase == RecurringHastaAvailabilityPhase.loading) {
+        _showError('Espera a que termine la comprobación de disponibilidad.');
+        return;
+      }
+      if (_hastaPhase == RecurringHastaAvailabilityPhase.ready) {
+        final latestStatus = _hastaStatuses
+            .where((item) => item.option.endDate == validatedEndDate)
+            .firstOrNull;
+        if (latestStatus?.isAvailable != true) {
+          _showError(
+            latestStatus?.message ??
+                'Una de las sesiones seleccionadas ya no está disponible.',
+          );
+          return;
+        }
       }
     }
     final now = widget.viewModel.currentTime;
@@ -639,8 +808,10 @@ class _BookingScreenState extends State<BookingScreen> {
       siteConfig: siteConfig,
       blockedSlots: state.blockedSlots,
       occupancy: state.slotOccupancy,
-      activeAppointments: state.activeAppointments,
-      excludedAppointmentId: widget.editingAppointment?.id,
+      appointments: state.appointments,
+      excludedAppointmentIds: _excludedAppointmentIds(state),
+      occupancyCreditsByKey: _occupancyCredits(state),
+      enforceRescheduleLeadTime: _isEditing,
       now: now,
     );
     if (!latestSlot.isEnabled) {
@@ -648,8 +819,23 @@ class _BookingScreenState extends State<BookingScreen> {
       setState(() => _selectedSlot = null);
       return;
     }
-    if (_isEditingSameDay(_liveEditingAppointment(), now)) {
-      _showError(sameDayChangeNotAllowedMessage);
+    final liveSource = _liveEditingAppointment();
+    final sourceStillEditable = widget.editMode == BookingEditMode.none
+        ? true
+        : _isRecurringSeries
+        ? canCustomerReplaceRecurringSeries(
+            seriesId: widget.sourceSeries!.id,
+            appointments: state.appointments,
+            now: now,
+          )
+        : liveSource != null &&
+              canCustomerRescheduleAppointment(liveSource, now);
+    if (!sourceStillEditable) {
+      _showError(
+        _isRecurringSeries
+            ? 'Una de las sesiones de esta serie ya está dentro del plazo de 24 horas previo y no puede reprogramarse toda la serie.'
+            : 'Esta cita ya está dentro del plazo de 24 horas previo al entrenamiento y no puede modificarse.',
+      );
       return;
     }
 
@@ -658,24 +844,29 @@ class _BookingScreenState extends State<BookingScreen> {
       _statusMessage = null;
     });
     try {
-      if (_isEditing) {
-        if (_isEditingSameDay(_liveEditingAppointment(), now)) {
-          _showError(sameDayChangeNotAllowedMessage);
-          return;
-        }
+      if (widget.editMode == BookingEditMode.singleAppointment) {
         await widget.viewModel.updateAppointmentSlot(
-          appointmentId: widget.editingAppointment!.id,
+          appointmentId: widget.sourceAppointment!.id,
           preferredSlot: latestSlot.slot,
+        );
+      } else if (_isRecurringSingle) {
+        await widget.viewModel.rescheduleRecurringOccurrence(
+          appointmentId: widget.sourceAppointment!.id,
+          preferredSlot: latestSlot.slot,
+        );
+      } else if (_isRecurringSeries) {
+        await widget.viewModel.replaceRecurringSeriesSchedule(
+          appointmentId: widget.sourceAppointment!.id,
+          startSlot: latestSlot.slot,
+          intervalDays: _intervalDays,
+          endDate: validatedEndDate!,
         );
       } else if (_isRecurringBooking) {
         await widget.viewModel.createRecurringAppointments(
           durationMinutes: _selectedDuration,
           preferredSlot: latestSlot.slot,
           intervalDays: _intervalDays,
-          endDate: sanitizeRecurringEndDate(
-            _selectedEndDate,
-            _currentHasta(state).options,
-          )!,
+          endDate: validatedEndDate!,
           reason: _commentController.text.trim(),
         );
       } else {
@@ -687,25 +878,37 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       if (!mounted) return;
       setState(() {
-        _statusMessage = _isEditing ? 'Cambios guardados' : 'Solicitud Enviada';
+        _statusMessage = switch (widget.editMode) {
+          BookingEditMode.recurringSingle =>
+            'Cita modificada. Ha quedado pendiente de aprobación.',
+          BookingEditMode.recurringSeries =>
+            'Serie modificada. Las próximas sesiones han quedado pendientes de aprobación.',
+          BookingEditMode.singleAppointment => 'Cambios guardados',
+          BookingEditMode.none => 'Solicitud Enviada',
+        };
         _statusType = FocusStatusType.success;
       });
       await Future<void>.delayed(const Duration(milliseconds: 900));
       if (mounted) {
-        final navigator = Navigator.of(context);
-        if (_isEditing) {
-          navigator.popUntil((route) => route.isFirst);
-        } else {
-          navigator.pop();
-        }
+        Navigator.of(context).pop(true);
       }
     } catch (error) {
       if (!mounted) return;
-      _showError(
-        _isEditing
-            ? appointmentMutationErrorMessage(error)
-            : appointmentRequestErrorMessage(error),
-      );
+      final message = switch (widget.editMode) {
+        BookingEditMode.recurringSingle => recurringRescheduleErrorMessage(
+          error,
+          context: CustomerRescheduleErrorContext.single,
+        ),
+        BookingEditMode.recurringSeries => recurringRescheduleErrorMessage(
+          error,
+          context: CustomerRescheduleErrorContext.series,
+        ),
+        BookingEditMode.singleAppointment => appointmentMutationErrorMessage(
+          error,
+        ),
+        BookingEditMode.none => appointmentRequestErrorMessage(error),
+      };
+      _showError(message);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -719,13 +922,14 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   String _messageForDisabledSlot(BookingSlotState slot) {
-    return switch (slot.label) {
-      'Pasado' => 'Elige una franja futura.',
-      'No disponible' =>
+    return switch (slot.availability) {
+      BookingSlotAvailability.past => 'Elige una franja futura.',
+      BookingSlotAvailability.unavailable =>
         'Esta franja no está disponible para esta duración o restricción.',
-      'Bloqueado' => 'Esta franja ya no esta disponible.',
-      'Completo' => 'Esta franja esta completa.',
-      'Tu sesion' => 'Ya tienes una sesion en esa franja.',
+      BookingSlotAvailability.blocked => 'Esta franja ya no está disponible.',
+      BookingSlotAvailability.full => 'Esta franja está completa.',
+      BookingSlotAvailability.ownAppointment =>
+        'Ya tienes una sesión en esa franja.',
       _ => 'Esta franja ya no esta disponible.',
     };
   }
@@ -973,7 +1177,7 @@ class _ScheduleStep extends StatelessWidget {
     required this.selectedSlot,
     required this.canBook,
     required this.isRecurring,
-    required this.isEditing,
+    required this.showFixedDuration,
     required this.durationMinutes,
     required this.onDateSelected,
     required this.onSlotSelected,
@@ -985,7 +1189,7 @@ class _ScheduleStep extends StatelessWidget {
   final BookingSlotState? selectedSlot;
   final bool canBook;
   final bool isRecurring;
-  final bool isEditing;
+  final bool showFixedDuration;
   final int durationMinutes;
   final ValueChanged<String> onDateSelected;
   final ValueChanged<BookingSlotState> onSlotSelected;
@@ -1001,12 +1205,12 @@ class _ScheduleStep extends StatelessWidget {
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 8),
-        if (isEditing)
+        if (showFixedDuration)
           Text(
             'Duración fija: $durationMinutes min',
             style: Theme.of(context).textTheme.titleSmall,
           ),
-        if (isEditing) const SizedBox(height: 12),
+        if (showFixedDuration) const SizedBox(height: 12),
         Row(
           children: [
             const Icon(
@@ -1043,8 +1247,6 @@ class _ScheduleStep extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        const _SlotLegend(),
-        const SizedBox(height: 16),
         if (!canBook)
           const FocusStatusMessage(
             message:
@@ -1128,7 +1330,7 @@ class _SlotGrid extends StatelessWidget {
           label: slot.label,
           selected: isSelected,
           enabled: slot.isEnabled,
-          color: slot.color,
+          color: bookingSlotColor(slot.availability),
           onTap: () => onSelected(slot),
         );
       },
@@ -1325,7 +1527,8 @@ class _StepperButton extends StatelessWidget {
 
 class _SummaryStep extends StatelessWidget {
   const _SummaryStep({
-    required this.isEditing,
+    required this.editMode,
+    required this.showApprovedEditWarning,
     required this.isRecurring,
     required this.durationMinutes,
     required this.selectedSlot,
@@ -1335,10 +1538,10 @@ class _SummaryStep extends StatelessWidget {
     required this.commentController,
     required this.availabilityPhase,
     required this.availabilityChecked,
-    required this.approvedWarning,
   });
 
-  final bool isEditing;
+  final BookingEditMode editMode;
+  final bool showApprovedEditWarning;
   final bool isRecurring;
   final int durationMinutes;
   final BookingSlotState? selectedSlot;
@@ -1348,7 +1551,6 @@ class _SummaryStep extends StatelessWidget {
   final TextEditingController commentController;
   final RecurringHastaAvailabilityPhase availabilityPhase;
   final bool availabilityChecked;
-  final bool approvedWarning;
 
   @override
   Widget build(BuildContext context) {
@@ -1358,12 +1560,35 @@ class _SummaryStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Tu reserva', style: Theme.of(context).textTheme.headlineMedium),
+        Text(
+          editMode == BookingEditMode.recurringSeries
+              ? 'Modificar serie'
+              : editMode == BookingEditMode.recurringSingle
+              ? 'Modificar sesión'
+              : 'Tu reserva',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
         const SizedBox(height: 18),
-        if (approvedWarning) ...[
+        if (showApprovedEditWarning) ...[
           const FocusStatusMessage(
             message:
                 'Al cambiar la franja, la cita volverá a quedar pendiente de aprobación.',
+            type: FocusStatusType.warning,
+          ),
+          const SizedBox(height: 18),
+        ],
+        if (editMode == BookingEditMode.recurringSingle) ...[
+          const FocusStatusMessage(
+            message:
+                'Después del cambio, la sesión quedará pendiente de aprobación.',
+            type: FocusStatusType.warning,
+          ),
+          const SizedBox(height: 18),
+        ],
+        if (editMode == BookingEditMode.recurringSeries) ...[
+          const FocusStatusMessage(
+            message:
+                'Las sesiones futuras modificadas quedarán pendientes de aprobación.',
             type: FocusStatusType.warning,
           ),
           const SizedBox(height: 18),
@@ -1374,7 +1599,14 @@ class _SummaryStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const FocusKicker('Tu reserva', onDark: true),
+                FocusKicker(
+                  editMode == BookingEditMode.recurringSeries
+                      ? 'Modificar serie'
+                      : editMode == BookingEditMode.recurringSingle
+                      ? 'Modificar sesión'
+                      : 'Tu reserva',
+                  onDark: true,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   '$durationMinutes min',
@@ -1429,7 +1661,7 @@ class _SummaryStep extends StatelessWidget {
             ),
           ),
         ),
-        if (!isEditing) ...[
+        if (editMode == BookingEditMode.none) ...[
           const SizedBox(height: 18),
           _CommentInputCard(controller: commentController),
         ],
@@ -1468,43 +1700,6 @@ class _CommentInputCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SlotLegend extends StatelessWidget {
-  const _SlotLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: [
-        _LegendItem(color: AppTheme.success, label: 'Disponible'),
-        _LegendItem(color: AppTheme.warning, label: 'Casi lleno'),
-        _LegendItem(color: AppTheme.textSecondary, label: 'No disponible'),
-        _LegendItem(color: AppTheme.danger, label: 'Completo'),
-      ],
-    );
-  }
-}
-
-class _LegendItem extends StatelessWidget {
-  const _LegendItem({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.circle, size: 8, color: color),
-        const SizedBox(width: 6),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
     );
   }
 }

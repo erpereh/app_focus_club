@@ -178,7 +178,9 @@ class Appointment {
       updatedAt: stringifyDate(map['updatedAt']),
       legacyDate: map['date'] as String?,
       legacyTime: map['time'] as String?,
-      recurrenceSeriesId: parseOptionalNonEmptyString(map['recurrenceSeriesId']),
+      recurrenceSeriesId: parseOptionalNonEmptyString(
+        map['recurrenceSeriesId'],
+      ),
       recurrenceIndex: parseOptionalInt(map['recurrenceIndex']),
     );
   }
@@ -228,9 +230,8 @@ enum RecurringSeriesOrigin {
   static RecurringSeriesOrigin fromWire(String value) {
     return RecurringSeriesOrigin.values.firstWhere(
       (origin) => origin.name == value,
-      orElse: () => throw FormatException(
-        'Unknown recurring series origin: $value',
-      ),
+      orElse: () =>
+          throw FormatException('Unknown recurring series origin: $value'),
     );
   }
 }
@@ -252,6 +253,9 @@ class RecurringAppointmentSeries {
     required this.origin,
     required this.createdAt,
     this.assignedTrainer,
+    this.futureStartDate,
+    this.futureStartTime,
+    this.futureEndDate,
     this.updatedAt,
   });
 
@@ -270,6 +274,9 @@ class RecurringAppointmentSeries {
   final RecurringSeriesOrigin origin;
   final String createdAt;
   final String? assignedTrainer;
+  final String? futureStartDate;
+  final String? futureStartTime;
+  final String? futureEndDate;
   final String? updatedAt;
 
   factory RecurringAppointmentSeries.fromMap(
@@ -292,9 +299,85 @@ class RecurringAppointmentSeries {
       origin: RecurringSeriesOrigin.fromWire(map['origin'] as String),
       createdAt: stringifyDate(map['createdAt']) ?? '',
       assignedTrainer: parseOptionalNonEmptyString(map['assignedTrainer']),
+      futureStartDate: parseOptionalNonEmptyString(map['futureStartDate']),
+      futureStartTime: parseOptionalNonEmptyString(map['futureStartTime']),
+      futureEndDate: parseOptionalNonEmptyString(map['futureEndDate']),
       updatedAt: stringifyDate(map['updatedAt']),
     );
   }
+}
+
+class RecurringSeriesReplacementResult {
+  const RecurringSeriesReplacementResult({
+    required this.success,
+    required this.seriesId,
+    required this.affectedAppointmentIds,
+    required this.reusedAppointmentIds,
+    required this.createdAppointmentIds,
+    required this.cancelledAppointmentIds,
+    required this.occurrenceCount,
+    required this.totalMinutes,
+    required this.status,
+  });
+
+  final bool success;
+  final String seriesId;
+  final List<String> affectedAppointmentIds;
+  final List<String> reusedAppointmentIds;
+  final List<String> createdAppointmentIds;
+  final List<String> cancelledAppointmentIds;
+  final int occurrenceCount;
+  final int totalMinutes;
+  final AppointmentStatus status;
+
+  factory RecurringSeriesReplacementResult.fromMap(Map<Object?, Object?> map) {
+    final success = map['success'];
+    if (success != true) {
+      throw const FormatException('Recurring series replacement failed.');
+    }
+    return RecurringSeriesReplacementResult(
+      success: true,
+      seriesId: _requiredString(map, 'seriesId'),
+      affectedAppointmentIds: _requiredStringList(
+        map,
+        'affectedAppointmentIds',
+      ),
+      reusedAppointmentIds: _requiredStringList(map, 'reusedAppointmentIds'),
+      createdAppointmentIds: _requiredStringList(map, 'createdAppointmentIds'),
+      cancelledAppointmentIds: _requiredStringList(
+        map,
+        'cancelledAppointmentIds',
+      ),
+      occurrenceCount: _requiredInt(map, 'occurrenceCount'),
+      totalMinutes: _requiredInt(map, 'totalMinutes'),
+      status: AppointmentStatus.fromWire(_requiredString(map, 'status')),
+    );
+  }
+}
+
+String _requiredString(Map<Object?, Object?> map, String key) {
+  final value = map[key];
+  if (value is! String || value.isEmpty) {
+    throw FormatException('Expected non-empty string for $key.');
+  }
+  return value;
+}
+
+int _requiredInt(Map<Object?, Object?> map, String key) {
+  final value = map[key];
+  if (value is int) return value;
+  if (value is num && value.isFinite && value == value.roundToDouble()) {
+    return value.toInt();
+  }
+  throw FormatException('Expected integer for $key.');
+}
+
+List<String> _requiredStringList(Map<Object?, Object?> map, String key) {
+  final value = map[key];
+  if (value is! List || value.any((item) => item is! String)) {
+    throw FormatException('Expected string list for $key.');
+  }
+  return List<String>.unmodifiable(value.cast<String>());
 }
 
 DateTime? appointmentSlotDateTime(TimeSlot? slot) {

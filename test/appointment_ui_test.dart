@@ -730,7 +730,8 @@ void main() {
       MaterialApp(
         home: BookingScreen(
           viewModel: viewModel,
-          editingAppointment: appointment,
+          editMode: BookingEditMode.singleAppointment,
+          sourceAppointment: appointment,
         ),
       ),
     );
@@ -1397,9 +1398,10 @@ void main() {
   testWidgets('pending recurring detail cancels the whole series', (
     tester,
   ) async {
+    final now = DateTime.utc(2026, 9, 20, 8);
     final appointment = _appointment(
       status: AppointmentStatus.pending,
-      date: _madridTomorrow(),
+      date: _madridDateAfter(now, 2),
       recurrenceSeriesId: 'series-1',
       recurrenceIndex: 0,
     );
@@ -1408,8 +1410,11 @@ void main() {
       appointments: [appointment],
       recurringSeries: [series],
     );
-    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid')
-      ..start();
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1424,14 +1429,23 @@ void main() {
     expect(find.text('Entrenamiento recurrente'), findsOneWidget);
     expect(find.text('Cada'), findsOneWidget);
     expect(find.text('3 días'), findsOneWidget);
-    expect(find.text('Modificar cita'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Modificar cita'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Cancelar solicitud recurrente'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Cancelar cita'), findsNothing);
-    await tester.tap(find.text('Cancelar solicitud recurrente'));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(FocusGhostButton, 'Cancelar solicitud recurrente'),
+    );
     await tester.pumpAndSettle();
     expect(
       find.text('¿Cancelar toda la solicitud recurrente?'),
@@ -1444,18 +1458,343 @@ void main() {
     viewModel.dispose();
   });
 
+  testWidgets('recurring modify scope opens single occurrence mode', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: '2026-09-12',
+      time: '18:00',
+      recurrenceSeriesId: 'series-1',
+    );
+    final repository = FakePortalRepository(
+      appointments: [appointment],
+      recurringSeries: [
+        _series(
+          durationMinutes: 45,
+          startDate: '2026-09-12',
+          endDate: '2026-09-18',
+        ),
+      ],
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 20,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      ),
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppointmentDetailScreen(
+          appointment: appointment,
+          viewModel: viewModel,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Modificar cita'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Qué quieres modificar?'), findsOneWidget);
+    expect(find.text('Solo esta sesión'), findsOneWidget);
+    expect(find.text('Toda la serie'), findsOneWidget);
+    await tester.tap(find.text('Solo esta sesión'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fecha y hora'), findsOneWidget);
+    expect(find.text('Duración fija: 45 min'), findsNothing);
+    await _bookingContinueUntil(tester, find.text('Guardar cambios'));
+    expect(find.text('Modificar sesión'), findsWidgets);
+    expect(find.text('45 min'), findsOneWidget);
+    expect(find.text('Comentario opcional'), findsNothing);
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring modify keeps single enabled while series is missing', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: '2026-09-12',
+      time: '18:00',
+      recurrenceSeriesId: 'series-1',
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: FakePortalRepository(
+        appointments: [appointment],
+        siteConfig: const SiteConfig(
+          startHour: 8,
+          endHour: 20,
+          slotInterval: 30,
+          bonoExpirationMonths: 1,
+          maintenanceMode: false,
+        ),
+      ),
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppointmentDetailScreen(
+          appointment: appointment,
+          viewModel: viewModel,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Modificar cita'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Los datos de la serie todavía no están disponibles.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Toda la serie'), warnIfMissed: false);
+    await tester.pump();
+    expect(find.text('¿Qué quieres modificar?'), findsOneWidget);
+    await tester.tap(find.text('Solo esta sesión'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fecha y hora'), findsOneWidget);
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring modify opens future series mode with mixed statuses', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
+    final first = _appointment(
+      id: 'first',
+      status: AppointmentStatus.pending,
+      date: '2026-09-12',
+      time: '18:00',
+      durationMinutes: 60,
+      recurrenceSeriesId: 'series-1',
+    );
+    final second = _appointment(
+      id: 'second',
+      status: AppointmentStatus.approved,
+      date: '2026-09-15',
+      time: '18:00',
+      durationMinutes: 60,
+      recurrenceSeriesId: 'series-1',
+    );
+    final series = _series(
+      startDate: '2026-09-12',
+      endDate: '2026-09-15',
+      futureStartDate: '2026-09-12',
+      futureStartTime: '18:00',
+      futureEndDate: '2026-09-15',
+    );
+    final repository = FakePortalRepository(
+      appointments: [first, second],
+      recurringSeries: [series],
+      bonos: [_bonoWithMinutes(0, status: BonoStatus.agotado)],
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 20,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      ),
+    );
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppointmentDetailScreen(appointment: first, viewModel: viewModel),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Modificar cita'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Toda la serie'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Modificar serie'), findsOneWidget);
+    expect(find.text('Fecha inicial'), findsOneWidget);
+    expect(find.textContaining('Duración fija'), findsNothing);
+    await _bookingContinueUntil(tester, find.text('Recurrencia'));
+    expect(find.byKey(const Key('recurring-interval-days')), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('recurring-interval-days')),
+          )
+          .controller
+          ?.text,
+      '3',
+    );
+    expect(find.text('Hasta'), findsOneWidget);
+    await _bookingContinueUntil(tester, find.text('Guardar cambios'));
+    expect(find.text('Cada 3 días · 2 sesiones'), findsOneWidget);
+    expect(find.text('120 min total'), findsOneWidget);
+    await tester.ensureVisible(find.text('Guardar cambios'));
+    await tester.tap(find.text('Guardar cambios'));
+    await tester.pump();
+    expect(repository.seriesReplacementRequests, hasLength(1));
+    expect(repository.seriesReplacementRequests.single.toCallablePayload(), {
+      'appointmentId': 'first',
+      'startSlot': {'date': '2026-09-12', 'time': '18:00'},
+      'intervalDays': 3,
+      'endDate': '2026-09-15',
+    });
+    await tester.pump(const Duration(seconds: 1));
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring single submit ignores double tap', (tester) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
+    final appointment = _appointment(
+      status: AppointmentStatus.approved,
+      date: '2026-09-12',
+      time: '18:00',
+      recurrenceSeriesId: 'series-1',
+    );
+    final gate = Completer<void>();
+    final repository = FakePortalRepository(
+      appointments: [appointment],
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 20,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      ),
+    )..recurringOccurrenceRescheduleGate = gate;
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingScreen(
+          viewModel: viewModel,
+          editMode: BookingEditMode.recurringSingle,
+          sourceAppointment: appointment,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('Guardar cambios'));
+    final save = find.widgetWithText(FocusPrimaryButton, 'Guardar cambios');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.tap(save);
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(repository.recurringOccurrenceRescheduleRequests, hasLength(1));
+    expect(
+      repository.recurringOccurrenceRescheduleRequests.single
+          .toCallablePayload(),
+      {
+        'appointmentId': 'appointment-id',
+        'preferredSlot': {'date': '2026-09-12', 'time': '18:00'},
+        'scope': 'single',
+      },
+    );
+    viewModel.dispose();
+  });
+
+  testWidgets('recurring single error preserves summary selection', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 9, 10, 8);
+    final appointment = _appointment(
+      status: AppointmentStatus.pending,
+      date: '2026-09-12',
+      time: '18:00',
+      recurrenceSeriesId: 'series-1',
+    );
+    final repository = FakePortalRepository(
+      appointments: [appointment],
+      siteConfig: const SiteConfig(
+        startHour: 8,
+        endHour: 20,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      ),
+    )..recurringOccurrenceRescheduleFailure = StateError('failure');
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingScreen(
+          viewModel: viewModel,
+          editMode: BookingEditMode.recurringSingle,
+          sourceAppointment: appointment,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _bookingContinueUntil(tester, find.text('Guardar cambios'));
+    await tester.ensureVisible(find.text('Guardar cambios'));
+    await tester.tap(find.text('Guardar cambios'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No hemos podido modificar la cita. Inténtalo de nuevo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Modificar sesión'), findsWidgets);
+    expect(find.textContaining('18:00'), findsOneWidget);
+    expect(find.text('Guardar cambios'), findsOneWidget);
+    viewModel.dispose();
+  });
+
   testWidgets('approved recurring detail cancels only that occurrence', (
     tester,
   ) async {
+    final now = DateTime.utc(2026, 9, 20, 8);
     final appointment = _appointment(
       status: AppointmentStatus.approved,
-      date: _madridTomorrow(),
+      date: _madridDateAfter(now, 2),
       recurrenceSeriesId: 'series-1',
       recurrenceIndex: 1,
     );
     final viewModel = ClientPortalViewModel(
       repository: FakePortalRepository(appointments: [appointment]),
       uid: 'uid',
+      now: () => now,
     )..start();
 
     await tester.pumpWidget(
@@ -1468,7 +1807,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Modificar cita'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Modificar cita'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Modificar cita'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Cancelar cita'),
       300,
@@ -1484,9 +1828,10 @@ void main() {
   testWidgets('live appointment updates pending recurring to approved', (
     tester,
   ) async {
+    final now = DateTime.utc(2026, 9, 20, 8);
     final pending = _appointment(
       status: AppointmentStatus.pending,
-      date: _madridTomorrow(),
+      date: _madridDateAfter(now, 2),
       recurrenceSeriesId: 'series-1',
       recurrenceIndex: 0,
     );
@@ -1497,8 +1842,11 @@ void main() {
       recurrenceIndex: 0,
     );
     final repository = FakePortalRepository(appointments: [pending]);
-    final viewModel = ClientPortalViewModel(repository: repository, uid: 'uid')
-      ..start();
+    final viewModel = ClientPortalViewModel(
+      repository: repository,
+      uid: 'uid',
+      now: () => now,
+    )..start();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1521,7 +1869,7 @@ void main() {
 
     expect(find.text('Cancelar solicitud recurrente'), findsNothing);
     expect(find.text('Cancelar cita'), findsOneWidget);
-    expect(find.text('Modificar cita'), findsNothing);
+    expect(find.text('Modificar cita'), findsOneWidget);
     viewModel.dispose();
   });
 
@@ -1853,19 +2201,23 @@ void main() {
         MaterialApp(
           home: BookingScreen(
             viewModel: viewModel,
-            editingAppointment: appointment,
+            editMode: BookingEditMode.singleAppointment,
+            sourceAppointment: appointment,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(sameDayChangeNotAllowedMessage), findsOneWidget);
-      await _bookingContinueUntil(tester, find.text('Guardar cambios'));
-      expect(find.text('Guardar cambios'), findsOneWidget);
+      expect(
+        find.text(
+          'Esta cita ya está dentro del plazo de 24 horas previo al entrenamiento y no puede modificarse.',
+        ),
+        findsOneWidget,
+      );
       expect(
         tester
             .widget<FocusPrimaryButton>(
-              find.widgetWithText(FocusPrimaryButton, 'Guardar cambios'),
+              find.widgetWithText(FocusPrimaryButton, 'Continuar'),
             )
             .onPressed,
         isNull,
@@ -1877,7 +2229,7 @@ void main() {
   testWidgets(
     'detail hides actions after the Madrid midnight boundary without recreating the view model',
     (tester) async {
-      var now = DateTime.utc(2026, 9, 1, 21, 30);
+      var now = DateTime.utc(2026, 9, 1, 20, 30);
       final appointment = _appointment(
         status: AppointmentStatus.pending,
         date: _madridTomorrow(now),
@@ -1967,6 +2319,7 @@ Appointment _appointment({
   required String date,
   String id = 'appointment-id',
   String time = '10:00',
+  int durationMinutes = 45,
   String createdAt = '2030-05-01T10:00:00.000Z',
   String? recurrenceSeriesId,
   int? recurrenceIndex,
@@ -1979,7 +2332,7 @@ Appointment _appointment({
     email: 'cliente@example.com',
     phone: '+34612345678',
     serviceType: 'Bono Mensual de Entrenamiento',
-    durationMinutes: 45,
+    durationMinutes: durationMinutes,
     preferredSlots: [TimeSlot(date: date, time: time)],
     reason: '',
     status: status,
@@ -1990,7 +2343,7 @@ Appointment _appointment({
   );
 }
 
-Bono _bonoWithMinutes(int remaining) {
+Bono _bonoWithMinutes(int remaining, {BonoStatus status = BonoStatus.activo}) {
   return Bono(
     id: 'bono-id',
     userId: 'uid',
@@ -1999,29 +2352,42 @@ Bono _bonoWithMinutes(int remaining) {
     minutosRestantes: remaining,
     fechaAsignacion: '2026-09-01',
     fechaExpiracion: '2026-10-31',
-    estado: BonoStatus.activo,
+    estado: status,
     historial: const [],
     asignadoPor: 'admin',
     createdAt: '2026-09-01T10:00:00.000Z',
   );
 }
 
-RecurringAppointmentSeries _series({String id = 'series-1'}) {
+RecurringAppointmentSeries _series({
+  String id = 'series-1',
+  int durationMinutes = 60,
+  String startDate = '2026-09-10',
+  String startTime = '18:00',
+  int intervalDays = 3,
+  String endDate = '2026-09-19',
+  String? futureStartDate,
+  String? futureStartTime,
+  String? futureEndDate,
+}) {
   return RecurringAppointmentSeries(
     id: id,
     userId: 'uid',
     serviceType: 'Bono Mensual de Entrenamiento',
-    durationMinutes: 60,
-    startDate: '2026-09-10',
-    startTime: '18:00',
-    intervalDays: 3,
-    endDate: '2026-09-19',
+    durationMinutes: durationMinutes,
+    startDate: startDate,
+    startTime: startTime,
+    intervalDays: intervalDays,
+    endDate: endDate,
     occurrenceCount: 4,
     totalMinutes: 240,
     bonoId: 'bono-id',
     status: AppointmentStatus.pending,
     origin: RecurringSeriesOrigin.client,
     createdAt: '2026-09-01T10:00:00.000Z',
+    futureStartDate: futureStartDate,
+    futureStartTime: futureStartTime,
+    futureEndDate: futureEndDate,
   );
 }
 
@@ -2062,13 +2428,17 @@ ClientPortalViewModel _bookingViewModel({
 }
 
 String _madridTomorrow([DateTime? now]) {
-  final today = getMadridDateKey(now ?? DateTime.now());
+  return _madridDateAfter(now ?? DateTime.now(), 1);
+}
+
+String _madridDateAfter(DateTime now, int days) {
+  final today = getMadridDateKey(now);
   final parts = today.split('-');
   final next = DateTime.utc(
     int.parse(parts[0]),
     int.parse(parts[1]),
     int.parse(parts[2]),
-  ).add(const Duration(days: 1));
+  ).add(Duration(days: days));
   final month = next.month.toString().padLeft(2, '0');
   final day = next.day.toString().padLeft(2, '0');
   return '${next.year}-$month-$day';

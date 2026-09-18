@@ -74,7 +74,8 @@ class FocusTimeSlot extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   selected ? 'Elegida' : label,
-                  maxLines: 1,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: selected ? AppTheme.onLime : color,

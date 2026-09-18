@@ -276,6 +276,30 @@ class ClientPortalViewModel extends ChangeNotifier {
     );
   }
 
+  Future<void> rescheduleRecurringOccurrence({
+    required String appointmentId,
+    required TimeSlot preferredSlot,
+  }) {
+    return _repository.rescheduleOwnRecurringAppointment(
+      appointmentId: appointmentId,
+      preferredSlot: preferredSlot,
+    );
+  }
+
+  Future<RecurringSeriesReplacementResult> replaceRecurringSeriesSchedule({
+    required String appointmentId,
+    required TimeSlot startSlot,
+    required int intervalDays,
+    required String endDate,
+  }) {
+    return _repository.replaceOwnRecurringSeriesSchedule(
+      appointmentId: appointmentId,
+      startSlot: startSlot,
+      intervalDays: intervalDays,
+      endDate: endDate,
+    );
+  }
+
   Future<void> cancelRecurringAppointmentSeries(String seriesId) {
     return _repository.cancelOwnRecurringAppointmentSeries(seriesId);
   }

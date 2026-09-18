@@ -149,9 +149,7 @@ bool recurringPendingSeriesHasOccurrenceToday({
 }
 
 bool canModifyAppointment(Appointment appointment, DateTime now) {
-  return canManageAppointmentAt(appointment, now) &&
-      !appointment.isRecurring &&
-      !isAppointmentTodayInMadrid(appointment, now);
+  return canCustomerRescheduleAppointment(appointment, now);
 }
 
 bool canCancelRecurringSeries(
@@ -271,20 +269,6 @@ extension PortalTimeSlotDisplay on TimeSlot {
       _formatTimeRange(time, durationMinutes);
 }
 
-class BookingSlotState {
-  const BookingSlotState({
-    required this.slot,
-    required this.label,
-    required this.color,
-    required this.isEnabled,
-  });
-
-  final TimeSlot slot;
-  final String label;
-  final Color color;
-  final bool isEnabled;
-}
-
 List<TimeSlot> buildBookingSlotsForDate({
   required String date,
   required SiteConfig siteConfig,
@@ -304,103 +288,25 @@ List<TimeSlot> buildBookingSlotsForDate({
 
 List<String> buildBookingDates({int days = 21, DateTime? now}) {
   final start = now ?? DateTime.now();
-  final startDate = DateTime(start.year, start.month, start.day);
+  final parts = getMadridDateKey(start).split('-').map(int.parse).toList();
+  final startDate = DateTime.utc(parts[0], parts[1], parts[2]);
   return List.generate(days, (index) {
     final date = startDate.add(Duration(days: index));
     return _formatWireDate(date);
   });
 }
 
-BookingSlotState bookingSlotState({
-  required TimeSlot slot,
-  required int durationMinutes,
-  required SiteConfig siteConfig,
-  required Iterable<BlockedSlot> blockedSlots,
-  required Iterable<SlotOccupancy> occupancy,
-  required Iterable<Appointment> activeAppointments,
-  String? excludedAppointmentId,
-  DateTime? now,
-}) {
-  final current = now ?? DateTime.now();
-  final slotDateTime = DateTime.tryParse('${slot.date}T${slot.time}:00');
-  if (slotDateTime == null || !slotDateTime.isAfter(current)) {
-    return BookingSlotState(
-      slot: slot,
-      label: 'Pasado',
-      color: AppTheme.textSecondary,
-      isEnabled: false,
-    );
-  }
-  if (!doesDurationFitInSchedule(
-    slot: slot,
-    durationMinutes: durationMinutes,
-    siteConfig: siteConfig,
-  )) {
-    return BookingSlotState(
-      slot: slot,
-      label: 'No disponible',
-      color: AppTheme.textSecondary,
-      isEnabled: false,
-    );
-  }
-  if (isDurationBlocked(
-    start: slot,
-    durationMinutes: durationMinutes,
-    blockedSlots: blockedSlots,
-  )) {
-    return BookingSlotState(
-      slot: slot,
-      label: 'Bloqueado',
-      color: AppTheme.danger,
-      isEnabled: false,
-    );
-  }
-  if (overlapsActiveAppointment(
-    start: slot,
-    durationMinutes: durationMinutes,
-    appointments: activeAppointments,
-    excludedAppointmentId: excludedAppointmentId,
-  )) {
-    return BookingSlotState(
-      slot: slot,
-      label: 'Tu sesion',
-      color: const Color(0xFF6AA7FF),
-      isEnabled: false,
-    );
-  }
-  if (isDurationFull(
-    start: slot,
-    durationMinutes: durationMinutes,
-    occupancy: occupancy,
-    maxCapacity: siteConfig.maxCapacity,
-  )) {
-    return BookingSlotState(
-      slot: slot,
-      label: 'Completo',
-      color: AppTheme.danger,
-      isEnabled: false,
-    );
-  }
-
-  final maxCount = _maxOccupancyForDuration(
-    start: slot,
-    durationMinutes: durationMinutes,
-    occupancy: occupancy,
-  );
-  if (maxCount == siteConfig.maxCapacity - 1) {
-    return BookingSlotState(
-      slot: slot,
-      label: '1 plaza',
-      color: AppTheme.amber,
-      isEnabled: true,
-    );
-  }
-  return BookingSlotState(
-    slot: slot,
-    label: 'Disponible',
-    color: AppTheme.emerald,
-    isEnabled: true,
-  );
+Color bookingSlotColor(BookingSlotAvailability availability) {
+  return switch (availability) {
+    BookingSlotAvailability.available => AppTheme.emerald,
+    BookingSlotAvailability.partial => AppTheme.success,
+    BookingSlotAvailability.almostFull => AppTheme.amber,
+    BookingSlotAvailability.ownAppointment => const Color(0xFF6AA7FF),
+    BookingSlotAvailability.blocked ||
+    BookingSlotAvailability.full => AppTheme.danger,
+    BookingSlotAvailability.unavailable ||
+    BookingSlotAvailability.past => AppTheme.textSecondary,
+  };
 }
 
 String _formatDate(String? value) {
@@ -455,18 +361,6 @@ String _formatWireDate(DateTime value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
   return '${value.year}-$month-$day';
-}
-
-int _maxOccupancyForDuration({
-  required TimeSlot start,
-  required int durationMinutes,
-  required Iterable<SlotOccupancy> occupancy,
-}) {
-  final counts = {for (final item in occupancy) item.slot.key: item.count};
-  return expandInternalSlots(start, durationMinutes).fold<int>(0, (max, slot) {
-    final count = counts[slot.key] ?? 0;
-    return count > max ? count : max;
-  });
 }
 
 const _weekdays = [

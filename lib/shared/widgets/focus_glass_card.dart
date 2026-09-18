@@ -111,10 +111,7 @@ class FocusPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: AppTheme.background,
-      child: SafeArea(
-        bottom: false,
-        child: child,
-      ),
+      child: SafeArea(bottom: false, child: child),
     );
   }
 }
