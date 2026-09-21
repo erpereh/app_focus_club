@@ -53,6 +53,60 @@ void main() {
       expect(getCanonicalSlotBlocks('16:15', 45), isNot(contains('16:00')));
       expect(getCanonicalSlotBlocks('15:30', 45), ['15:30', '15:45', '16:00']);
     });
+
+    test('returns an empty list for invalid start times', () {
+      expect(getCanonicalSlotBlocks('bad', 60), isEmpty);
+      expect(getCanonicalSlotBlocks('24:00', 60), isEmpty);
+      expect(getCanonicalSlotBlocks('10:60', 60), isEmpty);
+      expect(getCanonicalSlotBlocks('-1:00', 60), isEmpty);
+      expect(getCanonicalSlotBlocks('16:15', 45), ['16:15', '16:30', '16:45']);
+    });
+  });
+
+  group('parseTimeMinutes', () {
+    test('accepts the civil day bounds', () {
+      expect(parseTimeMinutes('00:00'), 0);
+      expect(parseTimeMinutes('23:59'), 1439);
+    });
+
+    test('rejects invalid clock values', () {
+      expect(parseTimeMinutes('bad'), isNull);
+      expect(parseTimeMinutes('24:00'), isNull);
+      expect(parseTimeMinutes('10:60'), isNull);
+      expect(parseTimeMinutes('-1:00'), isNull);
+    });
+  });
+
+  group('invalid times in schedule helpers', () {
+    const config = SiteConfig(
+      startHour: 8,
+      endHour: 20,
+      slotInterval: 30,
+      bonoExpirationMonths: 1,
+      maintenanceMode: false,
+    );
+
+    test('isGeneratedScheduleTime is false for invalid hours', () {
+      for (final time in ['bad', '24:00', '10:60', '-1:00']) {
+        expect(
+          isGeneratedScheduleTime(time: time, siteConfig: config),
+          isFalse,
+        );
+      }
+    });
+
+    test('doesDurationFitInSchedule is false for invalid hours', () {
+      for (final time in ['bad', '24:00', '10:60', '-1:00']) {
+        expect(
+          doesDurationFitInSchedule(
+            slot: TimeSlot(date: '2026-10-01', time: time),
+            durationMinutes: 45,
+            siteConfig: config,
+          ),
+          isFalse,
+        );
+      }
+    });
   });
 
   group('client adjacent 45 minute sessions', () {

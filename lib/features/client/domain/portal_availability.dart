@@ -26,9 +26,7 @@ Bono? selectUniqueActiveBono(Iterable<Bono> bonos) {
 /// to an earlier start and never adds 30-minute floors.
 List<String> getCanonicalSlotBlocks(String startTime, int durationMinutes) {
   final startTotal = parseTimeMinutes(startTime);
-  if (startTotal == null) {
-    throw FormatException('Expected HH:mm time, got $startTime');
-  }
+  if (startTotal == null) return const [];
   if (durationMinutes <= 0) return const [];
 
   final numBlocks = (durationMinutes / internalSlotMinutes).ceil();
@@ -52,6 +50,7 @@ int? parseTimeMinutes(String value) {
   final hour = int.tryParse(parts[0]);
   final minute = int.tryParse(parts[1]);
   if (hour == null || minute == null) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
   return hour * 60 + minute;
 }
 
