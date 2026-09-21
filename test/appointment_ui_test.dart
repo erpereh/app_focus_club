@@ -13,6 +13,7 @@ import 'package:app_focus_club/features/client/widgets/client_cards.dart';
 import 'package:app_focus_club/shared/widgets/focus_buttons.dart';
 import 'package:app_focus_club/shared/widgets/focus_empty_state.dart';
 import 'package:app_focus_club/shared/widgets/focus_glass_card.dart';
+import 'package:app_focus_club/shared/widgets/focus_time_slot.dart';
 import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2566,6 +2567,388 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  group('canonical 15 minute booking grid', () {
+    SiteConfig intervalConfig(int interval) => SiteConfig(
+      startHour: 16,
+      endHour: 18,
+      slotInterval: interval,
+      bonoExpirationMonths: 1,
+      maintenanceMode: false,
+      maxCapacity: 4,
+    );
+
+    testWidgets('shows :00 :15 :30 :45 when slotInterval is 15', (
+      tester,
+    ) async {
+      final viewModel = _bookingViewModel(
+        repository: _bookingRepository(siteConfig: intervalConfig(15)),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+
+      expect(find.text('16:00'), findsOneWidget);
+      expect(find.text('16:15'), findsOneWidget);
+      expect(find.text('16:30'), findsOneWidget);
+      expect(find.text('16:45'), findsOneWidget);
+      expect(find.text('Leyenda'), findsNothing);
+      viewModel.dispose();
+    });
+
+    testWidgets('shows :00 and :30 when slotInterval is 30', (tester) async {
+      final viewModel = _bookingViewModel(
+        repository: _bookingRepository(siteConfig: intervalConfig(30)),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+
+      expect(find.text('16:00'), findsOneWidget);
+      expect(find.text('16:30'), findsOneWidget);
+      expect(find.text('16:15'), findsNothing);
+      expect(find.text('16:45'), findsNothing);
+      viewModel.dispose();
+    });
+
+    testWidgets('follows the 45 and 60 minute progressions', (tester) async {
+      final fortyFive = _bookingViewModel(
+        repository: _bookingRepository(siteConfig: intervalConfig(45)),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: fortyFive)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+      expect(find.text('16:00'), findsOneWidget);
+      expect(find.text('16:45'), findsOneWidget);
+      expect(find.text('17:30'), findsOneWidget);
+      expect(find.text('16:15'), findsNothing);
+      fortyFive.dispose();
+
+      final sixty = _bookingViewModel(
+        repository: _bookingRepository(siteConfig: intervalConfig(60)),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: sixty)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+      expect(find.text('16:00'), findsOneWidget);
+      expect(find.text('17:00'), findsOneWidget);
+      expect(find.text('16:30'), findsNothing);
+      sixty.dispose();
+    });
+
+    testWidgets('live SiteConfig change updates offered start times', (
+      tester,
+    ) async {
+      final repository = _bookingRepository(siteConfig: intervalConfig(30));
+      final viewModel = _bookingViewModel(repository: repository);
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+      expect(find.text('16:15'), findsNothing);
+
+      repository.emitSiteConfig(intervalConfig(15));
+      await tester.pumpAndSettle();
+      expect(find.text('16:15'), findsOneWidget);
+
+      repository.emitSiteConfig(intervalConfig(30));
+      await tester.pumpAndSettle();
+      expect(find.text('16:15'), findsNothing);
+      viewModel.dispose();
+    });
+
+    testWidgets('16:15 is selectable and kept in the summary', (tester) async {
+      tester.view.physicalSize = const Size(800, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final viewModel = _bookingViewModel(
+        repository: _bookingRepository(siteConfig: intervalConfig(15)),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingSelectSlot(tester, dateLabel: '10 sep', time: '16:15');
+      await _bookingContinueUntil(tester, find.text('Enviar Solicitud'));
+      expect(find.textContaining('16:15'), findsWidgets);
+      expect(find.text('Leyenda'), findsNothing);
+      viewModel.dispose();
+    });
+
+    testWidgets('15:30 plus 45 does not mark 16:15 as Tu sesión', (
+      tester,
+    ) async {
+      final viewModel = _bookingViewModel(
+        repository: _bookingRepository(
+          siteConfig: const SiteConfig(
+            startHour: 15,
+            endHour: 18,
+            slotInterval: 15,
+            bonoExpirationMonths: 1,
+            maintenanceMode: false,
+            maxCapacity: 4,
+          ),
+          appointments: [
+            _appointment(
+              status: AppointmentStatus.pending,
+              date: '2026-09-10',
+              time: '15:30',
+              durationMinutes: 45,
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+
+      final own = find.ancestor(
+        of: find.text('15:30'),
+        matching: find.byType(FocusTimeSlot),
+      );
+      expect(
+        find.descendant(of: own, matching: find.text('Tu sesión')),
+        findsOneWidget,
+      );
+      final next = find.ancestor(
+        of: find.text('16:15'),
+        matching: find.byType(FocusTimeSlot),
+      );
+      expect(
+        find.descendant(of: next, matching: find.text('Tu sesión')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: next, matching: find.text('Disponible')),
+        findsOneWidget,
+      );
+      viewModel.dispose();
+    });
+
+    testWidgets('capacity labels and canonical blocked slots stay correct', (
+      tester,
+    ) async {
+      final viewModel = _bookingViewModel(
+        repository: _bookingRepository(
+          siteConfig: intervalConfig(15),
+          slotOccupancy: const [
+            SlotOccupancy(
+              id: '2026-09-10_16:15',
+              date: '2026-09-10',
+              time: '16:15',
+              count: 1,
+            ),
+          ],
+          blockedSlots: const [
+            BlockedSlot(id: 'block', date: '2026-09-10', time: '16:15'),
+          ],
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+
+      final blocked = find.ancestor(
+        of: find.text('16:00'),
+        matching: find.byType(FocusTimeSlot),
+      );
+      expect(
+        find.descendant(of: blocked, matching: find.text('Bloqueado')),
+        findsOneWidget,
+      );
+      final later = find.ancestor(
+        of: find.text('16:30'),
+        matching: find.byType(FocusTimeSlot),
+      );
+      expect(
+        find.descendant(of: later, matching: find.text('Bloqueado')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: later, matching: find.text('Disponible')),
+        findsOneWidget,
+      );
+      viewModel.dispose();
+    });
+
+    testWidgets('existing 16:15 appointment remains visible with interval 30', (
+      tester,
+    ) async {
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: '2026-09-12',
+        time: '16:15',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ClientAppointmentCard(appointment: appointment, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('16:15'), findsWidgets);
+    });
+
+    testWidgets('recurring single keeps a :15 start', (tester) async {
+      tester.view.physicalSize = const Size(800, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final now = DateTime.utc(2026, 9, 10, 8);
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: '2026-09-12',
+        time: '16:15',
+        durationMinutes: 45,
+        recurrenceSeriesId: 'series-1',
+      );
+      final series = _series(
+        durationMinutes: 45,
+        startDate: '2026-09-12',
+        startTime: '16:15',
+        endDate: '2026-09-18',
+      );
+      final repository = FakePortalRepository(
+        appointments: [appointment],
+        recurringSeries: [series],
+        bonos: [_bonoWithMinutes(240)],
+        siteConfig: intervalConfig(15),
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: repository,
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BookingScreen(
+            viewModel: viewModel,
+            editMode: BookingEditMode.recurringSingle,
+            sourceAppointment: appointment,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('16:15'), findsWidgets);
+      await tester.tap(find.text('16:30').first);
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(tester, find.text('Guardar cambios'));
+      expect(find.textContaining('16:30'), findsWidgets);
+      viewModel.dispose();
+    });
+
+    testWidgets('recurring series replacement keeps a :15 start', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final now = DateTime.utc(2026, 9, 10, 8);
+      final appointment = _appointment(
+        status: AppointmentStatus.pending,
+        date: '2026-09-12',
+        time: '16:15',
+        durationMinutes: 45,
+        recurrenceSeriesId: 'series-1',
+      );
+      final series = _series(
+        durationMinutes: 45,
+        startDate: '2026-09-12',
+        startTime: '16:15',
+        endDate: '2026-09-18',
+        futureStartDate: '2026-09-12',
+        futureStartTime: '16:15',
+        futureEndDate: '2026-09-18',
+      );
+      final repository = FakePortalRepository(
+        appointments: [appointment],
+        recurringSeries: [series],
+        bonos: [_bonoWithMinutes(240)],
+        siteConfig: intervalConfig(15),
+      );
+      final viewModel = ClientPortalViewModel(
+        repository: repository,
+        uid: 'uid',
+        now: () => now,
+      )..start();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BookingScreen(
+            viewModel: viewModel,
+            editMode: BookingEditMode.recurringSeries,
+            sourceAppointment: appointment,
+            sourceSeries: series,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+      expect(find.text('16:15'), findsWidgets);
+      viewModel.dispose();
+    });
+
+    testWidgets('narrow large text still lays out a 15 minute grid', (
+      tester,
+    ) async {
+      setLogicalViewport(tester, const Size(320, 1800));
+      final viewModel = _bookingViewModel(
+        repository: _bookingRepository(siteConfig: intervalConfig(15)),
+      );
+      await tester.pumpWidget(
+        _LargeTextHarness(child: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      await _bookingContinueUntil(
+        tester,
+        find.byKey(const Key('booking-slot-grid')),
+      );
+      expect(find.text('16:15'), findsOneWidget);
+      expectNoLayoutException(tester);
+      viewModel.dispose();
+    });
+  });
 }
 
 class _LargeTextHarness extends StatelessWidget {
@@ -2693,6 +3076,7 @@ FakePortalRepository _bookingRepository({
   List<Appointment> appointments = const [],
   Completer<void>? availabilityGate,
   Object? availabilityFailure,
+  SiteConfig? siteConfig,
 }) {
   return FakePortalRepository(
     bonos: [bono ?? _bonoWithMinutes(240)],
@@ -2701,13 +3085,15 @@ FakePortalRepository _bookingRepository({
     appointments: appointments,
     availabilityGate: availabilityGate,
     availabilityFailure: availabilityFailure,
-    siteConfig: const SiteConfig(
-      startHour: 8,
-      endHour: 20,
-      slotInterval: 30,
-      bonoExpirationMonths: 1,
-      maintenanceMode: false,
-    ),
+    siteConfig:
+        siteConfig ??
+        const SiteConfig(
+          startHour: 8,
+          endHour: 20,
+          slotInterval: 30,
+          bonoExpirationMonths: 1,
+          maintenanceMode: false,
+        ),
   );
 }
 

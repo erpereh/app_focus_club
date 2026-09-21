@@ -64,11 +64,11 @@ creados y cancelados, número de sesiones, minutos totales y estado.
 ## Paridad de disponibilidad
 
 Toda decisión de conflicto, capacidad, ocupación efectiva y crédito usa
-`expandAvailabilitySlotKeys`. Las claves incluyen los bloques internos de 15
-minutos y los floors legacy de 30 minutos del backend, deduplicados por cita.
+`getCanonicalSlotBlocks`. Las claves son únicamente bloques canónicos exactos
+de 15 minutos desde el inicio real de la sesión, sin floors legacy de 30.
 
 Al excluir citas aprobadas que se sustituyen se acredita una unidad en cada una
-de sus claves backend-compatible. Las pendientes se excluyen sin crédito. La
+de sus claves canónicas. Las pendientes se excluyen sin crédito. La
 ocupación efectiva de una clave es `max(0, ocupación real - crédito)` y la del
 slot es el máximo de todas sus claves.
 

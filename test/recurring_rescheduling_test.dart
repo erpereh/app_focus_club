@@ -138,7 +138,7 @@ void main() {
     );
   });
 
-  group('backend-compatible occupancy parity', () {
+  group('canonical 15-minute occupancy parity', () {
     const config = SiteConfig(
       startHour: 8,
       endHour: 20,
@@ -149,14 +149,17 @@ void main() {
     );
     const slot = TimeSlot(date: '2026-09-30', time: '11:15');
 
-    test('keys include 15 minute blocks and deduplicated legacy floors', () {
+    test('keys are exact 15 minute blocks without legacy floors', () {
       expect(availabilityKeysForSlot(slot, 60), {
-        '2026-09-30_11:00',
         '2026-09-30_11:15',
         '2026-09-30_11:30',
         '2026-09-30_11:45',
         '2026-09-30_12:00',
       });
+      expect(
+        availabilityKeysForSlot(slot, 60),
+        isNot(contains('2026-09-30_11:00')),
+      );
     });
 
     test('approved credits use every exact key once; pending credits none', () {
@@ -212,7 +215,7 @@ void main() {
     });
 
     test(
-      'credit reduces effective occupancy and legacy floor can stay full',
+      'credit reduces effective occupancy and occupancy before start is ignored',
       () {
         final credits = buildOccupancyCreditsByKey([
           _appointment(
@@ -245,7 +248,7 @@ void main() {
             occupancy: occupancy,
             occupancyCreditsByKey: credits,
           ),
-          4,
+          3,
         );
         expect(
           bookingSlotState(
@@ -258,7 +261,7 @@ void main() {
             occupancyCreditsByKey: credits,
             now: DateTime.utc(2026, 9, 20),
           ).label,
-          'Completo',
+          'Casi lleno · 1 plaza',
         );
       },
     );
@@ -307,7 +310,7 @@ void main() {
         durationMinutes: 30,
         siteConfig: config,
         blockedSlots: const [
-          BlockedSlot(id: 'blocked', date: '2026-09-30', time: '11:00'),
+          BlockedSlot(id: 'blocked', date: '2026-09-30', time: '11:15'),
         ],
         occupancy: full,
         appointments: [conflict],
@@ -325,6 +328,93 @@ void main() {
 
       expect(blocked.label, 'Bloqueado');
       expect(own.label, 'Tu sesión');
+    });
+
+    test(
+      'pending source has no occupancy credit and approved uses canonical keys',
+      () {
+        const pendingSlot = TimeSlot(date: '2026-09-30', time: '16:15');
+        final pending = _appointment(
+          id: 'pending',
+          date: pendingSlot.date,
+          time: pendingSlot.time,
+          durationMinutes: 45,
+        );
+        final approved = _appointment(
+          id: 'approved',
+          date: pendingSlot.date,
+          time: pendingSlot.time,
+          status: AppointmentStatus.approved,
+          durationMinutes: 45,
+        );
+
+        expect(buildOccupancyCreditsByKey([pending]), isEmpty);
+        expect(buildOccupancyCreditsByKey([approved]), {
+          '2026-09-30_16:15': 1,
+          '2026-09-30_16:30': 1,
+          '2026-09-30_16:45': 1,
+        });
+        expect(
+          buildOccupancyCreditsByKey([
+            approved,
+          ]).containsKey('2026-09-30_16:00'),
+          isFalse,
+        );
+      },
+    );
+
+    test('series approved credits canonical blocks per occurrence', () {
+      final occurrences = [
+        _appointment(
+          id: 'future-0',
+          date: '2026-09-21',
+          time: '16:15',
+          status: AppointmentStatus.approved,
+          durationMinutes: 45,
+        ),
+        _appointment(
+          id: 'future-1',
+          date: '2026-09-23',
+          time: '16:15',
+          status: AppointmentStatus.approved,
+          durationMinutes: 45,
+        ),
+      ];
+
+      expect(buildOccupancyCreditsByKey(occurrences), {
+        '2026-09-21_16:15': 1,
+        '2026-09-21_16:30': 1,
+        '2026-09-21_16:45': 1,
+        '2026-09-23_16:15': 1,
+        '2026-09-23_16:30': 1,
+        '2026-09-23_16:45': 1,
+      });
+    });
+
+    test('adjacent 45 minute sessions at 15:30 and 16:15 do not conflict', () {
+      final existing = _appointment(
+        id: 'first',
+        date: '2026-10-01',
+        time: '15:30',
+        durationMinutes: 45,
+      );
+
+      expect(
+        overlapsActiveAppointment(
+          start: const TimeSlot(date: '2026-10-01', time: '16:15'),
+          durationMinutes: 45,
+          appointments: [existing],
+        ),
+        isFalse,
+      );
+      expect(
+        overlapsActiveAppointment(
+          start: const TimeSlot(date: '2026-10-01', time: '16:00'),
+          durationMinutes: 45,
+          appointments: [existing],
+        ),
+        isTrue,
+      );
     });
   });
 

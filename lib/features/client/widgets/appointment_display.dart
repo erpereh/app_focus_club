@@ -276,11 +276,8 @@ List<TimeSlot> buildBookingSlotsForDate({
   final slots = <TimeSlot>[];
   final startMinutes = siteConfig.startHour * 60;
   final endMinutes = siteConfig.endHour * 60;
-  for (
-    var minutes = startMinutes;
-    minutes < endMinutes;
-    minutes += siteConfig.slotInterval
-  ) {
+  final interval = normalizeSlotInterval(siteConfig.slotInterval);
+  for (var minutes = startMinutes; minutes < endMinutes; minutes += interval) {
     slots.add(TimeSlot(date: date, time: _formatMinutes(minutes)));
   }
   return slots;

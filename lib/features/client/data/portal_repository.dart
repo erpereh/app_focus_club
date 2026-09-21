@@ -699,7 +699,7 @@ class FakePortalRepository implements PortalRepository {
   final List<BlockedSlot> _blockedSlots;
   final List<SlotOccupancy> _slotOccupancy;
   List<RecurringAppointmentSeries> _recurringSeries;
-  final SiteConfig? _siteConfig;
+  SiteConfig? _siteConfig;
   final Object? _deleteOwnAccountFailure;
   final Object? _recurringSeriesCancelFailure;
   Object? availabilityFailure;
@@ -711,6 +711,8 @@ class FakePortalRepository implements PortalRepository {
   final StreamController<void> _bonosController =
       StreamController<void>.broadcast();
   final StreamController<void> _seriesController =
+      StreamController<void>.broadcast();
+  final StreamController<void> _siteConfigController =
       StreamController<void>.broadcast();
   final List<AppointmentRequest> requests = [];
   final List<RecurringAppointmentRequest> recurringRequests = [];
@@ -739,6 +741,11 @@ class FakePortalRepository implements PortalRepository {
   void emitRecurringSeries(List<RecurringAppointmentSeries> series) {
     _recurringSeries = List<RecurringAppointmentSeries>.from(series);
     _seriesController.add(null);
+  }
+
+  void emitSiteConfig(SiteConfig? siteConfig) {
+    _siteConfig = siteConfig;
+    _siteConfigController.add(null);
   }
 
   @override
@@ -800,7 +807,15 @@ class FakePortalRepository implements PortalRepository {
   }
 
   @override
-  Stream<SiteConfig?> watchSiteConfig() => Stream.value(_siteConfig);
+  Stream<SiteConfig?> watchSiteConfig() {
+    return Stream<SiteConfig?>.multi((listener) {
+      listener.add(_siteConfig);
+      final sub = _siteConfigController.stream.listen((_) {
+        listener.add(_siteConfig);
+      });
+      listener.onCancel = sub.cancel;
+    });
+  }
 
   @override
   Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(

@@ -570,6 +570,8 @@ class SlotOccupancy {
 const int defaultMaxCapacity = 2;
 const int minAllowedCapacity = 1;
 const int maxAllowedCapacity = 10;
+const int defaultSlotInterval = 30;
+const Set<int> allowedSlotIntervals = {15, 30, 45, 60};
 
 class SiteConfig {
   const SiteConfig({
@@ -612,7 +614,7 @@ class SiteConfig {
     return SiteConfig(
       startHour: parseInt(map['startHour']),
       endHour: parseInt(map['endHour']),
-      slotInterval: parseInt(map['slotInterval']),
+      slotInterval: normalizeSlotInterval(map['slotInterval']),
       bonoExpirationMonths: parseInt(map['bonoExpirationMonths']),
       maintenanceMode: map['maintenanceMode'] as bool? ?? false,
       maxCapacity: parseMaxCapacity(map['maxCapacity']),
@@ -629,6 +631,16 @@ class SiteConfig {
       logoStoragePath: map['logoStoragePath'] as String?,
       updatedAt: stringifyDate(map['updatedAt']),
     );
+  }
+}
+
+int normalizeSlotInterval(Object? value) {
+  if (value == null) return defaultSlotInterval;
+  try {
+    final parsed = parseInt(value);
+    return allowedSlotIntervals.contains(parsed) ? parsed : defaultSlotInterval;
+  } on FormatException {
+    return defaultSlotInterval;
   }
 }
 

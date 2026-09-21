@@ -158,7 +158,7 @@ void main() {
     expect(past[2].problemDate, '2026-09-23');
   });
 
-  test('legacy 30 min occupancy keys invalidate 11:15 and 11:45 sessions', () {
+  test('canonical 15 minute keys do not invent floors before the start', () {
     const fineGrained = SiteConfig(
       startHour: 8,
       endHour: 20,
@@ -167,29 +167,98 @@ void main() {
       maintenanceMode: false,
       maxCapacity: 5,
     );
-    final blockedLegacyStart = evaluate(
+    final blockedBeforeStart = evaluate(
       startTime: '11:15',
       blockedKeys: {'2026-09-27_11:00'},
       config: fineGrained,
     );
     expect(
-      blockedLegacyStart[0].availability,
-      RecurringHastaAvailability.available,
+      blockedBeforeStart.every(
+        (status) => status.availability == RecurringHastaAvailability.available,
+      ),
+      isTrue,
     );
-    expect(
-      blockedLegacyStart[1].availability,
-      RecurringHastaAvailability.blocked,
-    );
-    expect(blockedLegacyStart[1].problemDate, '2026-09-27');
 
-    final fullLegacyMid = evaluate(
+    final occupancyBeforeStart = evaluate(
       startTime: '11:45',
       occupancy: {'2026-09-27_11:30': 5},
       config: fineGrained,
     );
-    expect(fullLegacyMid[0].availability, RecurringHastaAvailability.available);
-    expect(fullLegacyMid[1].availability, RecurringHastaAvailability.full);
-    expect(fullLegacyMid[1].problemDate, '2026-09-27');
+    expect(
+      occupancyBeforeStart.every(
+        (status) => status.availability == RecurringHastaAvailability.available,
+      ),
+      isTrue,
+    );
+
+    final blockedExact = evaluate(
+      startTime: '11:15',
+      blockedKeys: {'2026-09-27_11:15'},
+      config: fineGrained,
+    );
+    expect(blockedExact[0].availability, RecurringHastaAvailability.available);
+    expect(blockedExact[1].availability, RecurringHastaAvailability.blocked);
+    expect(blockedExact[1].problemDate, '2026-09-27');
+  });
+
+  test('preview Hasta for a 16:15 start uses exact canonical blocks', () {
+    const fineGrained = SiteConfig(
+      startHour: 8,
+      endHour: 20,
+      slotInterval: 15,
+      bonoExpirationMonths: 1,
+      maintenanceMode: false,
+      maxCapacity: 5,
+    );
+    final statuses = evaluate(
+      startTime: '16:15',
+      durationMinutes: 45,
+      config: fineGrained,
+      occupancy: {
+        '2026-09-27_16:15': 1,
+        '2026-09-27_16:30': 4,
+        '2026-09-27_16:45': 2,
+      },
+    );
+
+    expect(statuses[0].availability, RecurringHastaAvailability.available);
+    expect(statuses[1].availability, RecurringHastaAvailability.available);
+    expect(statuses[2].availability, RecurringHastaAvailability.available);
+
+    final full = evaluate(
+      startTime: '16:15',
+      durationMinutes: 45,
+      config: fineGrained,
+      occupancy: {'2026-09-27_16:30': 5},
+    );
+    expect(full[0].availability, RecurringHastaAvailability.available);
+    expect(full[1].availability, RecurringHastaAvailability.full);
+  });
+
+  test('adjacent 45 minute series at 15:30 and 16:15 do not conflict', () {
+    const fineGrained = SiteConfig(
+      startHour: 8,
+      endHour: 20,
+      slotInterval: 15,
+      bonoExpirationMonths: 1,
+      maintenanceMode: false,
+      maxCapacity: 5,
+    );
+    final statuses = evaluate(
+      startTime: '16:15',
+      durationMinutes: 45,
+      config: fineGrained,
+      appointments: [
+        _appointment(date: '2026-09-27', time: '15:30', durationMinutes: 45),
+      ],
+    );
+
+    expect(
+      statuses.every(
+        (status) => status.availability == RecurringHastaAvailability.available,
+      ),
+      isTrue,
+    );
   });
 
   group('sanitizeRecurringEndDateByAvailability', () {

@@ -22,35 +22,9 @@ Bono? selectUniqueActiveBono(Iterable<Bono> bonos) {
   return active.firstOrNull;
 }
 
-List<TimeSlot> expandInternalSlots(TimeSlot start, int durationMinutes) {
-  if (durationMinutes % internalSlotMinutes != 0) {
-    throw ArgumentError.value(
-      durationMinutes,
-      'durationMinutes',
-      'Duration must be divisible by $internalSlotMinutes.',
-    );
-  }
-
-  final startTotal = parseTimeMinutes(start.time);
-  if (startTotal == null) {
-    throw FormatException('Expected HH:mm time, got ${start.time}');
-  }
-
-  final count = durationMinutes ~/ internalSlotMinutes;
-  return List.generate(count, (index) {
-    return TimeSlot(
-      date: start.date,
-      time: formatClockMinutes(startTotal + internalSlotMinutes * index),
-    );
-  });
-}
-
-/// Firestore occupancy/blocked keys that [createRecurringAppointments] validates.
-///
-/// Matches backend `getSlotBlocks`: 15-minute internals plus legacy 30-minute
-/// floors. Do not use this for calendar slot rendering — that stays on
-/// [expandInternalSlots].
-List<String> expandAvailabilitySlotKeys(String startTime, int durationMinutes) {
+/// Canonical occupancy blocks of [internalSlotMinutes]. Never rounds a session
+/// to an earlier start and never adds 30-minute floors.
+List<String> getCanonicalSlotBlocks(String startTime, int durationMinutes) {
   final startTotal = parseTimeMinutes(startTime);
   if (startTotal == null) {
     throw FormatException('Expected HH:mm time, got $startTime');
@@ -58,15 +32,18 @@ List<String> expandAvailabilitySlotKeys(String startTime, int durationMinutes) {
   if (durationMinutes <= 0) return const [];
 
   final numBlocks = (durationMinutes / internalSlotMinutes).ceil();
-  final blocks = <String>{};
-  for (var index = 0; index < numBlocks; index += 1) {
-    final total = startTotal + index * internalSlotMinutes;
-    final legacyTotal = (total ~/ 30) * 30;
-    blocks
-      ..add(formatClockMinutes(total))
-      ..add(formatClockMinutes(legacyTotal));
-  }
-  return List<String>.unmodifiable(blocks);
+  return List<String>.unmodifiable(
+    List.generate(numBlocks, (index) {
+      return formatClockMinutes(startTotal + internalSlotMinutes * index);
+    }),
+  );
+}
+
+List<TimeSlot> expandInternalSlots(TimeSlot start, int durationMinutes) {
+  return getCanonicalSlotBlocks(
+    start.time,
+    durationMinutes,
+  ).map((time) => TimeSlot(date: start.date, time: time)).toList();
 }
 
 int? parseTimeMinutes(String value) {
@@ -90,8 +67,7 @@ bool isGeneratedScheduleTime({
 }) {
   final startMinutes = parseTimeMinutes(time);
   if (startMinutes == null) return false;
-  final interval = siteConfig.slotInterval;
-  if (interval <= 0) return false;
+  final interval = normalizeSlotInterval(siteConfig.slotInterval);
   final scheduleStart = siteConfig.startHour * 60;
   final scheduleEnd = siteConfig.endHour * 60;
   if (startMinutes < scheduleStart || startMinutes >= scheduleEnd) {
@@ -165,7 +141,7 @@ bool overlapsActiveAppointment({
 }
 
 Set<String> availabilityKeysForSlot(TimeSlot slot, int durationMinutes) {
-  return expandAvailabilitySlotKeys(
+  return getCanonicalSlotBlocks(
     slot.time,
     durationMinutes,
   ).map((time) => '${slot.date}_$time').toSet();

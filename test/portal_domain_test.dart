@@ -38,9 +38,9 @@ void main() {
     });
   });
 
-  group('expandAvailabilitySlotKeys', () {
+  group('getCanonicalSlotBlocks', () {
     test('aligned 60 min session matches 15 min internals', () {
-      expect(expandAvailabilitySlotKeys('11:00', 60), [
+      expect(getCanonicalSlotBlocks('11:00', 60), [
         '11:00',
         '11:15',
         '11:30',
@@ -48,10 +48,9 @@ void main() {
       ]);
     });
 
-    test('11:15 60 min includes the legacy 30 min floor at 11:00', () {
-      expect(expandAvailabilitySlotKeys('11:15', 60), [
+    test('11:15 60 min starts at 11:15 and never includes 11:00', () {
+      expect(getCanonicalSlotBlocks('11:15', 60), [
         '11:15',
-        '11:00',
         '11:30',
         '11:45',
         '12:00',
@@ -65,14 +64,9 @@ void main() {
       );
     });
 
-    test('11:45 60 min includes the legacy 30 min floor at 11:30', () {
-      expect(expandAvailabilitySlotKeys('11:45', 60), [
-        '11:45',
-        '11:30',
-        '12:00',
-        '12:15',
-        '12:30',
-      ]);
+    test('16:15 45 min does not add the incorrect 16:00 floor', () {
+      expect(getCanonicalSlotBlocks('16:15', 45), ['16:15', '16:30', '16:45']);
+      expect(getCanonicalSlotBlocks('15:30', 45), ['15:30', '15:45', '16:00']);
     });
   });
 
@@ -325,6 +319,56 @@ void main() {
         '10:15',
       ]);
     });
+
+    test('anchors 15, 30 and 60 minute grids at startHour', () {
+      SiteConfig configOf(int interval) => SiteConfig(
+        startHour: 7,
+        endHour: 20,
+        slotInterval: interval,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      );
+
+      expect(
+        buildBookingSlotsForDate(
+          date: '2026-10-01',
+          siteConfig: configOf(15),
+        ).map((slot) => slot.time).take(5),
+        ['07:00', '07:15', '07:30', '07:45', '08:00'],
+      );
+      expect(
+        buildBookingSlotsForDate(
+          date: '2026-10-01',
+          siteConfig: configOf(30),
+        ).map((slot) => slot.time).take(5),
+        ['07:00', '07:30', '08:00', '08:30', '09:00'],
+      );
+      expect(
+        buildBookingSlotsForDate(
+          date: '2026-10-01',
+          siteConfig: configOf(60),
+        ).map((slot) => slot.time).take(5),
+        ['07:00', '08:00', '09:00', '10:00', '11:00'],
+      );
+    });
+
+    test('normalizes a zero interval instead of looping forever', () {
+      const config = SiteConfig(
+        startHour: 7,
+        endHour: 8,
+        slotInterval: 0,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+      );
+
+      expect(
+        buildBookingSlotsForDate(
+          date: '2026-10-01',
+          siteConfig: config,
+        ).map((slot) => slot.time),
+        ['07:00', '07:30'],
+      );
+    });
   });
 
   group('active bono selection', () {
@@ -517,6 +561,82 @@ void main() {
 
       expect(config.maxCapacity, 2);
     });
+
+    test('slotInterval accepts 15, 30, 45 and 60', () {
+      for (final interval in allowedSlotIntervals) {
+        final config = SiteConfig.fromMap({
+          ..._requiredSiteConfigMap(),
+          'slotInterval': interval,
+        });
+        expect(config.slotInterval, interval);
+      }
+    });
+
+    test(
+      'slotInterval falls back to 30 for missing, zero, negative and invalid',
+      () {
+        expect(
+          SiteConfig.fromMap({
+            'startHour': 8,
+            'endHour': 20,
+            'bonoExpirationMonths': 1,
+            'maintenanceMode': false,
+          }).slotInterval,
+          30,
+        );
+        expect(
+          SiteConfig.fromMap({
+            ..._requiredSiteConfigMap(),
+            'slotInterval': 0,
+          }).slotInterval,
+          30,
+        );
+        expect(
+          SiteConfig.fromMap({
+            ..._requiredSiteConfigMap(),
+            'slotInterval': -15,
+          }).slotInterval,
+          30,
+        );
+        expect(
+          SiteConfig.fromMap({
+            ..._requiredSiteConfigMap(),
+            'slotInterval': 20,
+          }).slotInterval,
+          30,
+        );
+        expect(
+          SiteConfig.fromMap({
+            ..._requiredSiteConfigMap(),
+            'slotInterval': 'nope',
+          }).slotInterval,
+          30,
+        );
+      },
+    );
+
+    test(
+      'slotInterval accepts numeric strings and ignores sessionDuration',
+      () {
+        expect(
+          SiteConfig.fromMap({
+            ..._requiredSiteConfigMap(),
+            'slotInterval': '15',
+          }).slotInterval,
+          15,
+        );
+        expect(
+          SiteConfig.fromMap({
+            'startHour': 8,
+            'endHour': 20,
+            'bonoExpirationMonths': 1,
+            'maintenanceMode': false,
+            'sessionDuration': 15,
+          }).slotInterval,
+          30,
+        );
+      },
+    );
 
     test('bono history accepts minutos field from functions payload', () {
       final entry = BonoHistorialEntry.fromMap({
