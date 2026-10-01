@@ -702,6 +702,12 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    // scrollUntilVisible stops as soon as the button is built, which with
+    // large text can be in the list's cache area just below the viewport.
+    // Bring it fully on screen and make sure a user could actually tap it.
+    await tester.ensureVisible(find.text('Cancelar cita'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cancelar cita').hitTestable(), findsOneWidget);
     await tester.tap(find.text('Cancelar cita'));
     await tester.pumpAndSettle();
 

@@ -135,4 +135,5 @@ Tests automáticos:
 - `test/notification_navigation_test.dart`
 - `test/push_notification_service_test.dart`
 - `test/push_platform_config_test.dart` (canal Android y entitlements iOS)
+- `test/release_version_test.dart` (la versión de `pubspec.yaml` es posterior a la última publicada, 1.4.4+14)
 - `functions/test/deleteOwnAccount.test.cjs` (con `npm test` en `functions/`)
