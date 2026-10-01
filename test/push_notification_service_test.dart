@@ -111,26 +111,54 @@ void main() {
     expect(repository.pushUpdates, [(uid: 'uid', enabled: true)]);
   });
 
-  test('disable does not request permissions or tokens', () async {
+  test(
+    'disable does not request permissions and removes this device token',
+    () async {
+      final messaging = _FakePushMessagingClient(
+        authorizationStatus: AuthorizationStatus.authorized,
+        fcmToken: 'fcm-token',
+      );
+      final repository = _RecordingPortalRepository();
+      final service = FirebasePushNotificationService(
+        messaging: messaging,
+        targetPlatform: TargetPlatform.iOS,
+        delay: (_) async {},
+        debugLog: (_) {},
+      );
+
+      await service.disableForUser(uid: 'uid', repository: repository);
+
+      expect(messaging.requestPermissionCalls, 0);
+      expect(messaging.apnsTokenCalls, 0);
+      expect(repository.savedTokens, isEmpty);
+      expect(repository.pushUpdates, [(uid: 'uid', enabled: false)]);
+      // The registration left by an earlier session is removed as well.
+      expect(repository.deletedTokens, [(uid: 'uid', token: 'fcm-token')]);
+      // Disabling keeps the FCM token: re-enabling simply registers it again.
+      expect(messaging.deleteTokenCalls, 0);
+    },
+  );
+
+  test('disable after enable removes the registered token doc', () async {
     final messaging = _FakePushMessagingClient(
       authorizationStatus: AuthorizationStatus.authorized,
-      fcmToken: 'fcm-token',
+      fcmToken: 'token',
     );
     final repository = _RecordingPortalRepository();
     final service = FirebasePushNotificationService(
       messaging: messaging,
-      targetPlatform: TargetPlatform.iOS,
+      targetPlatform: TargetPlatform.android,
       delay: (_) async {},
       debugLog: (_) {},
     );
 
+    await service.enableForUser(uid: 'uid', repository: repository);
+    final lookupsAfterEnable = messaging.getTokenCalls;
     await service.disableForUser(uid: 'uid', repository: repository);
 
-    expect(messaging.requestPermissionCalls, 0);
-    expect(messaging.apnsTokenCalls, 0);
-    expect(messaging.getTokenCalls, 0);
-    expect(repository.savedTokens, isEmpty);
-    expect(repository.pushUpdates, [(uid: 'uid', enabled: false)]);
+    expect(repository.deletedTokens, [(uid: 'uid', token: 'token')]);
+    expect(messaging.getTokenCalls, lookupsAfterEnable);
+    expect(service.currentToken, isNull);
   });
 
   test('token refresh saves the new token and removes the old one', () async {
@@ -179,7 +207,8 @@ void main() {
     await pumpEventQueue();
 
     expect(repository.savedTokens.map((entry) => entry.token), ['token']);
-    expect(repository.deletedTokens, isEmpty);
+    // Only the doc removed by disabling; the refresh itself writes nothing.
+    expect(repository.deletedTokens, [(uid: 'uid', token: 'token')]);
   });
 
   test('configureForUser registers the token of an enabled user', () async {
@@ -228,7 +257,7 @@ void main() {
   });
 
   test(
-    'unregisterCurrentDevice is a no-op without a registered token',
+    'unregisterCurrentDevice still invalidates FCM when the device has no token',
     () async {
       final messaging = _FakePushMessagingClient(
         authorizationStatus: AuthorizationStatus.authorized,
@@ -244,9 +273,62 @@ void main() {
       await service.unregisterCurrentDevice(uid: 'uid', repository: repository);
 
       expect(repository.deletedTokens, isEmpty);
-      expect(messaging.deleteTokenCalls, 0);
+      expect(messaging.deleteTokenCalls, 1);
     },
   );
+
+  test(
+    'logout removes a registration this session never made (push disabled)',
+    () async {
+      // A previous session registered the token, then push was disabled in
+      // an older build that left the document behind.
+      final messaging = _FakePushMessagingClient(
+        authorizationStatus: AuthorizationStatus.authorized,
+        fcmToken: 'leftover-token',
+      );
+      final repository = _RecordingPortalRepository();
+      final service = FirebasePushNotificationService(
+        messaging: messaging,
+        targetPlatform: TargetPlatform.android,
+        delay: (_) async {},
+        debugLog: (_) {},
+      );
+      await service.configureForUser(
+        uid: 'uid',
+        enabled: false,
+        repository: repository,
+      );
+
+      await service.unregisterCurrentDevice(uid: 'uid', repository: repository);
+
+      expect(repository.deletedTokens, [
+        (uid: 'uid', token: 'leftover-token'),
+      ]);
+      expect(messaging.deleteTokenCalls, 1);
+    },
+  );
+
+  test('logout is not blocked when the token lookup hangs', () async {
+    final messaging = _FakePushMessagingClient(
+      authorizationStatus: AuthorizationStatus.authorized,
+      hangGetToken: true,
+    );
+    final repository = _RecordingPortalRepository();
+    final service = FirebasePushNotificationService(
+      messaging: messaging,
+      targetPlatform: TargetPlatform.iOS,
+      delay: (_) async {},
+      debugLog: (_) {},
+      tokenLookupTimeout: const Duration(milliseconds: 10),
+    );
+
+    await expectLater(
+      service.unregisterCurrentDevice(uid: 'uid', repository: repository),
+      completes,
+    );
+    expect(repository.deletedTokens, isEmpty);
+    expect(messaging.deleteTokenCalls, 1);
+  });
 
   test('unregisterCurrentDevice never blocks logout on failures', () async {
     final messaging = _FakePushMessagingClient(
@@ -306,8 +388,10 @@ class _FakePushMessagingClient implements PushMessagingClient {
     this.apnsTokens = const [],
     this.fcmToken,
     this.deleteTokenFailure,
+    this.hangGetToken = false,
   });
 
+  final bool hangGetToken;
   final AuthorizationStatus authorizationStatus;
   final List<String?> apnsTokens;
   final String? fcmToken;
@@ -343,9 +427,10 @@ class _FakePushMessagingClient implements PushMessagingClient {
   }
 
   @override
-  Future<String?> getToken() async {
+  Future<String?> getToken() {
     getTokenCalls += 1;
-    return fcmToken;
+    if (hangGetToken) return Completer<String?>().future;
+    return Future.value(fcmToken);
   }
 
   @override

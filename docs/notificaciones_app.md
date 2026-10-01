@@ -85,38 +85,28 @@ Otros detalles:
 
 **Preferencias:** sin cambios. El interruptor de Perfil escribe `users/{uid}.pushNotificationsEnabled`, y el backend no envía push si no es `true`. El historial se genera igualmente, así que el usuario ve sus avisos aunque tenga el push desactivado.
 
-**Tokens en `users/{uid}/fcmTokens/{token}`:**
-- **Registro:** el token se guarda al activar el push y al cargar el perfil si ya estaba activado. El servicio recuerda el último token registrado.
+**Tokens en `users/{uid}/fcmTokens/{token}`** (ciclo completo en el contrato web, apartado 4):
+- **Registro:** el token se guarda al activar el push y al cargar el perfil si ya estaba activado. Cada guardado refresca `updatedAt`. El servicio recuerda el último token registrado.
 - **Renovación** (`onTokenRefresh`): se guarda el token nuevo y se borra el documento del anterior.
-- **Cerrar sesión o borrar la cuenta:** antes de `signOut` (las reglas exigen estar autenticado) se borra el documento del token y se llama a `deleteToken()`. Así el dispositivo deja de recibir los avisos de ese cliente. Los fallos se registran pero no bloquean el logout.
-- **Tokens inválidos:** el backend sigue podándolos tras un envío fallido.
+- **Desactivar el push:** además de `pushNotificationsEnabled = false`, se borra el documento del token de este dispositivo. El token de FCM se conserva, así que al reactivar se vuelve a registrar.
+- **Cerrar sesión o borrar la cuenta:** antes de `signOut` (las reglas exigen estar autenticado) se borra el documento del token y se llama **siempre** a `deleteToken()`. Si la sesión no registró el token (push desactivado, registro fallido o una build anterior), se obtiene de FCM con un límite de 5 s. Los fallos se registran pero no bloquean el logout.
+- **Servidor:** `onFcmTokenWritten` quita el token de cualquier otra cuenta, así que un móvil que cambia de manos nunca recibe los avisos del cliente anterior. `pruneStaleFcmTokensScheduled` borra los tokens sin refrescar en 270 días, y el envío sigue borrando los tokens que FCM rechaza.
 
-## 6. Cloud Functions antiguas de este repositorio: posibles conflictos
+## 6. Cloud Functions de este repositorio (codebase `portal`)
 
-`functions/src/index.ts` usa el codebase `portal` y el mismo proyecto (`focus-club-f73b8`) y la misma región (`europe-west1`) que `web_focus_club`, que usa el codebase `default`. **No se ha borrado nada.** Hay que revisar lo siguiente antes de cualquier deploy desde este repo:
+`functions/` usa el codebase `portal`, en el mismo proyecto (`focus-club-f73b8`) y región (`europe-west1`) que `web_focus_club` (codebase `default`).
 
-| Función móvil | Posible conflicto con la web |
-|---|---|
-| `createAppointment` | **Mismo nombre** que una callable de la web. Dos codebases no pueden tener el mismo nombre de función: un `firebase deploy --only functions` desde aquí puede reclamar o sustituir la versión web, que es la que estampa los datos que usan los triggers de notificación. |
-| `requestAppointment` | Alias de la misma lógica móvil. La web no la tiene. Las citas que crea generan `appointment_requested` a través del trigger web, sin conflicto directo. |
-| `approveAppointment` | Descuenta minutos **al aprobar**. El contrato web reserva los minutos **al solicitar**, así que se podrían descontar dos veces o generar un `bono_exhausted` antes de tiempo. Además, el webhook de Make (`MAKE_WEBHOOK_ENABLED`) es un aviso paralelo si está activado. |
-| `rejectAppointment` | Devuelve minutos solo si la cita estaba aprobada. Mismo riesgo de semántica de minutos que `approveAppointment`. El aviso `appointment_rejected` lo envía el trigger web. |
-| `updateAppointmentSlot` | Mueve una cita aprobada sin `notificationOperationId`. El trigger web enviará `appointment_rescheduled` (correcto para una cita individual). |
-| `assignBonoToUser` | Marca los bonos anteriores como `eliminado`. El contrato web, al renovar, pasa el anterior a `agotado` sin aviso. Un estado distinto puede confundir la detección de `bono_renewed` / `bono_exhausted`. |
-| `expireOverdueBonos` (diaria) | Hace lo mismo que `expireOverdueBonosScheduled` (web, cada hora). Es redundante. El aviso `bono_expired` está deduplicado (`bono:{id}:expired`), así que no habrá avisos dobles. |
-| `deleteOwnAccount` | Lo usa la app y no existe en la web. Hace `recursiveDelete(users/{uid})`, que borra también `notifications` y `fcmTokens`. Compatible. |
-
-Otros riesgos:
-- `firestore.rules` de este repo está **desactualizado**: no tiene reglas para `notifications`, `fcmTokens` ni `support_conversations`, y no permite escribir `pushNotificationsEnabled`. **No se debe desplegar** desde aquí. Las reglas válidas son las de `web_focus_club`.
-- La función `onAppointmentStatusPushNotification`, ya desplegada (ver `docs/publicacion_android_ios.md`), es la que hoy envía los push `appointment_status`. Se elimina al desplegar la web. Hasta entonces, los push antiguos (sin `route`) siguen funcionando gracias al modo de compatibilidad.
-
-Recomendación: retirar `createAppointment`, `approveAppointment`, `rejectAppointment`, `updateAppointmentSlot`, `assignBonoToUser` y `expireOverdueBonos` del codebase `portal`, o renombrarlas, una vez se confirme que ni la app ni el panel web las usan.
+- **Solo exporta `deleteOwnAccount`**, que es lo único que está desplegado desde aquí (Node 22). `scripts/check-exports.cjs` falla si se exporta cualquier otra cosa, y se ejecuta en `npm test` y como `predeploy` de functions.
+- Se han retirado del código las callables antiguas (`createAppointment`, `requestAppointment`, `approveAppointment`, `rejectAppointment`, `updateAppointmentSlot`, `assignBonoToUser`) y el scheduler `expireOverdueBonos`. Nunca se desplegaron desde este codebase: la `createAppointment` de producción es la de la web. Su código sigue disponible en el historial de git (commit `8429862`).
+- `deleteOwnAccount` también borra las entregas de `notification_deliveries` de ese `uid`. El cambio entra en producción al desplegar el codebase `portal` (opcional; ver la checklist).
+- `npm run deploy` solo despliega `functions:portal:deleteOwnAccount`.
+- `firestore.rules`, `firestore.indexes.json` y `storage.rules` de este repo son **solo para emuladores**. Están desactualizados y los `predeploy` de `firebase.json` bloquean su despliegue. Las reglas, los índices y el storage válidos son los de `web_focus_club`.
 
 ## 7. Dependencias pendientes
 
 1. **Desplegar la web** (manual): las functions de `a7496df` y su `firestore.rules`. Sin la regla de `notifications`, la app no puede leer el historial: el historial muestra error y el contador queda a 0.
-2. **iOS:** `Runner.entitlements` tiene `aps-environment = development`. Para TestFlight o App Store hace falta `production` (o que lo fije el perfil de distribución), además de la clave APNs subida a Firebase. Se ha añadido `UIBackgroundModes: remote-notification` a `Info.plist`.
-3. **Android:** sin canal propio, FCM usa su canal de respaldo ("Miscellaneous"). Para tener un canal "Focus Club" con importancia alta hay que crearlo de forma nativa (Kotlin o `flutter_local_notifications`) y declarar `com.google.firebase.messaging.default_notification_channel_id`.
+2. **iOS:** la configuración Release usa `RunnerRelease.entitlements` (`aps-environment = production`). Debug y Profile siguen con `Runner.entitlements` (`development`). `UIBackgroundModes: remote-notification` ya está en `Info.plist`. **Pendiente manual:** subir la clave APNs (.p8) a Firebase Console > Configuración del proyecto > Cloud Messaging y comprobar que el App ID tiene activado Push Notifications en Apple Developer.
+3. **Android:** `MainActivity` crea el canal `focus_club_default` ("Focus Club", importancia alta) y el manifest lo declara como canal por defecto de FCM. El backend envía `channelId: "focus_club_default"`, prioridad alta y sonido.
 4. **Publicar** nuevas versiones Android/iOS: es manual y no forma parte de este cambio.
 5. El badge del icono de la app (número sobre el icono) no se gestiona.
 
@@ -135,9 +125,14 @@ Comprobaciones:
 4. `support_message` con el chat de esa conversación abierto: no hay banner.
 5. Historial: el contador baja al abrir un aviso. "Marcar todas" deja el contador a 0.
 6. Cerrar sesión: el documento del token desaparece de `users/{uid}/fcmTokens`.
+7. Desactivar el push en Perfil: el documento del token de este dispositivo desaparece.
+8. Cerrar sesión con A e iniciar con B en el mismo móvil: los avisos de A ya no llegan a ese móvil.
+9. Android 8+: en Ajustes > Notificaciones de la app aparece el canal "Focus Club".
 
 Tests automáticos:
 - `test/notification_target_test.dart`
 - `test/notifications_history_test.dart`
 - `test/notification_navigation_test.dart`
 - `test/push_notification_service_test.dart`
+- `test/push_platform_config_test.dart` (canal Android y entitlements iOS)
+- `functions/test/deleteOwnAccount.test.cjs` (con `npm test` en `functions/`)

@@ -36,10 +36,12 @@ class FirebasePushNotificationService {
     TargetPlatform? targetPlatform,
     Future<void> Function(Duration duration)? delay,
     void Function(String message)? debugLog,
+    Duration tokenLookupTimeout = const Duration(seconds: 5),
   }) : _messaging = messaging ?? _FirebasePushMessagingClient(),
        _targetPlatform = targetPlatform,
        _delay = delay ?? Future<void>.delayed,
-       _debugLog = debugLog ?? debugPrint;
+       _debugLog = debugLog ?? debugPrint,
+       _tokenLookupTimeout = tokenLookupTimeout;
 
   static final instance = FirebasePushNotificationService();
 
@@ -47,6 +49,7 @@ class FirebasePushNotificationService {
   final TargetPlatform? _targetPlatform;
   final Future<void> Function(Duration duration) _delay;
   final void Function(String message) _debugLog;
+  final Duration _tokenLookupTimeout;
   StreamSubscription<String>? _tokenRefreshSubscription;
   PortalRepository? _repository;
   String? _uid;
@@ -112,6 +115,9 @@ class FirebasePushNotificationService {
     }
   }
 
+  /// Turns push off for the account and removes this device from its push
+  /// targets, so no registration is left behind for a phone that later
+  /// changes hands. The FCM token itself is kept: re-enabling re-registers it.
   Future<void> disableForUser({
     required String uid,
     required PortalRepository repository,
@@ -120,6 +126,9 @@ class FirebasePushNotificationService {
     _enabled = false;
     _repository = repository;
     await repository.setPushNotificationsEnabled(uid: uid, enabled: false);
+    final token = await _deviceToken();
+    _currentToken = null;
+    if (token != null) await _deleteTokenDoc(repository, uid, token);
   }
 
   Future<void> registerCurrentToken() async {
@@ -143,19 +152,37 @@ class FirebasePushNotificationService {
 
   /// Removes this device from the user's push targets before signing out so
   /// a signed out phone stops receiving that customer's notifications.
+  ///
+  /// The token is resolved from FCM when this session never registered it
+  /// (push disabled, a failed registration or a registration made by an
+  /// older build), and the FCM token is always invalidated so the next
+  /// account on this phone starts with a fresh one.
   /// Never throws: logout must not be blocked by a messaging failure.
   Future<void> unregisterCurrentDevice({
     required String uid,
     required PortalRepository repository,
   }) async {
-    final token = _currentToken;
-    if (token == null) return;
+    final token = await _deviceToken();
     _currentToken = null;
-    await _deleteTokenDoc(repository, uid, token);
+    if (token != null) await _deleteTokenDoc(repository, uid, token);
     try {
       await _messaging.deleteToken();
     } catch (error) {
       _logPush('deleteToken error=$error');
+    }
+  }
+
+  /// FCM token of this installation, or `null` when it cannot be obtained
+  /// quickly (offline, APNs not ready...). Never throws.
+  Future<String?> _deviceToken() async {
+    final cached = _currentToken;
+    if (cached != null) return cached;
+    try {
+      final token = await _messaging.getToken().timeout(_tokenLookupTimeout);
+      return token != null && token.trim().isNotEmpty ? token : null;
+    } catch (error) {
+      _logPush('token lookup error=$error');
+      return null;
     }
   }
 

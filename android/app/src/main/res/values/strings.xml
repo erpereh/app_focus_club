@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Focus Club</string>
+    <!-- Push notification channel (id: focus_club_default) -->
+    <string name="default_notification_channel_id" translatable="false">focus_club_default</string>
+    <string name="default_notification_channel_name">Focus Club</string>
+    <string name="default_notification_channel_description">Avisos de tus citas, tu bono y el chat con Focus Club</string>
 </resources>

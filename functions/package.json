@@ -5,8 +5,10 @@
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit",
+    "check:exports": "node scripts/check-exports.cjs",
+    "test": "npm run build && node --test test/deleteOwnAccount.test.cjs && npm run check:exports",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth,storage",
-    "deploy": "firebase deploy --only functions:portal"
+    "deploy": "firebase deploy --only functions:portal:deleteOwnAccount"
   },
   "engines": {
     "node": "22"

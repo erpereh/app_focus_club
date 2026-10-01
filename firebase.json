@@ -1,15 +1,25 @@
 {
   "firestore": {
     "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "indexes": "firestore.indexes.json",
+    "predeploy": [
+      "node scripts/block-shared-deploy.cjs firestore"
+    ]
   },
   "storage": {
-    "rules": "storage.rules"
+    "rules": "storage.rules",
+    "predeploy": [
+      "node scripts/block-shared-deploy.cjs storage"
+    ]
   },
   "functions": [
     {
       "source": "functions",
-      "codebase": "portal"
+      "codebase": "portal",
+      "predeploy": [
+        "npm --prefix functions run build",
+        "npm --prefix functions run check:exports"
+      ]
     }
   ],
   "emulators": {

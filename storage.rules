@@ -1,4 +1,6 @@
 rules_version = '2';
+// EMULATOR ONLY. The deployed rules live in web_focus_club; deploying this
+// file is blocked by a predeploy hook in firebase.json.
 
 service firebase.storage {
   match /b/{bucket}/o {
