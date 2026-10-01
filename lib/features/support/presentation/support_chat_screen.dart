@@ -48,7 +48,14 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
   @override
   void dispose() {
-    widget.onConversationVisibilityChanged?.call(widget.conversation.id, false);
+    // Deferred: listeners may rebuild widgets and the tree is locked here.
+    final onVisibilityChanged = widget.onConversationVisibilityChanged;
+    final conversationId = widget.conversation.id;
+    if (onVisibilityChanged != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => onVisibilityChanged(conversationId, false),
+      );
+    }
     _messageController.dispose();
     _viewModel?.dispose();
     super.dispose();

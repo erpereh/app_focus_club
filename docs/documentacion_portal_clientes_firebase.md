@@ -34,7 +34,7 @@ Documento centrado exclusivamente en el portal autenticado de clientes (`/portal
 | Indices | `firestore.indexes.json` | Consultas actuales |
 | Soporte admin minimo | `src/app/admin/page.tsx` | Bonos, aprobacion, bloqueos, aforo, webhook |
 
-Quedan fuera: CMS publico `site_content`, paginas `centro`, `servicios`, `galeria`, `contacto`, `sandra`, media library, testimonios, servicios publicos, `activity_logs` salvo auditoria interna, admin CMS, pagos, chat, QR, rutinas, compra de bonos y notificaciones push.
+Quedan fuera: CMS publico `site_content`, paginas `centro`, `servicios`, `galeria`, `contacto`, `sandra`, media library, testimonios, servicios publicos, `activity_logs` salvo auditoria interna, admin CMS, pagos, QR, rutinas y compra de bonos. (El chat de soporte y las notificaciones push con historial se añadieron después; ver `docs/notificaciones_app.md`).
 
 ### Inferido con alta confianza
 - El admin solo debe documentarse cuando produce datos visibles o necesarios para el portal: bonos, estados de cita, slots bloqueados, ocupacion y entrenador asignado.

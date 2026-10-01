@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/app_theme.dart';
 import '../../theme/app_text_size.dart';
+import 'focus_count_badge.dart';
 
 class FocusBottomNav extends StatelessWidget {
   const FocusBottomNav({
@@ -185,26 +186,7 @@ class _NavItem extends StatelessWidget {
                         Positioned(
                           right: -8,
                           top: -6,
-                          child: DecoratedBox(
-                            decoration: const BoxDecoration(
-                              color: AppTheme.lime,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 1,
-                              ),
-                              child: Text(
-                                badgeCount! > 99 ? '99+' : '$badgeCount',
-                                style: const TextStyle(
-                                  color: AppTheme.onLime,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ),
+                          child: FocusCountBadge(count: badgeCount!),
                         ),
                     ],
                   ),

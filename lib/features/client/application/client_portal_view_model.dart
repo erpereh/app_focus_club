@@ -166,9 +166,13 @@ class ClientPortalViewModel extends ChangeNotifier {
   Timer? _appointmentBoundaryTimer;
   int _appointmentTimerGeneration = 0;
   bool _isDisposed = false;
+  bool _appointmentsLoaded = false;
 
   ClientPortalState _state = const ClientPortalState();
   ClientPortalState get state => _state;
+
+  /// Whether the appointments stream has emitted at least once.
+  bool get appointmentsLoaded => _appointmentsLoaded;
   DateTime get currentTime => _now();
 
   void start() {
@@ -338,6 +342,7 @@ class ClientPortalViewModel extends ChangeNotifier {
   }
 
   void _setAppointments(List<Appointment> appointments) {
+    _appointmentsLoaded = true;
     _state = _state.copyWith(appointments: appointments, isLoading: false);
     _scheduleAppointmentBoundary();
     notifyListeners();

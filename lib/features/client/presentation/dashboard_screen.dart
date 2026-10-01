@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../notifications/application/notifications_view_model.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 import '../../../shared/widgets/focus_buttons.dart';
 import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
@@ -20,6 +22,8 @@ class DashboardScreen extends StatelessWidget {
     required this.onOpenAppointments,
     required this.onOpenProfile,
     required this.onOpenBooking,
+    this.notificationsViewModel,
+    this.onOpenNotifications,
     super.key,
   });
 
@@ -28,6 +32,8 @@ class DashboardScreen extends StatelessWidget {
   final VoidCallback onOpenAppointments;
   final VoidCallback onOpenProfile;
   final VoidCallback onOpenBooking;
+  final NotificationsViewModel? notificationsViewModel;
+  final VoidCallback? onOpenNotifications;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +52,12 @@ class DashboardScreen extends StatelessWidget {
           AppTheme.navContentInset,
         ),
         children: [
-          _DashboardHeader(profile: profile, onOpenProfile: onOpenProfile),
+          _DashboardHeader(
+            profile: profile,
+            onOpenProfile: onOpenProfile,
+            notificationsViewModel: notificationsViewModel,
+            onOpenNotifications: onOpenNotifications,
+          ),
           const SizedBox(height: 28),
           if (pass == null)
             const FocusEmptyState(
@@ -130,10 +141,17 @@ class DashboardScreen extends StatelessWidget {
 }
 
 class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader({required this.profile, required this.onOpenProfile});
+  const _DashboardHeader({
+    required this.profile,
+    required this.onOpenProfile,
+    this.notificationsViewModel,
+    this.onOpenNotifications,
+  });
 
   final UserProfile? profile;
   final VoidCallback onOpenProfile;
+  final NotificationsViewModel? notificationsViewModel;
+  final VoidCallback? onOpenNotifications;
 
   @override
   Widget build(BuildContext context) {
@@ -185,11 +203,20 @@ class _DashboardHeader extends StatelessWidget {
             ],
           ),
         ),
-        IconButton(
-          tooltip: 'Abrir perfil',
-          onPressed: onOpenProfile,
-          icon: const Icon(Icons.person_outline_rounded, size: 22),
-        ),
+        if (notificationsViewModel != null && onOpenNotifications != null)
+          ListenableBuilder(
+            listenable: notificationsViewModel!,
+            builder: (context, _) => NotificationBellButton(
+              unreadCount: notificationsViewModel!.state.unreadCount,
+              onPressed: onOpenNotifications!,
+            ),
+          )
+        else
+          IconButton(
+            tooltip: 'Abrir perfil',
+            onPressed: onOpenProfile,
+            icon: const Icon(Icons.person_outline_rounded, size: 22),
+          ),
       ],
     );
   }

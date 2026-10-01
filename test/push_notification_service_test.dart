@@ -132,6 +132,172 @@ void main() {
     expect(repository.savedTokens, isEmpty);
     expect(repository.pushUpdates, [(uid: 'uid', enabled: false)]);
   });
+
+  test('token refresh saves the new token and removes the old one', () async {
+    final messaging = _FakePushMessagingClient(
+      authorizationStatus: AuthorizationStatus.authorized,
+      fcmToken: 'old-token',
+    );
+    final repository = _RecordingPortalRepository();
+    final service = FirebasePushNotificationService(
+      messaging: messaging,
+      targetPlatform: TargetPlatform.android,
+      delay: (_) async {},
+      debugLog: (_) {},
+    );
+
+    await service.enableForUser(uid: 'uid', repository: repository);
+    expect(service.currentToken, 'old-token');
+
+    messaging.emitTokenRefresh('new-token');
+    await pumpEventQueue();
+
+    expect(repository.savedTokens.map((entry) => entry.token), [
+      'old-token',
+      'new-token',
+    ]);
+    expect(repository.deletedTokens, [(uid: 'uid', token: 'old-token')]);
+    expect(service.currentToken, 'new-token');
+  });
+
+  test('token refresh is ignored while push is disabled', () async {
+    final messaging = _FakePushMessagingClient(
+      authorizationStatus: AuthorizationStatus.authorized,
+      fcmToken: 'token',
+    );
+    final repository = _RecordingPortalRepository();
+    final service = FirebasePushNotificationService(
+      messaging: messaging,
+      targetPlatform: TargetPlatform.android,
+      delay: (_) async {},
+      debugLog: (_) {},
+    );
+
+    await service.enableForUser(uid: 'uid', repository: repository);
+    await service.disableForUser(uid: 'uid', repository: repository);
+    messaging.emitTokenRefresh('new-token');
+    await pumpEventQueue();
+
+    expect(repository.savedTokens.map((entry) => entry.token), ['token']);
+    expect(repository.deletedTokens, isEmpty);
+  });
+
+  test('configureForUser registers the token of an enabled user', () async {
+    final messaging = _FakePushMessagingClient(
+      authorizationStatus: AuthorizationStatus.authorized,
+      fcmToken: 'token',
+    );
+    final repository = _RecordingPortalRepository();
+    final service = FirebasePushNotificationService(
+      messaging: messaging,
+      targetPlatform: TargetPlatform.android,
+      delay: (_) async {},
+      debugLog: (_) {},
+    );
+
+    await service.configureForUser(
+      uid: 'uid',
+      enabled: true,
+      repository: repository,
+    );
+
+    expect(messaging.requestPermissionCalls, 0);
+    expect(repository.savedTokens.single.token, 'token');
+    expect(service.currentToken, 'token');
+  });
+
+  test('unregisterCurrentDevice deletes the token doc and FCM token', () async {
+    final messaging = _FakePushMessagingClient(
+      authorizationStatus: AuthorizationStatus.authorized,
+      fcmToken: 'token',
+    );
+    final repository = _RecordingPortalRepository();
+    final service = FirebasePushNotificationService(
+      messaging: messaging,
+      targetPlatform: TargetPlatform.android,
+      delay: (_) async {},
+      debugLog: (_) {},
+    );
+
+    await service.enableForUser(uid: 'uid', repository: repository);
+    await service.unregisterCurrentDevice(uid: 'uid', repository: repository);
+
+    expect(repository.deletedTokens, [(uid: 'uid', token: 'token')]);
+    expect(messaging.deleteTokenCalls, 1);
+    expect(service.currentToken, isNull);
+  });
+
+  test(
+    'unregisterCurrentDevice is a no-op without a registered token',
+    () async {
+      final messaging = _FakePushMessagingClient(
+        authorizationStatus: AuthorizationStatus.authorized,
+      );
+      final repository = _RecordingPortalRepository();
+      final service = FirebasePushNotificationService(
+        messaging: messaging,
+        targetPlatform: TargetPlatform.android,
+        delay: (_) async {},
+        debugLog: (_) {},
+      );
+
+      await service.unregisterCurrentDevice(uid: 'uid', repository: repository);
+
+      expect(repository.deletedTokens, isEmpty);
+      expect(messaging.deleteTokenCalls, 0);
+    },
+  );
+
+  test('unregisterCurrentDevice never blocks logout on failures', () async {
+    final messaging = _FakePushMessagingClient(
+      authorizationStatus: AuthorizationStatus.authorized,
+      fcmToken: 'token',
+      deleteTokenFailure: StateError('offline'),
+    );
+    final repository = _RecordingPortalRepository()
+      ..deleteFailure = StateError('permission-denied');
+    final service = FirebasePushNotificationService(
+      messaging: messaging,
+      targetPlatform: TargetPlatform.android,
+      delay: (_) async {},
+      debugLog: (_) {},
+    );
+
+    await service.enableForUser(uid: 'uid', repository: repository);
+    await expectLater(
+      service.unregisterCurrentDevice(uid: 'uid', repository: repository),
+      completes,
+    );
+  });
+
+  test('foregroundMessages forwards pushes received in foreground', () async {
+    final messaging = _FakePushMessagingClient(
+      authorizationStatus: AuthorizationStatus.authorized,
+    );
+    final service = FirebasePushNotificationService(
+      messaging: messaging,
+      targetPlatform: TargetPlatform.android,
+      delay: (_) async {},
+      debugLog: (_) {},
+    );
+    final received = <RemoteMessage>[];
+    final subscription = service.foregroundMessages.listen(received.add);
+
+    messaging.emitMessage(
+      const RemoteMessage(
+        data: {
+          'type': 'appointment_status',
+          'event': 'appointment_confirmed',
+          'route': 'appointment',
+          'appointmentId': 'apt-1',
+        },
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(received.single.data['event'], 'appointment_confirmed');
+    await subscription.cancel();
+  });
 }
 
 class _FakePushMessagingClient implements PushMessagingClient {
@@ -139,18 +305,34 @@ class _FakePushMessagingClient implements PushMessagingClient {
     required this.authorizationStatus,
     this.apnsTokens = const [],
     this.fcmToken,
+    this.deleteTokenFailure,
   });
 
   final AuthorizationStatus authorizationStatus;
   final List<String?> apnsTokens;
   final String? fcmToken;
+  final Object? deleteTokenFailure;
   final _tokenRefreshController = StreamController<String>.broadcast();
+  final _messageController = StreamController<RemoteMessage>.broadcast();
   int requestPermissionCalls = 0;
   int apnsTokenCalls = 0;
   int getTokenCalls = 0;
+  int deleteTokenCalls = 0;
+
+  void emitTokenRefresh(String token) => _tokenRefreshController.add(token);
+  void emitMessage(RemoteMessage message) => _messageController.add(message);
 
   @override
   Stream<String> get onTokenRefresh => _tokenRefreshController.stream;
+
+  @override
+  Stream<RemoteMessage> get onMessage => _messageController.stream;
+
+  @override
+  Future<void> deleteToken() async {
+    deleteTokenCalls += 1;
+    if (deleteTokenFailure != null) throw deleteTokenFailure!;
+  }
 
   @override
   Future<String?> getAPNSToken() async {
@@ -180,6 +362,17 @@ class _FakePushMessagingClient implements PushMessagingClient {
 class _RecordingPortalRepository implements PortalRepository {
   final savedTokens = <({String uid, String token, String platform})>[];
   final pushUpdates = <({String uid, bool enabled})>[];
+  final deletedTokens = <({String uid, String token})>[];
+  Object? deleteFailure;
+
+  @override
+  Future<void> deleteFcmToken({
+    required String uid,
+    required String token,
+  }) async {
+    if (deleteFailure != null) throw deleteFailure!;
+    deletedTokens.add((uid: uid, token: token));
+  }
 
   @override
   Future<void> createAppointment(AppointmentRequest request) async {}

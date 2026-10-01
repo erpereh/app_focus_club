@@ -17,12 +17,16 @@ class AppRouter {
   static const completeGoogleProfile = '/auth/complete-google-profile';
   static const dashboard = '/dashboard';
 
+  static const dashboardTabHome = 0;
   static const dashboardTabAppointments = 1;
   static const dashboardTabChat = 2;
 
+  /// Tab for a notification `type` when no specific destination is known.
+  /// Detailed routing lives in NotificationTarget / NotificationNavigator.
   static int? dashboardTabForNotificationType(String? type) => switch (type) {
     'appointment_status' => dashboardTabAppointments,
     'support_message' => dashboardTabChat,
+    'bono_status' => dashboardTabHome,
     _ => null,
   };
 

@@ -16,6 +16,9 @@ class PushNotificationTokenUnavailable implements Exception {
 abstract interface class PushMessagingClient {
   Stream<String> get onTokenRefresh;
 
+  /// Pushes received while the app is in the foreground.
+  Stream<RemoteMessage> get onMessage;
+
   Future<NotificationSettings> requestPermission({
     required bool alert,
     required bool badge,
@@ -24,6 +27,7 @@ abstract interface class PushMessagingClient {
 
   Future<String?> getAPNSToken();
   Future<String?> getToken();
+  Future<void> deleteToken();
 }
 
 class FirebasePushNotificationService {
@@ -47,6 +51,14 @@ class FirebasePushNotificationService {
   PortalRepository? _repository;
   String? _uid;
   bool _enabled = false;
+  String? _currentToken;
+
+  /// Last FCM token this device registered in `users/{uid}/fcmTokens`.
+  String? get currentToken => _currentToken;
+
+  /// Foreground pushes. Background and terminated pushes carry a
+  /// `notification` block and are displayed by the OS.
+  Stream<RemoteMessage> get foregroundMessages => _messaging.onMessage;
 
   Future<void> configureForUser({
     required String uid,
@@ -87,6 +99,7 @@ class FirebasePushNotificationService {
         token: token,
         platform: _platformLabel(platform),
       );
+      _currentToken = token;
       await repository.setPushNotificationsEnabled(uid: uid, enabled: true);
       _uid = uid;
       _enabled = true;
@@ -121,6 +134,41 @@ class FirebasePushNotificationService {
       token: token,
       platform: _platformLabel(platform),
     );
+    final previous = _currentToken;
+    _currentToken = token;
+    if (previous != null && previous != token) {
+      await _deleteTokenDoc(repository, uid, previous);
+    }
+  }
+
+  /// Removes this device from the user's push targets before signing out so
+  /// a signed out phone stops receiving that customer's notifications.
+  /// Never throws: logout must not be blocked by a messaging failure.
+  Future<void> unregisterCurrentDevice({
+    required String uid,
+    required PortalRepository repository,
+  }) async {
+    final token = _currentToken;
+    if (token == null) return;
+    _currentToken = null;
+    await _deleteTokenDoc(repository, uid, token);
+    try {
+      await _messaging.deleteToken();
+    } catch (error) {
+      _logPush('deleteToken error=$error');
+    }
+  }
+
+  Future<void> _deleteTokenDoc(
+    PortalRepository repository,
+    String uid,
+    String token,
+  ) async {
+    try {
+      await repository.deleteFcmToken(uid: uid, token: token);
+    } catch (error) {
+      _logPush('deleteFcmToken error=$error');
+    }
   }
 
   Future<void> stop() async {
@@ -143,6 +191,13 @@ class FirebasePushNotificationService {
         token: token,
         platform: _platformLabel(_effectivePlatform),
       );
+      final previous = _currentToken;
+      _currentToken = token;
+      // The backend prunes invalid tokens after a failed send; deleting the
+      // rotated one here avoids that failed attempt.
+      if (previous != null && previous != token) {
+        await _deleteTokenDoc(repository, uid, previous);
+      }
     });
   }
 
@@ -219,6 +274,14 @@ class _FirebasePushMessagingClient implements PushMessagingClient {
   @override
   Future<String?> getToken() {
     return FirebaseMessaging.instance.getToken();
+  }
+
+  @override
+  Stream<RemoteMessage> get onMessage => FirebaseMessaging.onMessage;
+
+  @override
+  Future<void> deleteToken() {
+    return FirebaseMessaging.instance.deleteToken();
   }
 
   @override

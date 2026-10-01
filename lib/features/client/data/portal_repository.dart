@@ -110,6 +110,7 @@ abstract interface class PortalRepository {
     required String token,
     required String platform,
   });
+  Future<void> deleteFcmToken({required String uid, required String token});
 }
 
 class AppointmentRequest {
@@ -488,6 +489,16 @@ class FirebasePortalRepository implements PortalRepository {
       data['createdAt'] = FieldValue.serverTimestamp();
     }
     await tokenRef.set(data, SetOptions(merge: true));
+  }
+
+  @override
+  Future<void> deleteFcmToken({required String uid, required String token}) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('fcmTokens')
+        .doc(token)
+        .delete();
   }
 }
 
@@ -953,6 +964,12 @@ class FakePortalRepository implements PortalRepository {
     required String uid,
     required String token,
     required String platform,
+  }) async {}
+
+  @override
+  Future<void> deleteFcmToken({
+    required String uid,
+    required String token,
   }) async {}
 
   List<Appointment> _appointmentsFor(String uid) {

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/application/auth_scope.dart';
+import '../../notifications/application/notification_navigator.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../navigation/app_router.dart';
 import '../application/portal_scope.dart';
@@ -304,9 +305,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _signOut() async {
     final authRepository = AuthScope.of(context);
+    final portalRepository = PortalScope.of(context);
     final navigator = Navigator.of(context);
+    final uid = authRepository.currentSession?.uid;
     setState(() => _isSigningOut = true);
-    await FirebasePushNotificationService.instance.stop();
+    // Must run while still authenticated: rules require the owner.
+    if (uid != null) {
+      await widget.pushNotificationService.unregisterCurrentDevice(
+        uid: uid,
+        repository: portalRepository,
+      );
+    }
+    await widget.pushNotificationService.stop();
+    NotificationNavigator.instance.clear();
     await authRepository.signOut();
     if (!mounted) return;
     navigator.pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);
@@ -331,9 +342,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _statusMessage = null;
     });
 
+    final uid = authRepository.currentSession?.uid;
     try {
+      // Unregister first: the account deletion removes users/{uid}.
+      if (uid != null) {
+        await widget.pushNotificationService.unregisterCurrentDevice(
+          uid: uid,
+          repository: portalRepository,
+        );
+      }
       await portalRepository.deleteOwnAccount();
-      await FirebasePushNotificationService.instance.stop();
+      await widget.pushNotificationService.stop();
+      NotificationNavigator.instance.clear();
       await authRepository.signOut();
       if (!mounted) return;
       navigator.pushNamedAndRemoveUntil(AppRouter.auth, (route) => false);

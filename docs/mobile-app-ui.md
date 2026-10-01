@@ -402,7 +402,7 @@ Flujo de navegacion:
 
 - La app debe ser mobile-first.
 - No incluir panel admin ni accesos administrativos.
-- No incluir pagos, chat, notificaciones push, compra de bonos, QR, rutinas, metricas nuevas ni gestion avanzada de bonos.
+- No incluir pagos, compra de bonos, QR, rutinas, metricas nuevas ni gestion avanzada de bonos. El chat de soporte y las notificaciones (push + historial) ya existen; ver `docs/notificaciones_app.md`.
 - No inventar nuevos estados de cita fuera de `pending`, `approved` y `rejected`.
 - No inventar nuevos tipos de bono ni nuevas operaciones sobre bonos.
 - Mantener el foco en la accion principal: consultar estado y reservar sesion.
