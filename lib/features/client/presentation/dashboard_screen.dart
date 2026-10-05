@@ -331,11 +331,16 @@ class _NextAppointmentCard extends StatelessWidget {
                     const Expanded(
                       child: FocusKicker('Proxima cita', onDark: true),
                     ),
+                    const SizedBox(width: 12),
                     Flexible(
                       fit: FlexFit.loose,
-                      child: FocusStatusBadge(
-                        label: appointmentDisplayStatusLabel(appointment!),
-                        color: appointmentDisplayStatusColor(appointment!),
+                      child: Align(
+                        key: const Key('next-appointment-status'),
+                        alignment: Alignment.centerRight,
+                        child: FocusStatusBadge(
+                          label: appointmentDisplayStatusLabel(appointment!),
+                          color: appointmentDisplayStatusColor(appointment!),
+                        ),
                       ),
                     ),
                   ],

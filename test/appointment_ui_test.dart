@@ -13,6 +13,7 @@ import 'package:app_focus_club/features/client/widgets/client_cards.dart';
 import 'package:app_focus_club/shared/widgets/focus_buttons.dart';
 import 'package:app_focus_club/shared/widgets/focus_empty_state.dart';
 import 'package:app_focus_club/shared/widgets/focus_glass_card.dart';
+import 'package:app_focus_club/shared/widgets/focus_status_badge.dart';
 import 'package:app_focus_club/shared/widgets/focus_time_slot.dart';
 import 'package:app_focus_club/theme/app_text_size.dart';
 import 'package:flutter/material.dart';
@@ -294,6 +295,15 @@ void main() {
     expect(
       find.descendant(of: preview, matching: find.text('Pendiente')),
       findsOneWidget,
+    );
+    // The status badge sits at the right edge of the card, not mid-row.
+    final badge = find.ancestor(
+      of: find.descendant(of: preview, matching: find.text('Pendiente')),
+      matching: find.byType(FocusStatusBadge),
+    );
+    expect(
+      tester.getRect(badge).right,
+      moreOrLessEquals(tester.getRect(preview).right - 22, epsilon: 0.5),
     );
     expect(
       find.descendant(
