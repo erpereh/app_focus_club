@@ -27,14 +27,12 @@ Fecha: 2026-04-14
 - Configuracion oficial Flutter generada en `lib/firebase_options.dart`, `android/app/google-services.json` e `ios/Runner/GoogleService-Info.plist`.
 - Inicializacion base integrada con `Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)`.
 - Scaffold local de Cloud Functions TypeScript para `createAppointment`, alias legacy `requestAppointment`, `approveAppointment`, `rejectAppointment`, `updateAppointmentSlot`, `assignBonoToUser` y `expireOverdueBonos`.
-- Punto de integracion Make.com preparado en backend para `Reserva confirmada`, desactivado por defecto y mediante secreto `MAKE_RESERVATION_WEBHOOK_URL`.
 - Tests puros para sub-slots, capacidad, solape, bono activo unico y parsing de campos opcionales.
 
 ## Preparado pero no desplegado
 
 - Reglas Firestore/Storage locales. No se han desplegado al proyecto `focus-club-f73b8`.
 - Functions locales. No se han instalado dependencias npm, compilado ni desplegado.
-- Integracion Make.com. No se ha guardado el webhook como secreto y no se han hecho llamadas reales.
 - La app movil invoca `createAppointment` desde la UI de reserva y no escribe `appointments` directamente.
 - La UI movil usa el ViewModel del portal para dashboard, citas, bonos, disponibilidad, `site_config/main`, perfil y avatar.
 - `MockClientData` se elimino del codigo productivo.
@@ -46,8 +44,6 @@ Fecha: 2026-04-14
 - Confirmar en Firebase Console que los providers Email/Password y Google estan habilitados en Auth si aparece `operation-not-allowed`.
 - Registrar SHA de release/play signing en Firebase antes de probar Google Sign-In fuera de debug local.
 - Confirmar cuando endurecer reglas en produccion, porque la web/admin existente aun puede depender de creacion directa de `appointments`.
-- Confirmar payload exacto esperado por Make.com para `Reserva confirmada`.
-- Confirmar si el backend administrativo emitira `Reserva eliminada`; no pertenece a la app movil V1.
 
 ## Pasos recomendados para Android/iOS
 

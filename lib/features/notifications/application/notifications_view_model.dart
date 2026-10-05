@@ -12,6 +12,7 @@ class NotificationsState {
     this.isLoading = true,
     this.error,
     this.isMarkingAll = false,
+    this.isClearing = false,
   });
 
   final List<AppNotification> notifications;
@@ -19,6 +20,7 @@ class NotificationsState {
   final bool isLoading;
   final Object? error;
   final bool isMarkingAll;
+  final bool isClearing;
 
   bool get hasUnread => unreadCount > 0;
 
@@ -29,6 +31,7 @@ class NotificationsState {
     Object? error,
     bool clearError = false,
     bool? isMarkingAll,
+    bool? isClearing,
   }) {
     return NotificationsState(
       notifications: notifications ?? this.notifications,
@@ -36,6 +39,7 @@ class NotificationsState {
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : error ?? this.error,
       isMarkingAll: isMarkingAll ?? this.isMarkingAll,
+      isClearing: isClearing ?? this.isClearing,
     );
   }
 }
@@ -116,6 +120,59 @@ class NotificationsViewModel extends ChangeNotifier {
       );
     } catch (error) {
       _emit(_state.copyWith(isMarkingAll: false, error: error));
+    }
+  }
+
+  /// Removes one entry from `users/{uid}/notifications`. Optimistic; the
+  /// previous list comes back if Firestore rejects it. Returns false then.
+  Future<bool> deleteNotification(String id) async {
+    final previous = _state;
+    final index = previous.notifications.indexWhere((item) => item.id == id);
+    if (index < 0) return true;
+    final removed = previous.notifications[index];
+    _emit(
+      previous.copyWith(
+        notifications: [
+          for (final item in previous.notifications)
+            if (item.id != id) item,
+        ],
+        unreadCount: !removed.read && previous.unreadCount > 0
+            ? previous.unreadCount - 1
+            : previous.unreadCount,
+        clearError: true,
+      ),
+    );
+    try {
+      await _repository.deleteNotification(uid: _uid, id: id);
+      return true;
+    } catch (error) {
+      debugPrint('[Notifications] delete failed: $error');
+      _emit(previous.copyWith(error: error));
+      return false;
+    }
+  }
+
+  /// Deletes the whole history of the signed-in customer. Returns false if
+  /// Firestore rejects it (the previous list comes back).
+  Future<bool> clearAll() async {
+    if (_state.notifications.isEmpty || _state.isClearing) return true;
+    final previous = _state;
+    _emit(
+      previous.copyWith(
+        notifications: const [],
+        unreadCount: 0,
+        isClearing: true,
+        clearError: true,
+      ),
+    );
+    try {
+      await _repository.clearAll(_uid);
+      _emit(_state.copyWith(isClearing: false));
+      return true;
+    } catch (error) {
+      debugPrint('[Notifications] clear failed: $error');
+      _emit(previous.copyWith(isClearing: false, error: error));
+      return false;
     }
   }
 

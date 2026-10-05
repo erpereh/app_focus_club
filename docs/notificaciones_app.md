@@ -14,7 +14,7 @@ La app consume el sistema de notificaciones de `web_focus_club` (commit `a7496df
 | Modelo y parseo | `lib/features/notifications/domain/notification_models.dart` | `NotificationTarget` (destino), `AppNotification` (documento de historial) |
 | Iconos y fechas | `lib/features/notifications/domain/notification_presentation.dart` | Icono, color y etiqueta por `event`; fecha relativa en español |
 | Historial | `lib/features/notifications/data/notifications_repository.dart` | Lee y marca como leído `users/{uid}/notifications` |
-| Estado | `lib/features/notifications/application/notifications_view_model.dart` | Lista, contador de no leídas, marcar una, marcar todas |
+| Estado | `lib/features/notifications/application/notifications_view_model.dart` | Lista, contador de no leídas, marcar una, marcar todas, eliminar una, vaciar |
 | Navegación | `lib/features/notifications/application/notification_navigator.dart` | Guarda el destino hasta que hay sesión y la shell está montada |
 | UI | `lib/features/notifications/presentation/` | Pantalla de historial, campana con contador, banner en primer plano |
 | Push | `lib/features/client/data/push_notification_service.dart` | Permisos, tokens, mensajes en primer plano |
@@ -68,9 +68,12 @@ Otros detalles:
 - El contador de no leídas usa `where('read', isEqualTo: false)`.
 - Ninguna de las dos consultas necesita índices compuestos.
 
-**Marcado:**
+**Marcado y borrado:**
 - Una entrada: `update({read: true, readAt: serverTimestamp()})`. Las reglas web solo permiten modificar esos dos campos.
 - Marcar todas: lotes de hasta 450 escrituras.
+- Eliminar una: deslizar la tarjeta a la izquierda muestra el botón rojo "Eliminar" (o la acción de accesibilidad "Eliminar notificación"). Borra solo `users/{uid}/notifications/{id}`. Deslizar a la derecha, tocar la tarjeta abierta o abrir otra cancela.
+- Vaciar notificaciones: acción de la barra superior, con confirmación. Borra todos los documentos de `users/{uid}/notifications` (no solo los 100 cargados) en lotes de hasta 450.
+- Borrar nunca toca `notification_deliveries`, `notification_outbox`, `email_dispatches` ni `push_dispatches`. Si Firestore rechaza el borrado, la lista se restaura y se muestra un aviso.
 
 **Acceso desde la app:**
 - Campana con contador en la cabecera de Inicio (`dashboard-notifications-bell`). El contador muestra `99+` a partir de 100.
@@ -123,7 +126,7 @@ Comprobaciones:
 2. App en **segundo plano**: aparece la notificación del sistema y al pulsarla se abre el detalle.
 3. App **cerrada y sin sesión**: al pulsar se abre el login; tras iniciar sesión se abre el detalle.
 4. `support_message` con el chat de esa conversación abierto: no hay banner.
-5. Historial: el contador baja al abrir un aviso. "Marcar todas" deja el contador a 0.
+5. Historial: el contador baja al abrir un aviso. "Marcar todas" deja el contador a 0. Deslizar y eliminar quita solo ese aviso; "Vaciar notificaciones" pide confirmación y deja el estado vacío; tras reiniciar la app lo borrado no vuelve.
 6. Cerrar sesión: el documento del token desaparece de `users/{uid}/fcmTokens`.
 7. Desactivar el push en Perfil: el documento del token de este dispositivo desaparece.
 8. Cerrar sesión con A e iniciar con B en el mismo móvil: los avisos de A ya no llegan a ese móvil.

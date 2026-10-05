@@ -32,7 +32,7 @@ Documento centrado exclusivamente en el portal autenticado de clientes (`/portal
 | Calendario | `src/components/ui/interactive-calendar.tsx` | Disponibilidad |
 | Reglas | `firestore.rules`, `storage.rules` | Permisos reales |
 | Indices | `firestore.indexes.json` | Consultas actuales |
-| Soporte admin minimo | `src/app/admin/page.tsx` | Bonos, aprobacion, bloqueos, aforo, webhook |
+| Soporte admin minimo | `src/app/admin/page.tsx` | Bonos, aprobacion, bloqueos, aforo |
 
 Quedan fuera: CMS publico `site_content`, paginas `centro`, `servicios`, `galeria`, `contacto`, `sandra`, media library, testimonios, servicios publicos, `activity_logs` salvo auditoria interna, admin CMS, pagos, QR, rutinas y compra de bonos. (El chat de soporte y las notificaciones push con historial se añadieron después; ver `docs/notificaciones_app.md`).
 
@@ -54,13 +54,12 @@ Quedan fuera: CMS publico `site_content`, paginas `centro`, `servicios`, `galeri
 | DB | Firestore SDK cliente | `src/lib/firestore.ts` |
 | Storage | Firebase Storage | `uploadUserAvatar`, `storage.rules` |
 | Hosting | Firebase Hosting/export estatico | `firebase.json`, `package.json` |
-| Externo | Webhook Make.com | `src/app/admin/page.tsx`, `sendWebhook` |
 
 ### Inferido con alta confianza
 - No hay backend compartido propio detectado; varias escrituras sensibles se hacen desde cliente web/admin.
 
 ### Propuesto para Firebase
-- Mantener Firestore/Auth/Storage. Anadir Cloud Functions o backend compartido solo para operaciones sensibles: reserva, aprobacion/rechazo, asignacion/expiracion de bonos, aforo y webhook.
+- Mantener Firestore/Auth/Storage. Anadir Cloud Functions o backend compartido solo para operaciones sensibles: reserva, aprobacion/rechazo, asignacion/expiracion de bonos, aforo y avisos (Brevo + FCM + historial).
 
 ## 4. Pantallas, rutas y modulos del portal de clientes
 
@@ -369,7 +368,7 @@ Esquema textual: Cliente -> tiene muchos -> Citas. Cliente -> tiene muchos -> Bo
 - Faltan validaciones backend para longitud de comentario/nombre, fecha futura, slot dentro de horario, capacidad real al escribir y unicidad de bono activo.
 
 ### Propuesto para Firebase
-- Mover a backend compartido: bono activo/minutos, disponibilidad/no solape, fecha futura, transiciones de estado, descuentos/devoluciones y webhook.
+- Mover a backend compartido: bono activo/minutos, disponibilidad/no solape, fecha futura, transiciones de estado, descuentos/devoluciones y avisos.
 - Mantener reglas para ownership y campos permitidos.
 
 ## 16. Procesos automaticos que afectan al cliente
@@ -386,13 +385,13 @@ Esquema textual: Cliente -> tiene muchos -> Citas. Cliente -> tiene muchos -> Bo
 | Descontar minutos | aprobar cita | `bonos`, `historial` | `deductBonoMinutes` |
 | Devolver minutos | revertir aprobacion | `bonos`, `historial` | `returnBonoMinutes` |
 | Sincronizar aforo | aprobar/revertir/modificar | `slot_occupancy` | `incrementSlotOccupancy`, `decrementSlotOccupancy` |
-| Webhook confirmacion | aprobacion admin | Make.com payload | `sendWebhook` |
+| Aviso de confirmacion | aprobacion admin | Brevo + FCM + historial | `onAppointmentCustomerNotification` |
 
 ### Inferido con alta confianza
 - La expiracion de bonos depende hoy de que el admin cargue el panel o de un calculo local del cliente sin escritura real.
 
 ### Propuesto para Firebase
-- Migrar expiracion a scheduled Cloud Function. Ejecutar webhook y side effects de aprobacion desde backend.
+- Migrar expiracion a scheduled Cloud Function. Ejecutar avisos y side effects de aprobacion desde backend.
 
 ## 17. Dependencias con sistemas internos
 
@@ -405,7 +404,6 @@ Esquema textual: Cliente -> tiene muchos -> Citas. Cliente -> tiene muchos -> Bo
 | Admin disponibilidad | `blocked_slots`, `slot_occupancy` | calendario correcto |
 | Admin equipo | `trainers` | nombre entrenador |
 | Admin config | `site_config/main` | horarios, expiracion, mantenimiento |
-| Make webhook | payload externo | **pendiente por confirmar** si es obligatorio |
 
 ### Inferido con alta confianza
 - Se puede simplificar el backoffice a operaciones minimas; no hace falta migrar CMS ni media manager para que funcione el portal.
@@ -439,7 +437,7 @@ storage/user-avatars/{uid}/{fileName}
 
 Lectura directa cliente: perfil propio, citas propias, bonos propios, disponibilidad, entrenadores activos y config de slots.
 
-Escritura directa cliente: perfil seguro y avatar. Escritura via backend: crear cita, aprobar/rechazar/modificar cita, asignar/ajustar/expirar bono, sincronizar aforo y webhook.
+Escritura directa cliente: perfil seguro y avatar. Escritura via backend: crear cita, aprobar/rechazar/modificar cita, asignar/ajustar/expirar bono, sincronizar aforo y avisos.
 
 ## 19. Modelo de datos compartido recomendado para web y app
 
@@ -518,20 +516,20 @@ Indices derivados de consultas reales:
 - Operaciones sensibles estan en `src/lib/firestore.ts` y `src/app/admin/page.tsx`.
 
 ### Inferido con alta confianza
-- Web y app compartidas no deberian duplicar validaciones de bono, disponibilidad, aforo y webhook.
+- Web y app compartidas no deberian duplicar validaciones de bono, disponibilidad, aforo y avisos.
 
 ### Propuesto para Firebase
 
 | Funcion | Tipo | Prioridad | Objetivo |
 | --- | --- | --- | --- |
 | `requestAppointment` | callable | V1 imprescindible | Crear `pending` validando ownership, perfil, bono, minutos, slot y fecha |
-| `approveAppointment` | callable/HTTP admin | paridad | Cambiar a `approved`, set `approvedSlot`, trainer, descontar bono, incrementar aforo, webhook |
+| `approveAppointment` | callable/HTTP admin | paridad | Cambiar a `approved`, set `approvedSlot`, trainer, descontar bono, incrementar aforo, aviso al cliente |
 | `rejectAppointment` | callable/HTTP admin | paridad | Cambiar a `rejected`; devolver minutos/decrementar aforo si aplica |
 | `updateAppointmentSlot` | callable/HTTP admin | paridad | Cambiar franja y ajustar aforo si estaba aprobada |
 | `assignBonoToUser` | callable/HTTP admin | V1 imprescindible si hay bonos | Desactivar bono activo anterior y crear nuevo |
 | `adjustBonoMinutes` | callable/HTTP admin | paridad | Sumar/restar minutos manualmente |
 | `expireOverdueBonos` | scheduled | paridad | Marcar vencidos sin depender de admin web |
-| `sendAppointmentWebhook` | integrada o trigger | pendiente/paridad | Enviar Make.com desde backend si sigue vigente |
+| `onAppointmentCustomerNotification` | trigger | hecho | Avisos de citas por Brevo, FCM e historial |
 
 No se propone coleccion nueva; estas funciones escriben en las colecciones existentes.
 
@@ -574,7 +572,6 @@ Excluidos: `site_content/main` para paginas publicas, `services`, `testimonials`
 ### Actual detectado en codigo
 - No hay constraint fuerte visible para maximo un bono activo por usuario.
 - No hay Cloud Functions detectadas.
-- Webhook Make.com hardcodeado en `src/app/admin/page.tsx`.
 - `serviceType` se escribe como "Bono Mensual de Entrenamiento", pero existen labels legacy `training`, `competition`, `nutrition`, `assessment`.
 - `trainerNotes` existe; el cliente no lo edita.
 
@@ -587,7 +584,6 @@ Excluidos: `site_content/main` para paginas publicas, `services`, `testimonials`
 Pendiente por confirmar:
 
 - unicidad exacta de bono activo;
-- obligatoriedad futura del webhook Make.com;
 - normalizacion definitiva de `serviceType`;
 - si se quiere permitir cancelacion cliente; no existe en portal actual;
 - limites maximos de `reason`, `name` y `phone` mas alla de validacion actual.
@@ -603,7 +599,6 @@ Pendiente por confirmar:
 | Ocupacion derivada manual | `incrementSlotOccupancy`, `decrementSlotOccupancy` | `slot_occupancy` puede no coincidir |
 | Expiracion dependiente del admin | `refreshData` llama `expireOverdueBonos` | cliente puede ver stale |
 | Bono activo unico no garantizado | `assignBono` desactiva anterior y crea nuevo | dos writers podrian crear activos |
-| Webhook en UI/admin | `sendWebhook` | fallo navegador/red pierde side effect |
 | Cliente crea cita directa | reglas permiten `appointments.create` | web/app duplican logica sensible |
 
 ### Inferido con alta confianza
@@ -623,7 +618,7 @@ El portal permite autenticacion Firebase, perfil, bono de minutos, reserva de se
 La nueva arquitectura no necesita copiar el backoffice completo; necesita portar el nucleo operativo y las dependencias internas minimas.
 
 ### Propuesto para Firebase
-Usar una unica base Firestore compartida por web y app con las colecciones existentes, y centralizar en backend las operaciones que cruzan citas, bonos, aforo y webhook.
+Usar una unica base Firestore compartida por web y app con las colecciones existentes, y centralizar en backend las operaciones que cruzan citas, bonos, aforo y avisos.
 
 ## B. Esquema de datos resumido
 
@@ -671,7 +666,7 @@ Mantener este esquema sin colecciones nuevas para V1.
 Sin `trainers` se puede tener V1 funcional, pero no paridad de detalle de cita aprobada cuando hay entrenador asignado.
 
 ### Propuesto para Firebase
-V1 funcional: auth, perfil, bono activo, citas propias, reserva pendiente y disponibilidad. Paridad: avatar, entrenadores, aprobacion/descuento/devolucion y webhook si aplica.
+V1 funcional: auth, perfil, bono activo, citas propias, reserva pendiente y disponibilidad. Paridad: avatar, entrenadores, aprobacion/descuento/devolucion y avisos.
 
 ## D. Checklist de implementacion
 
@@ -695,7 +690,7 @@ V1 funcional: auth, perfil, bono activo, citas propias, reserva pendiente y disp
 - [ ] Implementar `requestAppointment`.
 - [ ] Implementar aprobar/rechazar/modificar cita en backend.
 - [ ] Implementar asignar/ajustar/expirar bonos en backend.
-- [ ] Mover webhook Make al backend si sigue vigente.
+- [x] Avisos de citas en backend (Brevo + FCM + historial).
 - [ ] Exponer capa de datos comun para web y app.
 - [ ] No crear estructuras distintas por plataforma.
 

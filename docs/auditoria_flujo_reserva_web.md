@@ -5,12 +5,12 @@
 Este documento describe el flujo real actual del portal cliente web de Focus Club para tres áreas que deberán replicarse o revisarse en la futura app móvil:
 
 1. reserva de citas
-2. automatización actual con Make
+2. avisos de citas
 3. foto de perfil del cliente
 
 Conclusión principal de la reserva: **B) La web escribe directamente en Firestore y habría que cambiarla**.
 
-La evidencia del repositorio muestra que la creación de la cita del cliente no pasa por Cloud Functions ni por una API HTTP propia. El flujo actual termina en una escritura directa con Firebase client SDK sobre la colección `appointments`. Además, la integración con Make no forma parte del alta inicial de la reserva, sino de acciones administrativas posteriores sobre citas. El avatar del cliente sí usa Firebase Storage y después persiste `photoURL` en `users/{uid}`.
+La evidencia del repositorio muestra que la creación de la cita del cliente no pasa por Cloud Functions ni por una API HTTP propia. El flujo actual termina en una escritura directa con Firebase client SDK sobre la colección `appointments`. Los avisos de citas no forman parte del alta inicial de la reserva, sino de acciones administrativas posteriores. El avatar del cliente sí usa Firebase Storage y después persiste `photoURL` en `users/{uid}`.
 
 ## Flujo real de reserva paso a paso
 
@@ -255,55 +255,11 @@ En [firestore.rules](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/firesto
 
 **B) La web escribe directamente en Firestore y habría que cambiarla.**
 
-La creación de la cita del cliente termina en `addDoc(collection(db, 'appointments'), ...)` desde el cliente web. No se ha encontrado Cloud Function, backend propio ni endpoint HTTP del flujo de reserva. La automatización con Make existe, pero está en admin y no forma parte del alta inicial de la cita del cliente.
+La creación de la cita del cliente termina en `addDoc(collection(db, 'appointments'), ...)` desde el cliente web. No se ha encontrado Cloud Function, backend propio ni endpoint HTTP del flujo de reserva. Los avisos de citas dependen de acciones admin y no forman parte del alta inicial de la cita del cliente.
 
-## Automatización actual con Make
+## Avisos de citas
 
-La integración actual con Make está en [src/app/admin/page.tsx](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/src/app/admin/page.tsx):160.
-
-### Dónde aparece y cómo se ejecuta
-
-- el webhook se define como `WEBHOOK_URL` ([src/app/admin/page.tsx](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/src/app/admin/page.tsx):161)
-- la función que lo usa es `sendWebhook(payload)` ([src/app/admin/page.tsx](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/src/app/admin/page.tsx):163)
-- el mecanismo es `fetch` directo por `POST` con `Content-Type: application/json` ([src/app/admin/page.tsx](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/src/app/admin/page.tsx):174)
-
-### Payload enviado a Make
-
-`sendWebhook` envía este payload:
-
-- `action: 'confirmed' | 'deleted'`
-- `customerName`
-- `customerEmail`
-- `date`
-- `time`
-- `sessionType`
-- `trainerName`
-
-### Flujo funcional real
-
-Este webhook **no pertenece al flujo cliente de creación de reserva**.
-
-Pertenece al flujo admin y se ejecuta después de acciones administrativas sobre citas:
-
-- tras aprobar una cita, después de `handleStatusUpdate(selectedAppointmentId, 'approved', extra)` ([src/app/admin/page.tsx](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/src/app/admin/page.tsx):6219)
-- antes de eliminar una cita ([src/app/admin/page.tsx](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/src/app/admin/page.tsx):2695)
-
-Dependencia funcional respecto a citas:
-
-- requiere que ya exista una cita en Firestore
-- depende de que un admin la apruebe o la elimine
-- usa datos de la propia cita y del entrenador asignado
-- no interviene en `handleSubmitAppointment`
-- no interviene en `addAppointment`
-- no forma parte del flujo real de reserva del cliente
-
-### Manejo de errores
-
-`sendWebhook` tiene `try/catch` y solo hace `console.error` si falla ([src/app/admin/page.tsx](C:/Users/Perez/Documents/AA_Clientes/web_focus_club/src/app/admin/page.tsx):172). No hay retry, cola ni confirmación transaccional con la cita.
-
-### Implicación para móvil
-
-No debería replicarse directamente en la app móvil. Por cómo está implementado hoy, es una automatización lateral del flujo admin y debería quedar desacoplada del cliente. Si se mantiene en el sistema futuro, su ubicación lógica debería ser backend o Cloud Functions, no Flutter cliente.
+En el momento de la auditoría, el panel admin disparaba desde el navegador un aviso externo al aprobar o eliminar una cita, sin reintentos ni cola. Esa integración está retirada. Hoy los avisos de citas salen del backend y el único sistema es Brevo (email), FCM (push) y el historial en Firestore; ver `notifications-contract.md` en `web_focus_club/docs`.
 
 ## Flujo actual de foto de perfil del cliente
 
@@ -487,25 +443,9 @@ Qué debería cambiarse o moverse a backend:
 - la validación del bono y de aforo
 - cualquier operación sensible que hoy depende del cliente
 
-### 2. Make
+### 2. Avisos de citas
 
-Qué hace hoy la web:
-
-- el panel admin envía un webhook HTTP a Make al aprobar o eliminar citas
-
-Qué habría que replicar en móvil:
-
-- nada en la app cliente si el objetivo es mantener la misma separación funcional
-
-Qué se puede reutilizar tal cual:
-
-- el payload conceptual del evento
-- la lógica de negocio de “cita confirmada” y “cita eliminada” como eventos del sistema
-
-Qué debería cambiarse o moverse a backend:
-
-- el webhook completo
-- su disparo, si continúa existiendo, debería quedar en backend o Cloud Functions
+Nada que replicar en la app cliente: los avisos los genera el backend. Hoy los avisos de citas salen del backend y el único sistema es Brevo (email), FCM (push) y el historial en Firestore; ver `notifications-contract.md` en `web_focus_club/docs`. La app solo registra su token FCM y muestra el historial.
 
 ### 3. Foto de perfil
 
