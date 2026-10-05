@@ -484,10 +484,7 @@ void main() {
       expect(harness.repository.deletedIds, isEmpty);
       expect(harness.repository.notifications, isEmpty);
       expect(find.text('Sin notificaciones'), findsOneWidget);
-      final button = tester.widget<IconButton>(
-        find.byKey(const Key('notifications-clear-all')),
-      );
-      expect(button.onPressed, isNull);
+      expect(find.byKey(const Key('notifications-clear-all')), findsNothing);
     });
 
     testWidgets('keeps the notification and warns if deletion fails', (
@@ -532,14 +529,25 @@ void main() {
       await pumpScreen(tester, const []);
 
       expect(find.text('Sin notificaciones'), findsOneWidget);
-      final button = tester.widget<IconButton>(
-        find.byKey(const Key('notifications-mark-all')),
+      expect(
+        find.text(
+          'Aquí verás los avisos de tus citas, bonos y mensajes del chat.',
+        ),
+        findsOneWidget,
       );
-      expect(button.onPressed, isNull);
-      final clear = tester.widget<IconButton>(
-        find.byKey(const Key('notifications-clear-all')),
+      expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
+      // Nothing to act on: no greyed-out actions in the app bar.
+      expect(find.byKey(const Key('notifications-mark-all')), findsNothing);
+      expect(find.byKey(const Key('notifications-clear-all')), findsNothing);
+
+      // Compact text block in the upper half, not a full-height card.
+      final screen = tester.getSize(find.byType(Scaffold));
+      final block = tester.getRect(
+        find.byKey(const Key('notifications-empty')),
       );
-      expect(clear.onPressed, isNull);
+      expect(block.height, lessThan(screen.height / 4));
+      expect(block.center.dy, lessThan(screen.height / 2));
+      expect(block.top, greaterThan(screen.height / 5));
     });
   });
 

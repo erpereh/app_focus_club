@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
 import '../../../shared/widgets/focus_count_badge.dart';
-import '../../../shared/widgets/focus_empty_state.dart';
 import '../../../shared/widgets/focus_glass_card.dart';
 import '../../../shared/widgets/focus_status_message.dart';
 import '../../../theme/app_theme.dart';
@@ -109,23 +108,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               onPressed: () => Navigator.of(context).pop(),
               icon: const Icon(Icons.arrow_back_rounded),
             ),
+            // Nothing to mark or clear on an empty history: hide the actions
+            // instead of showing them greyed out.
             actions: [
-              IconButton(
-                key: const Key('notifications-mark-all'),
-                tooltip: 'Marcar todas como leídas',
-                onPressed: state.hasUnread && !state.isMarkingAll
-                    ? _viewModel.markAllRead
-                    : null,
-                icon: const Icon(Icons.done_all_rounded),
-              ),
-              IconButton(
-                key: const Key('notifications-clear-all'),
-                tooltip: 'Vaciar notificaciones',
-                onPressed: state.notifications.isNotEmpty && !state.isClearing
-                    ? _confirmClearAll
-                    : null,
-                icon: const Icon(Icons.delete_sweep_rounded),
-              ),
+              if (state.notifications.isNotEmpty) ...[
+                IconButton(
+                  key: const Key('notifications-mark-all'),
+                  tooltip: 'Marcar todas como leídas',
+                  onPressed: state.hasUnread && !state.isMarkingAll
+                      ? _viewModel.markAllRead
+                      : null,
+                  icon: const Icon(Icons.done_all_rounded),
+                ),
+                IconButton(
+                  key: const Key('notifications-clear-all'),
+                  tooltip: 'Vaciar notificaciones',
+                  onPressed: state.notifications.isNotEmpty && !state.isClearing
+                      ? _confirmClearAll
+                      : null,
+                  icon: const Icon(Icons.delete_sweep_rounded),
+                ),
+              ],
               const SizedBox(width: 8),
             ],
           ),
@@ -146,22 +149,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (state.error != null && state.notifications.isEmpty) {
       return const Padding(
         padding: EdgeInsets.fromLTRB(20, 12, 20, 36),
-        child: FocusStatusMessage(
-          message: 'No hemos podido cargar tus notificaciones.',
-          type: FocusStatusType.error,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: FocusStatusMessage(
+            message: 'No hemos podido cargar tus notificaciones.',
+            type: FocusStatusType.error,
+          ),
         ),
       );
     }
     if (state.notifications.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(20, 12, 20, 36),
-        child: FocusEmptyState(
-          title: 'Sin notificaciones',
-          description:
-              'Aquí verás los avisos de tus citas, bonos y mensajes del chat.',
-          icon: Icons.notifications_none_rounded,
-        ),
-      );
+      return const _EmptyNotifications();
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
@@ -201,6 +199,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Text-only empty history, centred slightly above the middle of the screen.
+class _EmptyNotifications extends StatelessWidget {
+  const _EmptyNotifications();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 12, 32, 36),
+      child: Align(
+        alignment: const Alignment(0, -0.25),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Semantics(
+            liveRegion: true,
+            child: Column(
+              key: const Key('notifications-empty'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Sin notificaciones',
+                  textAlign: TextAlign.center,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Aquí verás los avisos de tus citas, bonos y mensajes del chat.',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
