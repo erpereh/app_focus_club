@@ -21,7 +21,8 @@ class ClientAppointmentCard extends StatelessWidget {
        timeLabel = appointment.timeLabel,
        durationMinutes = appointment.durationMinutes,
        assignedTrainer = trainerName ?? appointment.assignedTrainer,
-       isRecurring = appointment.isRecurring;
+       isRecurring = appointment.isRecurring,
+       isNutrition = appointment.isNutrition;
 
   final String serviceType;
   final String statusLabel;
@@ -32,6 +33,7 @@ class ClientAppointmentCard extends StatelessWidget {
   final int durationMinutes;
   final String? assignedTrainer;
   final bool isRecurring;
+  final bool isNutrition;
   final VoidCallback onTap;
 
   @override
@@ -108,6 +110,7 @@ class ClientAppointmentCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             [
+                              if (isNutrition) 'Nutrición',
                               ?assignedTrainer,
                               if (isRecurring) 'Recurrente',
                             ].where((part) => part.isNotEmpty).join(' · '),

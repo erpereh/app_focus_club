@@ -697,15 +697,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('Servicio'),
+      find.text('Tipo de cita'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    final serviceLabel = tester.getTopLeft(find.text('Servicio'));
-    final serviceValue = tester.getTopLeft(
-      find.text('Bono Mensual de Entrenamiento').last,
-    );
-    expect(serviceValue.dy, greaterThan(serviceLabel.dy));
+    final typeLabel = tester.getTopLeft(find.text('Tipo de cita'));
+    final typeValue = tester.getTopLeft(find.text('Entrenamiento').last);
+    expect(typeValue.dy, greaterThan(typeLabel.dy));
 
     await tester.scrollUntilVisible(
       find.text('Cancelar cita'),

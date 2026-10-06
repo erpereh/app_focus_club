@@ -86,6 +86,12 @@ abstract interface class PortalRepository {
   Future<void> createRecurringAppointments(RecurringAppointmentRequest request);
   Future<void> cancelOwnAppointment(String appointmentId);
   Future<void> cancelOwnRecurringAppointmentSeries(String seriesId);
+
+  /// Accepts or declines a counter-proposal or a renewed appointment.
+  Future<void> respondToAppointmentConfirmation({
+    required String appointmentId,
+    required CustomerConfirmationAction action,
+  });
   Future<void> updateOwnAppointmentSlot({
     required String appointmentId,
     required TimeSlot preferredSlot,
@@ -113,22 +119,27 @@ abstract interface class PortalRepository {
   Future<void> deleteFcmToken({required String uid, required String token});
 }
 
+enum CustomerConfirmationAction { accept, decline }
+
 class AppointmentRequest {
   const AppointmentRequest({
     required this.durationMinutes,
     required this.preferredSlot,
     required this.reason,
+    this.appointmentType = AppointmentType.training,
   });
 
   final int durationMinutes;
   final TimeSlot preferredSlot;
   final String reason;
+  final AppointmentType appointmentType;
 
   Map<String, Object?> toCallablePayload() {
     return {
       'duration': durationMinutes.toString(),
       'preferredSlot': preferredSlot.toMap(),
       'reason': reason,
+      'appointmentType': appointmentType.name,
     };
   }
 }
@@ -408,6 +419,16 @@ class FirebasePortalRepository implements PortalRepository {
   }
 
   @override
+  Future<void> respondToAppointmentConfirmation({
+    required String appointmentId,
+    required CustomerConfirmationAction action,
+  }) async {
+    await _functions
+        .httpsCallable('respondToAppointmentConfirmation')
+        .call<Object?>({'appointmentId': appointmentId, 'action': action.name});
+  }
+
+  @override
   Future<void> cancelOwnRecurringAppointmentSeries(String seriesId) async {
     await _functions
         .httpsCallable('cancelOwnRecurringAppointmentSeries')
@@ -639,6 +660,43 @@ String appointmentMutationErrorMessage(Object error) {
   return 'No hemos podido actualizar la cita. Inténtalo de nuevo.';
 }
 
+/// Copy for a failed acceptance/decline (proposals and renewed appointments).
+String customerConfirmationErrorMessage(Object error) {
+  if (error is FirebaseFunctionsException) {
+    final mapped = switch (_callableReason(error)) {
+      'slot_full' =>
+        'Esta franja se ha completado y ya no está disponible. Contacta con Focus Club para elegir otra.',
+      'slot_blocked' =>
+        'Esta franja se ha bloqueado y ya no está disponible. Contacta con Focus Club para elegir otra.',
+      'slot_not_future' => 'Esta franja ya ha pasado y no se puede confirmar.',
+      'appointment_conflict' => 'Ya tienes otra cita en esta franja.',
+      'outside_schedule' =>
+        'Esta franja ya no está dentro del horario del centro.',
+      'trainer_unavailable' ||
+      'trainer_not_nutrition' ||
+      'professional_conflict' =>
+        'El profesional ya no está disponible en esta franja. Contacta con Focus Club.',
+      'already_responded' => 'Ya has respondido a esta cita.',
+      'proposal_not_pending' ||
+      'no_confirmation_pending' ||
+      'appointment_not_pending' =>
+        'Esta cita ya no está pendiente de tu respuesta.',
+      _ => null,
+    };
+    if (mapped != null) return mapped;
+    final original = _originalCallableMessage(error);
+    return switch (error.code) {
+      'unauthenticated' => 'Tu sesión ha caducado. Vuelve a iniciar sesión.',
+      'permission-denied' => 'No puedes responder por esta cita.',
+      'unavailable' || 'deadline-exceeded' =>
+        'No hay conexión. Revisa la red e inténtalo de nuevo.',
+      'failed-precondition' when original != null => original,
+      _ => 'No hemos podido guardar tu respuesta. Inténtalo de nuevo.',
+    };
+  }
+  return 'No hemos podido guardar tu respuesta. Inténtalo de nuevo.';
+}
+
 String recurringSeriesMutationErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
     if (callableErrorReason(error) == _sameDayChangeNotAllowedReason) {
@@ -729,6 +787,11 @@ class FakePortalRepository implements PortalRepository {
   final List<RecurringAppointmentRequest> recurringRequests = [];
   final List<String> cancelledAppointmentIds = [];
   final List<String> cancelledSeriesIds = [];
+  final List<({String appointmentId, CustomerConfirmationAction action})>
+  confirmationResponses = [];
+
+  /// Failure per appointment id for [respondToAppointmentConfirmation].
+  final Map<String, Object> confirmationFailures = {};
   final List<({String appointmentId, TimeSlot preferredSlot})> slotUpdates = [];
   final List<RecurringOccurrenceRescheduleRequest>
   recurringOccurrenceRescheduleRequests = [];
@@ -877,6 +940,16 @@ class FakePortalRepository implements PortalRepository {
   @override
   Future<void> cancelOwnAppointment(String appointmentId) async {
     cancelledAppointmentIds.add(appointmentId);
+  }
+
+  @override
+  Future<void> respondToAppointmentConfirmation({
+    required String appointmentId,
+    required CustomerConfirmationAction action,
+  }) async {
+    final failure = confirmationFailures[appointmentId];
+    if (failure != null) throw failure;
+    confirmationResponses.add((appointmentId: appointmentId, action: action));
   }
 
   @override

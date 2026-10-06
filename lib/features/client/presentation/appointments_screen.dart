@@ -10,6 +10,8 @@ import '../application/client_portal_view_model.dart';
 import '../domain/portal_models.dart';
 import '../widgets/client_cards.dart';
 import 'appointment_detail_screen.dart';
+import 'appointments_calendar_view.dart';
+import 'renewal_confirmation_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({
@@ -29,6 +31,14 @@ class AppointmentsScreen extends StatefulWidget {
 
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
   int _tabIndex = 0;
+
+  void _openRenewals() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RenewalConfirmationScreen(viewModel: widget.viewModel),
+      ),
+    );
+  }
 
   void _openDetail(Appointment appointment) {
     Navigator.of(context).push(
@@ -70,10 +80,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   onPressed: widget.onOpenBooking,
                 ),
                 const SizedBox(height: 20),
+                if (widget.state.pendingRenewalsAt(widget.viewModel.currentTime)
+                    case final renewals when renewals.isNotEmpty) ...[
+                  PendingRenewalsBanner(
+                    count: renewals.length,
+                    onReview: _openRenewals,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 FocusSegmentedControl(
                   options: const [
                     FocusSegmentOption(value: 0, label: 'Proximas'),
                     FocusSegmentOption(value: 1, label: 'Historial'),
+                    FocusSegmentOption(value: 2, label: 'Calendario'),
                   ],
                   selectedValue: _tabIndex,
                   onChanged: (value) {
@@ -97,6 +116,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   )
                 : widget.state.isLoading
                 ? const Center(child: CircularProgressIndicator())
+                : _tabIndex == 2
+                ? AppointmentsCalendarView(
+                    appointments: widget.state.appointments,
+                    now: widget.viewModel.currentTime,
+                    onOpenDetail: _openDetail,
+                    trainerNameFor: _trainerName,
+                    bottomPadding: listBottomPadding,
+                  )
                 : _AppointmentsList(
                     tabIndex: _tabIndex,
                     appointments: _tabIndex == 0

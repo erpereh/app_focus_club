@@ -4,12 +4,119 @@ enum AppointmentStatus {
   rejected,
   cancelled;
 
+  /// Unknown values (a status added after this build) are shown as pending so
+  /// a single document never breaks the whole appointments stream.
   static AppointmentStatus fromWire(String value) {
     return AppointmentStatus.values.firstWhere(
       (status) => status.name == value,
-      orElse: () => throw FormatException('Unknown appointment status: $value'),
+      orElse: () => AppointmentStatus.pending,
     );
   }
+}
+
+/// Appointment kind. Documents written before nutrition existed have no
+/// `appointmentType` and are always training.
+enum AppointmentType {
+  training,
+  nutrition;
+
+  static AppointmentType fromWire(Object? value) {
+    return value == 'nutrition'
+        ? AppointmentType.nutrition
+        : AppointmentType.training;
+  }
+}
+
+/// Every nutrition consultation lasts 30 minutes and never uses bono minutes.
+const nutritionDurationMinutes = 30;
+
+/// Why the appointment is waiting for the customer (status stays `pending`).
+enum CustomerConfirmationKind {
+  /// The admin offered another slot for the customer's request.
+  proposal,
+
+  /// The admin pre-booked it when assigning a new bono.
+  renewal;
+
+  static CustomerConfirmationKind? fromWire(Object? value) {
+    return switch (value) {
+      'proposal' => CustomerConfirmationKind.proposal,
+      'renewal' => CustomerConfirmationKind.renewal,
+      _ => null,
+    };
+  }
+}
+
+class CustomerConfirmation {
+  const CustomerConfirmation({
+    required this.kind,
+    this.renewalId,
+    this.response,
+    this.requestedAt,
+  });
+
+  final CustomerConfirmationKind kind;
+  final String? renewalId;
+
+  /// `accepted` / `declined` once answered.
+  final String? response;
+  final String? requestedAt;
+
+  bool get isAnswered => response != null && response!.isNotEmpty;
+
+  static CustomerConfirmation? fromWire(Object? value) {
+    if (value is! Map) return null;
+    final map = value.cast<Object?, Object?>();
+    final kind = CustomerConfirmationKind.fromWire(map['kind']);
+    if (kind == null) return null;
+    return CustomerConfirmation(
+      kind: kind,
+      renewalId: parseOptionalNonEmptyString(map['renewalId']),
+      response: parseOptionalNonEmptyString(map['response']),
+      requestedAt: stringifyDate(map['requestedAt']),
+    );
+  }
+}
+
+class AppointmentProposal {
+  const AppointmentProposal({
+    required this.status,
+    required this.proposedSlot,
+    this.originalSlot,
+    this.proposedTrainer,
+    this.proposedAt,
+  });
+
+  /// `pending`, `accepted`, `declined` or `superseded`.
+  final String status;
+  final TimeSlot proposedSlot;
+  final TimeSlot? originalSlot;
+  final String? proposedTrainer;
+  final String? proposedAt;
+
+  bool get isPending => status == 'pending';
+
+  static AppointmentProposal? fromWire(Object? value) {
+    if (value is! Map) return null;
+    final map = value.cast<Object?, Object?>();
+    final proposed = _optionalSlot(map['proposedSlot']);
+    if (proposed == null) return null;
+    return AppointmentProposal(
+      status: parseOptionalNonEmptyString(map['status']) ?? 'pending',
+      proposedSlot: proposed,
+      originalSlot: _optionalSlot(map['originalSlot']),
+      proposedTrainer: parseOptionalNonEmptyString(map['proposedTrainer']),
+      proposedAt: stringifyDate(map['proposedAt']),
+    );
+  }
+}
+
+TimeSlot? _optionalSlot(Object? value) {
+  if (value is! Map) return null;
+  final date = value['date'];
+  final time = value['time'];
+  if (date is! String || time is! String) return null;
+  return TimeSlot(date: date, time: time);
 }
 
 enum BonoStatus {
@@ -124,6 +231,10 @@ class Appointment {
     this.legacyTime,
     this.recurrenceSeriesId,
     this.recurrenceIndex,
+    this.appointmentType = AppointmentType.training,
+    this.customerConfirmation,
+    this.proposal,
+    this.renewalOriginalSlot,
   });
 
   final String id;
@@ -146,8 +257,35 @@ class Appointment {
   final String? legacyTime;
   final String? recurrenceSeriesId;
   final int? recurrenceIndex;
+  final AppointmentType appointmentType;
+  final CustomerConfirmation? customerConfirmation;
+  final AppointmentProposal? proposal;
+  final TimeSlot? renewalOriginalSlot;
 
   bool get isRecurring => recurrenceSeriesId != null;
+
+  bool get isNutrition => appointmentType == AppointmentType.nutrition;
+
+  /// Open request waiting for this customer's answer (proposal or renewal).
+  CustomerConfirmation? get openCustomerConfirmation {
+    final confirmation = customerConfirmation;
+    if (status != AppointmentStatus.pending ||
+        confirmation == null ||
+        confirmation.isAnswered) {
+      return null;
+    }
+    if (confirmation.kind == CustomerConfirmationKind.proposal &&
+        proposal?.isPending != true) {
+      return null;
+    }
+    return confirmation;
+  }
+
+  bool get awaitsProposalAnswer =>
+      openCustomerConfirmation?.kind == CustomerConfirmationKind.proposal;
+
+  bool get awaitsRenewalConfirmation =>
+      openCustomerConfirmation?.kind == CustomerConfirmationKind.renewal;
 
   factory Appointment.fromMap(String id, Map<String, Object?> map) {
     final rawSlots = (map['preferredSlots'] as List<Object?>? ?? const []);
@@ -182,6 +320,12 @@ class Appointment {
         map['recurrenceSeriesId'],
       ),
       recurrenceIndex: parseOptionalInt(map['recurrenceIndex']),
+      appointmentType: AppointmentType.fromWire(map['appointmentType']),
+      customerConfirmation: CustomerConfirmation.fromWire(
+        map['customerConfirmation'],
+      ),
+      proposal: AppointmentProposal.fromWire(map['proposal']),
+      renewalOriginalSlot: _optionalSlot(map['renewalOriginalSlot']),
     );
   }
 
@@ -204,6 +348,8 @@ class Appointment {
       if (updatedAt != null) 'updatedAt': updatedAt,
       if (recurrenceSeriesId != null) 'recurrenceSeriesId': recurrenceSeriesId,
       if (recurrenceIndex != null) 'recurrenceIndex': recurrenceIndex,
+      if (appointmentType == AppointmentType.nutrition)
+        'appointmentType': 'nutrition',
     };
   }
 
@@ -211,6 +357,8 @@ class Appointment {
     final legacySlot = legacyDate == null || legacyTime == null
         ? null
         : TimeSlot(date: legacyDate!, time: legacyTime!);
+    // While a counter-proposal is open, the slot to decide on is the proposed one.
+    if (awaitsProposalAnswer) return proposal!.proposedSlot;
     return switch (status) {
       AppointmentStatus.approved =>
         approvedSlot ?? preferredSlots.firstOrNull ?? legacySlot,

@@ -506,6 +506,12 @@ class _RecordingPortalRepository implements PortalRepository {
   Future<void> cancelOwnRecurringAppointmentSeries(String seriesId) async {}
 
   @override
+  Future<void> respondToAppointmentConfirmation({
+    required String appointmentId,
+    required CustomerConfirmationAction action,
+  }) async {}
+
+  @override
   Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
     String uid,
   ) => const Stream.empty();

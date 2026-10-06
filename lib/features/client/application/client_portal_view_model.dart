@@ -54,6 +54,13 @@ class ClientPortalState {
   List<Appointment> get activeAppointments =>
       activeAppointmentsAt(DateTime.now());
 
+  /// Renewed appointments waiting for the customer, soonest first.
+  List<Appointment> pendingRenewalsAt(DateTime now) {
+    return activeAppointmentsAt(
+      now,
+    ).where((item) => item.awaitsRenewalConfirmation).toList(growable: false);
+  }
+
   List<Appointment> dashboardAppointmentsAt(DateTime now) {
     return activeAppointmentsAt(now).take(2).toList(growable: false);
   }
@@ -232,14 +239,48 @@ class ClientPortalViewModel extends ChangeNotifier {
     required int durationMinutes,
     required TimeSlot preferredSlot,
     required String reason,
+    AppointmentType appointmentType = AppointmentType.training,
   }) async {
     await _repository.createAppointment(
       AppointmentRequest(
-        durationMinutes: durationMinutes,
+        durationMinutes: appointmentType == AppointmentType.nutrition
+            ? nutritionDurationMinutes
+            : durationMinutes,
         preferredSlot: preferredSlot,
         reason: reason,
+        appointmentType: appointmentType,
       ),
     );
+  }
+
+  Future<void> respondToAppointmentConfirmation({
+    required String appointmentId,
+    required CustomerConfirmationAction action,
+  }) {
+    return _repository.respondToAppointmentConfirmation(
+      appointmentId: appointmentId,
+      action: action,
+    );
+  }
+
+  /// Accepts every renewed appointment still waiting, one by one, so a slot
+  /// that filled up meanwhile only fails itself. Returns failures by id.
+  Future<Map<String, Object>> confirmAllRenewedAppointments(
+    Iterable<Appointment> appointments,
+  ) async {
+    final failures = <String, Object>{};
+    for (final appointment in appointments) {
+      if (!appointment.awaitsRenewalConfirmation) continue;
+      try {
+        await _repository.respondToAppointmentConfirmation(
+          appointmentId: appointment.id,
+          action: CustomerConfirmationAction.accept,
+        );
+      } catch (error) {
+        failures[appointment.id] = error;
+      }
+    }
+    return failures;
   }
 
   Future<void> createRecurringAppointments({

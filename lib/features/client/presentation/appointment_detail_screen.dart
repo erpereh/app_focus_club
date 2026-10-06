@@ -34,7 +34,9 @@ class AppointmentDetailScreen extends StatefulWidget {
 
 class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
   bool _isCancelling = false;
+  bool _isResponding = false;
   String? _errorMessage;
+  String? _successMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -58,16 +60,33 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         final series = appointment.recurrenceSeriesId == null
             ? null
             : state.recurringSeriesById[appointment.recurrenceSeriesId];
-        final showModify = canModifyAppointment(appointment, now);
+        final openConfirmation = appointment.openCustomerConfirmation;
+        final canRespond =
+            openConfirmation != null &&
+            (appointment.schedulingDateTime?.isAfter(now) ?? false);
+        // While the customer has to answer, Aceptar/Rechazar replace the
+        // modify/cancel actions (declining already cancels and refunds).
+        final showModify =
+            openConfirmation == null && canModifyAppointment(appointment, now);
         final showCancelSeries = canCancelRecurringSeries(
           appointment,
           state.appointments,
           now,
         );
-        final showCancelOccurrence = canCancelAppointmentOccurrence(
-          appointment,
-          now,
-        );
+        final showCancelOccurrence =
+            openConfirmation == null &&
+            canCancelAppointmentOccurrence(appointment, now);
+        final proposedTrainerName =
+            appointment.proposal?.proposedTrainer == null
+            ? null
+            : state.trainers
+                      .where(
+                        (trainer) =>
+                            trainer.id == appointment.proposal!.proposedTrainer,
+                      )
+                      .map((trainer) => trainer.name)
+                      .firstOrNull ??
+                  appointment.proposal!.proposedTrainer;
         final showActions =
             showModify || showCancelSeries || showCancelOccurrence;
         final showSeriesTodayWarning = recurringPendingSeriesHasOccurrenceToday(
@@ -168,9 +187,34 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     ],
                   ),
                 ),
+                if (_successMessage != null) ...[
+                  const SizedBox(height: 18),
+                  FocusStatusMessage(
+                    message: _successMessage!,
+                    type: FocusStatusType.success,
+                  ),
+                ],
+                if (canRespond) ...[
+                  const SizedBox(height: 18),
+                  _ConfirmationCard(
+                    appointment: appointment,
+                    trainerName:
+                        openConfirmation.kind ==
+                            CustomerConfirmationKind.proposal
+                        ? proposedTrainerName
+                        : assignedTrainer,
+                    isBusy: _isResponding,
+                    onAccept: () => _respond(
+                      appointment,
+                      CustomerConfirmationAction.accept,
+                    ),
+                    onDecline: () => _confirmDecline(appointment),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 _DetailGrid(
                   serviceType: appointment.serviceType,
+                  appointmentType: appointment.appointmentType,
                   durationMinutes: appointment.durationMinutes,
                   dateLabel: appointment.dateLabel,
                   timeLabel: appointment.timeLabel,
@@ -196,7 +240,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                               appointment.timeLabel,
                         ),
                         _DetailLine(
-                          label: 'Entrenador',
+                          label: appointment.isNutrition
+                              ? 'Profesional'
+                              : 'Entrenador',
                           value: assignedTrainer,
                         ),
                         if (appointment.sessionType != null)
@@ -318,6 +364,79 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _confirmDecline(Appointment appointment) async {
+    final isProposal = appointment.awaitsProposalAnswer;
+    final shouldDecline = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: Text(
+          isProposal
+              ? '¿Rechazar la hora propuesta?'
+              : '¿Rechazar esta cita renovada?',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              isProposal
+                  ? 'Tu solicitud quedará rechazada y se devolverán los minutos reservados. Podrás pedir otra cita cuando quieras.'
+                  : 'La cita se cancelará y se devolverán sus minutos a tu bono.',
+            ),
+            const SizedBox(height: 22),
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Volver'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+                foregroundColor: AppTheme.white,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: const Text('Rechazar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (shouldDecline != true || !mounted) return;
+    await _respond(appointment, CustomerConfirmationAction.decline);
+  }
+
+  Future<void> _respond(
+    Appointment appointment,
+    CustomerConfirmationAction action,
+  ) async {
+    if (_isResponding) return;
+    setState(() {
+      _isResponding = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+    try {
+      await widget.viewModel.respondToAppointmentConfirmation(
+        appointmentId: appointment.id,
+        action: action,
+      );
+      if (!mounted) return;
+      setState(() {
+        _successMessage = action == CustomerConfirmationAction.accept
+            ? 'Cita confirmada.'
+            : 'Has rechazado la cita.';
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = customerConfirmationErrorMessage(error));
+      }
+    } finally {
+      if (mounted) setState(() => _isResponding = false);
+    }
   }
 
   Future<void> _openEdit(Appointment appointment) async {
@@ -631,12 +750,14 @@ class _ScopeCard extends StatelessWidget {
 class _DetailGrid extends StatelessWidget {
   const _DetailGrid({
     required this.serviceType,
+    required this.appointmentType,
     required this.durationMinutes,
     required this.dateLabel,
     required this.timeLabel,
   });
 
   final String serviceType;
+  final AppointmentType appointmentType;
   final int durationMinutes;
   final String dateLabel;
   final String timeLabel;
@@ -649,10 +770,92 @@ class _DetailGrid extends StatelessWidget {
         children: [
           const FocusKicker('Franja propuesta'),
           const SizedBox(height: 14),
-          _DetailLine(label: 'Servicio', value: serviceType),
+          // The service is already the screen title.
+          _DetailLine(
+            label: 'Tipo de cita',
+            value: appointmentTypeLabel(appointmentType),
+          ),
           _DetailLine(label: 'Duracion', value: '$durationMinutes min'),
           _DetailLine(label: 'Fecha', value: dateLabel),
           _DetailLine(label: 'Hora', value: timeLabel),
+        ],
+      ),
+    );
+  }
+}
+
+/// Answer card for a counter-proposal or a renewed appointment.
+class _ConfirmationCard extends StatelessWidget {
+  const _ConfirmationCard({
+    required this.appointment,
+    required this.trainerName,
+    required this.isBusy,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final Appointment appointment;
+  final String? trainerName;
+  final bool isBusy;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final proposal = appointment.proposal;
+    final isProposal = appointment.awaitsProposalAnswer && proposal != null;
+    final slot = isProposal
+        ? proposal.proposedSlot
+        : appointment.schedulingSlot;
+    return FocusGlassCard(
+      key: const Key('appointment-confirmation-card'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FocusKicker(
+            isProposal
+                ? 'Nueva hora propuesta'
+                : 'Pendiente de tu confirmación',
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isProposal
+                ? 'La hora solicitada no está disponible. Te proponemos esta otra. ¿Quieres confirmarla?'
+                : 'Hemos preparado esta cita con tu nuevo bono. Confírmala para reservar tu plaza.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 14),
+          if (isProposal && proposal.originalSlot != null)
+            _DetailLine(
+              label: 'Solicitaste',
+              value:
+                  '${proposal.originalSlot!.dateLabel} · ${proposal.originalSlot!.timeRangeLabel(appointment.durationMinutes)}',
+            ),
+          if (slot != null)
+            _DetailLine(
+              label: isProposal ? 'Propuesta' : 'Fecha',
+              value:
+                  '${slot.dateLabel} · ${slot.timeRangeLabel(appointment.durationMinutes)}',
+            ),
+          if (trainerName != null)
+            _DetailLine(
+              label: appointment.isNutrition ? 'Profesional' : 'Entrenador',
+              value: trainerName!,
+            ),
+          const SizedBox(height: 6),
+          FocusPrimaryButton(
+            key: const Key('confirmation-accept'),
+            label: isProposal ? 'Aceptar nueva hora' : 'Confirmar cita',
+            isLoading: isBusy,
+            onPressed: isBusy ? null : onAccept,
+          ),
+          const SizedBox(height: 10),
+          FocusGhostButton(
+            key: const Key('confirmation-decline'),
+            label: 'Rechazar',
+            icon: Icons.close_rounded,
+            onPressed: isBusy ? null : onDecline,
+          ),
         ],
       ),
     );

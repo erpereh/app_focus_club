@@ -13,6 +13,77 @@ const pendingSeriesHasOccurrenceTodayMessage =
 
 const portalServiceLabel = 'Bono Mensual de Entrenamiento';
 
+const nutritionServiceLabel = 'Consulta de nutrición';
+
+String appointmentTypeLabel(AppointmentType type) {
+  return switch (type) {
+    AppointmentType.training => 'Entrenamiento',
+    AppointmentType.nutrition => 'Nutrición',
+  };
+}
+
+/// Visual state shared by cards, detail and calendar. Derived from the stored
+/// status plus the open customer confirmation and whether the slot passed.
+enum AppointmentDisplayStatus {
+  pending,
+  awaitingConfirmation,
+  proposalPending,
+  approved,
+  rejected,
+  cancelled,
+  completed,
+  notCompleted,
+}
+
+AppointmentDisplayStatus appointmentDisplayStatusOf(
+  Appointment appointment, {
+  DateTime? now,
+}) {
+  final date = appointment.schedulingDateTime;
+  final isPast = date != null && !date.isAfter(now ?? DateTime.now());
+  return switch (appointment.status) {
+    AppointmentStatus.approved =>
+      isPast
+          ? AppointmentDisplayStatus.completed
+          : AppointmentDisplayStatus.approved,
+    AppointmentStatus.pending when isPast =>
+      AppointmentDisplayStatus.notCompleted,
+    AppointmentStatus.pending when appointment.awaitsProposalAnswer =>
+      AppointmentDisplayStatus.proposalPending,
+    AppointmentStatus.pending when appointment.awaitsRenewalConfirmation =>
+      AppointmentDisplayStatus.awaitingConfirmation,
+    AppointmentStatus.pending => AppointmentDisplayStatus.pending,
+    AppointmentStatus.rejected => AppointmentDisplayStatus.rejected,
+    AppointmentStatus.cancelled => AppointmentDisplayStatus.cancelled,
+  };
+}
+
+String appointmentDisplayStatusText(AppointmentDisplayStatus status) {
+  return switch (status) {
+    AppointmentDisplayStatus.pending => 'Pendiente',
+    AppointmentDisplayStatus.awaitingConfirmation => 'Por confirmar',
+    AppointmentDisplayStatus.proposalPending => 'Nueva hora propuesta',
+    AppointmentDisplayStatus.approved => 'Aprobada',
+    AppointmentDisplayStatus.rejected => 'Rechazada',
+    AppointmentDisplayStatus.cancelled => 'Cancelada',
+    AppointmentDisplayStatus.completed => 'Realizada',
+    AppointmentDisplayStatus.notCompleted => 'No realizada',
+  };
+}
+
+Color appointmentDisplayStatusTone(AppointmentDisplayStatus status) {
+  return switch (status) {
+    AppointmentDisplayStatus.pending ||
+    AppointmentDisplayStatus.notCompleted => AppTheme.amber,
+    AppointmentDisplayStatus.awaitingConfirmation => const Color(0xFF6AA7FF),
+    AppointmentDisplayStatus.proposalPending => AppTheme.info,
+    AppointmentDisplayStatus.approved ||
+    AppointmentDisplayStatus.completed => AppTheme.success,
+    AppointmentDisplayStatus.rejected => AppTheme.danger,
+    AppointmentDisplayStatus.cancelled => AppTheme.textSecondary,
+  };
+}
+
 String formatMinutesDuration(int minutes) {
   if (minutes <= 0) return '0min';
   final hours = minutes ~/ 60;
@@ -77,34 +148,31 @@ String appointmentStatusDescription(AppointmentStatus status) {
 }
 
 String appointmentDisplayStatusLabel(Appointment appointment, {DateTime? now}) {
-  final date = appointment.schedulingDateTime;
-  final isPast = date != null && !date.isAfter(now ?? DateTime.now());
-  if (isPast) {
-    if (appointment.status == AppointmentStatus.approved) return 'Realizada';
-    if (appointment.status == AppointmentStatus.pending) return 'No realizada';
-  }
-  return appointmentStatusLabel(appointment.status);
+  return appointmentDisplayStatusText(
+    appointmentDisplayStatusOf(appointment, now: now),
+  );
 }
 
 String appointmentDisplayStatusDescription(
   Appointment appointment, {
   DateTime? now,
 }) {
-  final date = appointment.schedulingDateTime;
-  final isPast = date != null && !date.isAfter(now ?? DateTime.now());
-  if (isPast) {
-    if (appointment.status == AppointmentStatus.approved) {
-      return 'Esta cita ya se ha realizado.';
-    }
-    if (appointment.status == AppointmentStatus.pending) {
-      return 'La hora de esta solicitud ha pasado sin confirmacion.';
-    }
-  }
-  return appointmentStatusDescription(appointment.status);
+  return switch (appointmentDisplayStatusOf(appointment, now: now)) {
+    AppointmentDisplayStatus.completed => 'Esta cita ya se ha realizado.',
+    AppointmentDisplayStatus.notCompleted =>
+      'La hora de esta solicitud ha pasado sin confirmacion.',
+    AppointmentDisplayStatus.proposalPending =>
+      'La hora solicitada no está disponible. Revisa la nueva hora propuesta.',
+    AppointmentDisplayStatus.awaitingConfirmation =>
+      'Cita renovada con tu nuevo bono. Confírmala para reservar tu plaza.',
+    _ => appointmentStatusDescription(appointment.status),
+  };
 }
 
-Color appointmentDisplayStatusColor(Appointment appointment) {
-  return appointmentStatusColor(appointment.status);
+Color appointmentDisplayStatusColor(Appointment appointment, {DateTime? now}) {
+  return appointmentDisplayStatusTone(
+    appointmentDisplayStatusOf(appointment, now: now),
+  );
 }
 
 bool canManageAppointmentAt(Appointment appointment, DateTime now) {

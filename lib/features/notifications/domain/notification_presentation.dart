@@ -56,6 +56,21 @@ NotificationVisual notificationVisualFor({
       color: AppTheme.warning,
       label: 'Recordatorio de cita',
     ),
+    'appointment_proposed' => const NotificationVisual(
+      icon: Icons.event_note_rounded,
+      color: AppTheme.info,
+      label: 'Nueva hora propuesta',
+    ),
+    'appointment_proposal_declined' => const NotificationVisual(
+      icon: Icons.event_busy_rounded,
+      color: AppTheme.textSecondary,
+      label: 'Propuesta rechazada',
+    ),
+    'appointment_series_renewal_pending' => const NotificationVisual(
+      icon: Icons.event_repeat_rounded,
+      color: AppTheme.info,
+      label: 'Citas renovadas por confirmar',
+    ),
     'appointment_series_requested' => const NotificationVisual(
       icon: Icons.event_repeat_rounded,
       color: AppTheme.info,

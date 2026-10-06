@@ -21,7 +21,8 @@ import '../domain/recurring_booking_availability.dart';
 import '../widgets/appointment_display.dart';
 import '../widgets/recurring_hasta_select.dart';
 
-enum _BookingType { single, recurring }
+/// `nutrition`: 30-minute consultation, single only, never uses bono minutes.
+enum _BookingType { single, recurring, nutrition }
 
 enum _BookingStep { type, duration, schedule, recurrence, summary }
 
@@ -90,6 +91,11 @@ class _BookingScreenState extends State<BookingScreen> {
       _isRecurringSeries ||
       (!_isEditing && _bookingType == _BookingType.recurring);
 
+  /// New nutrition request, or editing an existing nutrition appointment.
+  bool get _isNutrition => _isEditing
+      ? widget.sourceAppointment?.isNutrition == true
+      : _bookingType == _BookingType.nutrition;
+
   Appointment? _liveEditingAppointment() {
     final original = widget.sourceAppointment;
     if (original == null) return null;
@@ -116,6 +122,13 @@ class _BookingScreenState extends State<BookingScreen> {
         _BookingStep.duration,
         _BookingStep.schedule,
         _BookingStep.recurrence,
+        _BookingStep.summary,
+      ];
+    }
+    if (_isNutrition) {
+      return const [
+        _BookingStep.type,
+        _BookingStep.schedule,
         _BookingStep.summary,
       ];
     }
@@ -280,6 +293,9 @@ class _BookingScreenState extends State<BookingScreen> {
         ? siteConfig != null && replacementBonoPolicy!.isAvailable
         : _isEditing
         ? siteConfig != null
+        : _isNutrition
+        // Nutrition needs an active bono but does not consume its minutes.
+        ? activeBono?.isActive == true && siteConfig != null
         : activeBono?.canBook == true &&
               siteConfig != null &&
               _selectedDuration <= (activeBono?.minutosRestantes ?? 0);
@@ -427,6 +443,16 @@ class _BookingScreenState extends State<BookingScreen> {
                       bookingType: _bookingType,
                       onChanged: _onBookingTypeChanged,
                     ),
+                  if (step == _BookingStep.type &&
+                      _isNutrition &&
+                      activeBono?.isActive != true) ...[
+                    const SizedBox(height: 16),
+                    const FocusStatusMessage(
+                      message:
+                          'Necesitas un bono activo para solicitar una consulta de nutrición. No se descontarán minutos.',
+                      type: FocusStatusType.warning,
+                    ),
+                  ],
                   if (step == _BookingStep.duration)
                     _DurationStep(
                       selectedDuration: _selectedDuration,
@@ -495,6 +521,7 @@ class _BookingScreenState extends State<BookingScreen> {
                           liveEditingAppointment?.status ==
                               AppointmentStatus.approved,
                       isRecurring: _isRecurringBooking,
+                      isNutrition: _isNutrition,
                       durationMinutes: _selectedDuration,
                       selectedSlot: selectedSlot,
                       intervalDays: _intervalDays,
@@ -579,8 +606,15 @@ class _BookingScreenState extends State<BookingScreen> {
   void _onBookingTypeChanged(_BookingType type) {
     HapticFeedback.selectionClick();
     setState(() {
+      final wasNutrition = _bookingType == _BookingType.nutrition;
       _bookingType = type;
-      if (type == _BookingType.single) {
+      if (type == _BookingType.nutrition) {
+        _selectedDuration = nutritionDurationMinutes;
+        _selectedSlot = null;
+      } else if (wasNutrition) {
+        _selectedSlot = null;
+      }
+      if (type != _BookingType.recurring) {
         _selectedEndDate = null;
         _resetHastaPreview();
       } else {
@@ -778,7 +812,9 @@ class _BookingScreenState extends State<BookingScreen> {
       _showError('No tienes un bono activo disponible.');
       return;
     }
-    if (!_isEditing && activeBono!.minutosRestantes < _selectedDuration) {
+    if (!_isEditing &&
+        !_isNutrition &&
+        activeBono!.minutosRestantes < _selectedDuration) {
       _showError('No tienes minutos suficientes para esta sesion.');
       return;
     }
@@ -894,9 +930,14 @@ class _BookingScreenState extends State<BookingScreen> {
         );
       } else {
         await widget.viewModel.createAppointment(
-          durationMinutes: _selectedDuration,
+          durationMinutes: _isNutrition
+              ? nutritionDurationMinutes
+              : _selectedDuration,
           preferredSlot: latestSlot.slot,
           reason: _commentController.text.trim(),
+          appointmentType: _isNutrition
+              ? AppointmentType.nutrition
+              : AppointmentType.training,
         );
       }
       if (!mounted) return;
@@ -1002,7 +1043,7 @@ class _TypeStep extends StatelessWidget {
         Text('Tipo', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
         Text(
-          'Elige si quieres una sesion suelta o un entrenamiento recurrente.',
+          'Elige una sesión de entrenamiento suelta o recurrente, o una consulta de nutrición.',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
@@ -1020,6 +1061,14 @@ class _TypeStep extends StatelessWidget {
           detail: 'Repite cada X dias',
           isSelected: bookingType == _BookingType.recurring,
           onTap: () => onChanged(_BookingType.recurring),
+        ),
+        const SizedBox(height: 12),
+        _BookingTypeOption(
+          key: const Key('booking-type-nutrition'),
+          label: 'Consulta de nutrición',
+          detail: '30 minutos · no descuenta minutos del bono',
+          isSelected: bookingType == _BookingType.nutrition,
+          onTap: () => onChanged(_BookingType.nutrition),
         ),
       ],
     );
@@ -1553,6 +1602,7 @@ class _SummaryStep extends StatelessWidget {
     required this.editMode,
     required this.showApprovedEditWarning,
     required this.isRecurring,
+    required this.isNutrition,
     required this.durationMinutes,
     required this.selectedSlot,
     required this.intervalDays,
@@ -1566,6 +1616,7 @@ class _SummaryStep extends StatelessWidget {
   final BookingEditMode editMode;
   final bool showApprovedEditWarning;
   final bool isRecurring;
+  final bool isNutrition;
   final int durationMinutes;
   final BookingSlotState? selectedSlot;
   final int intervalDays;
@@ -1631,6 +1682,15 @@ class _SummaryStep extends StatelessWidget {
                   onDark: true,
                 ),
                 const SizedBox(height: 16),
+                if (isNutrition) ...[
+                  Text(
+                    nutritionServiceLabel,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleSmall?.copyWith(color: AppTheme.onBlack),
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 Text(
                   '$durationMinutes min',
                   style: Theme.of(

@@ -14,6 +14,7 @@ import '../domain/portal_models.dart';
 import '../widgets/appointment_display.dart';
 import '../widgets/client_cards.dart';
 import 'appointment_detail_screen.dart';
+import 'renewal_confirmation_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
@@ -59,6 +60,19 @@ class DashboardScreen extends StatelessWidget {
             onOpenNotifications: onOpenNotifications,
           ),
           const SizedBox(height: 28),
+          if (state.pendingRenewalsAt(viewModel.currentTime) case final renewals
+              when renewals.isNotEmpty) ...[
+            PendingRenewalsBanner(
+              count: renewals.length,
+              onReview: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      RenewalConfirmationScreen(viewModel: viewModel),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           if (pass == null)
             const FocusEmptyState(
               title: 'Sin bono activo',
@@ -70,12 +84,15 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 24),
           FocusPrimaryButton(
             label: 'Reservar Sesion',
-            onPressed: pass?.canBook == true ? onOpenBooking : null,
+            // An active bono without minutes can still request nutrition.
+            onPressed: pass?.isActive == true ? onOpenBooking : null,
           ),
           if (pass?.canBook != true) ...[
             const SizedBox(height: 14),
-            const FocusStatusMessage(
-              message: 'No tienes minutos disponibles para reservar ahora.',
+            FocusStatusMessage(
+              message: pass?.isActive == true
+                  ? 'No te quedan minutos para entrenamiento. Puedes solicitar una consulta de nutrición.'
+                  : 'No tienes minutos disponibles para reservar ahora.',
               type: FocusStatusType.warning,
             ),
           ],
