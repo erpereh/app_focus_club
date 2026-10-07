@@ -315,6 +315,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   excludedAppointmentIds: excludedAppointmentIds,
                   occupancyCreditsByKey: occupancyCreditsByKey,
                   enforceRescheduleLeadTime: _isEditing,
+                  minNoticeHours: _noticeHours(siteConfig),
                   now: now,
                 ),
               )
@@ -733,6 +734,7 @@ class _BookingScreenState extends State<BookingScreen> {
           excludedAppointmentIds: _excludedAppointmentIds(state),
           occupancyCreditsByKey: _occupancyCredits(state),
           enforceRescheduleLeadTime: _isEditing,
+          minNoticeHours: _noticeHours(siteConfig),
           siteConfig: siteConfig,
           now: widget.viewModel.currentTime,
         );
@@ -784,6 +786,7 @@ class _BookingScreenState extends State<BookingScreen> {
           excludedAppointmentIds: _excludedAppointmentIds(state),
           occupancyCreditsByKey: _occupancyCredits(state),
           enforceRescheduleLeadTime: _isEditing,
+          minNoticeHours: _noticeHours(currentConfig),
           siteConfig: currentConfig,
           now: widget.viewModel.currentTime,
         );
@@ -862,6 +865,7 @@ class _BookingScreenState extends State<BookingScreen> {
       excludedAppointmentIds: _excludedAppointmentIds(state),
       occupancyCreditsByKey: _occupancyCredits(state),
       enforceRescheduleLeadTime: _isEditing,
+      minNoticeHours: _noticeHours(siteConfig),
       now: now,
     );
     if (!latestSlot.isEnabled) {
@@ -984,6 +988,13 @@ class _BookingScreenState extends State<BookingScreen> {
       _statusType = FocusStatusType.error;
     });
   }
+
+  /// Booking notice for this flow: the configured value for new bookings
+  /// (training, nutrition, recurring) and max(24h, notice) when editing.
+  int _noticeHours(SiteConfig siteConfig) => effectiveBookingNoticeHours(
+    siteConfig.minBookingNoticeHours,
+    isModification: _isEditing,
+  );
 
   String _messageForDisabledSlot(BookingSlotState slot) {
     return switch (slot.availability) {

@@ -367,6 +367,7 @@ BookingSlotState bookingSlotState({
   Set<String> excludedAppointmentIds = const {},
   Map<String, int> occupancyCreditsByKey = const {},
   bool enforceRescheduleLeadTime = false,
+  int minNoticeHours = 0,
   DateTime? now,
 }) {
   final current = now ?? DateTime.now();
@@ -385,6 +386,19 @@ BookingSlotState bookingSlotState({
         time: slot.time,
         now: current,
       )) {
+    return _slotState(
+      slot: slot,
+      availability: BookingSlotAvailability.unavailable,
+      maxCapacity: siteConfig.maxCapacity,
+      label: 'No disponible',
+    );
+  }
+  if (isInsideBookingNotice(
+    date: slot.date,
+    time: slot.time,
+    now: current,
+    hours: minNoticeHours,
+  )) {
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.unavailable,

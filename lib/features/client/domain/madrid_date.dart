@@ -71,6 +71,35 @@ bool isInsideCustomerRescheduleLockWindow({
   return instant.difference(now.toUtc()) <= customerRescheduleLockWindow;
 }
 
+/// True when a customer may not book this slot because it starts before
+/// now + [hours] real hours (DST-safe). 0 never blocks; invalid slots fail
+/// closed.
+bool isInsideBookingNotice({
+  required String date,
+  required String time,
+  required DateTime now,
+  required int hours,
+}) {
+  if (hours <= 0) return false;
+  final instant = madridCivilSlotToUtc(date: date, time: time);
+  if (instant == null) return true;
+  return instant.isBefore(now.toUtc().add(Duration(hours: hours)));
+}
+
+/// Notice the booking calendar applies. New bookings use the configured
+/// value; modifications keep the fixed 24h lock and only add the notice when
+/// it is larger, so the new slot respects max(24h, notice).
+int effectiveBookingNoticeHours(
+  int configuredHours, {
+  required bool isModification,
+}) {
+  if (configuredHours <= 0) return 0;
+  if (!isModification) return configuredHours;
+  return configuredHours > customerRescheduleLockWindow.inHours
+      ? configuredHours
+      : 0;
+}
+
 String getMadridDateKey(DateTime now) {
   final utc = now.toUtc();
   final madrid = utc.add(Duration(hours: madridUtcOffsetHoursAt(utc)));

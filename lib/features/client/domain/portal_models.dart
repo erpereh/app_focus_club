@@ -729,6 +729,7 @@ class SiteConfig {
     required this.bonoExpirationMonths,
     required this.maintenanceMode,
     this.maxCapacity = defaultMaxCapacity,
+    this.minBookingNoticeHours = 0,
     this.minAndroidBuild = 0,
     this.minIosBuild = 0,
     this.latestAndroidBuild = 0,
@@ -747,6 +748,10 @@ class SiteConfig {
   final int bonoExpirationMonths;
   final bool maintenanceMode;
   final int maxCapacity;
+
+  /// Minimum hours between now and the start of a customer booking.
+  /// Missing in old configs, which means 0 (no limit).
+  final int minBookingNoticeHours;
   final int minAndroidBuild;
   final int minIosBuild;
   final int latestAndroidBuild;
@@ -766,6 +771,9 @@ class SiteConfig {
       bonoExpirationMonths: parseInt(map['bonoExpirationMonths']),
       maintenanceMode: map['maintenanceMode'] as bool? ?? false,
       maxCapacity: parseMaxCapacity(map['maxCapacity']),
+      minBookingNoticeHours: parseBookingNoticeHours(
+        map['minBookingNoticeHours'],
+      ),
       minAndroidBuild: parseNonNegativeIntOrZero(map['minAndroidBuild']),
       minIosBuild: parseNonNegativeIntOrZero(map['minIosBuild']),
       latestAndroidBuild: parseNonNegativeIntOrZero(map['latestAndroidBuild']),
@@ -820,6 +828,18 @@ int parseIntOrZero(Object? value) {
 int parseNonNegativeIntOrZero(Object? value) {
   final parsed = parseIntOrZero(value);
   return parsed < 0 ? 0 : parsed;
+}
+
+const int maxMinBookingNoticeHours = 720;
+
+/// Integer hours >= 0. Anything invalid means "no notice".
+int parseBookingNoticeHours(Object? value) {
+  if (value is num && !value.isFinite) return 0;
+  final parsed = value is String
+      ? (num.tryParse(value.trim())?.toInt() ?? 0)
+      : parseNonNegativeIntOrZero(value);
+  if (parsed <= 0) return 0;
+  return parsed > maxMinBookingNoticeHours ? maxMinBookingNoticeHours : parsed;
 }
 
 int parseMaxCapacity(Object? value) {

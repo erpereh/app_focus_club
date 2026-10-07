@@ -94,6 +94,7 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
   required Set<String> excludedAppointmentIds,
   required Map<String, int> occupancyCreditsByKey,
   required bool enforceRescheduleLeadTime,
+  required int minNoticeHours,
   required SiteConfig siteConfig,
   required DateTime now,
 }) {
@@ -123,6 +124,21 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
       problemDate: date,
       problemTime: startTime,
       message: 'La sesión del $dateShort comienza dentro de 24 horas.',
+    );
+  }
+
+  if (isInsideBookingNotice(
+    date: date,
+    time: startTime,
+    now: now,
+    hours: minNoticeHours,
+  )) {
+    return _OccurrenceProblem(
+      availability: RecurringHastaAvailability.past,
+      problemDate: date,
+      problemTime: startTime,
+      message:
+          'La franja del $dateShort a las $startTime no respeta la antelación mínima para reservar.',
     );
   }
 
@@ -196,6 +212,7 @@ List<RecurringHastaOptionStatus> evaluateRecurringHastaOptions({
   Set<String> excludedAppointmentIds = const {},
   Map<String, int> occupancyCreditsByKey = const {},
   bool enforceRescheduleLeadTime = false,
+  int minNoticeHours = 0,
   required SiteConfig siteConfig,
   required DateTime now,
 }) {
@@ -223,6 +240,7 @@ List<RecurringHastaOptionStatus> evaluateRecurringHastaOptions({
               excludedAppointmentIds: excludedAppointmentIds,
               occupancyCreditsByKey: occupancyCreditsByKey,
               enforceRescheduleLeadTime: enforceRescheduleLeadTime,
+              minNoticeHours: minNoticeHours,
               siteConfig: siteConfig,
               now: now,
             );

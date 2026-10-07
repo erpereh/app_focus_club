@@ -523,8 +523,19 @@ class FirebasePortalRepository implements PortalRepository {
   }
 }
 
+const bookingNoticeTooShortReason = 'booking_notice_too_short';
+
+/// The server message already states the configured hours.
+String? _bookingNoticeErrorMessage(FirebaseFunctionsException error) {
+  if (_callableReason(error) != bookingNoticeTooShortReason) return null;
+  return _originalCallableMessage(error) ??
+      'No puedes reservar con tan poca antelación.';
+}
+
 String appointmentRequestErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
+    final notice = _bookingNoticeErrorMessage(error);
+    if (notice != null) return notice;
     final message = (error.message ?? '').toLowerCase();
     final original = _originalCallableMessage(error);
     return switch (error.code) {
@@ -577,6 +588,8 @@ String recurringRescheduleErrorMessage(
   required CustomerRescheduleErrorContext context,
 }) {
   if (error is FirebaseFunctionsException) {
+    final notice = _bookingNoticeErrorMessage(error);
+    if (notice != null) return notice;
     final reason = _callableReason(error);
     final isSeries = context == CustomerRescheduleErrorContext.series;
     final mapped = switch (reason) {
@@ -631,6 +644,8 @@ String? _callableReason(FirebaseFunctionsException error) {
 
 String appointmentMutationErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
+    final notice = _bookingNoticeErrorMessage(error);
+    if (notice != null) return notice;
     if (callableErrorReason(error) == _sameDayChangeNotAllowedReason) {
       return 'Las citas no se pueden modificar ni cancelar el mismo día.';
     }
