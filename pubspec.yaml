@@ -1,7 +1,7 @@
 name: app_focus_club
 description: "Mobile client app for Focus Club."
 publish_to: 'none'
-version: 1.4.7+16
+version: 1.4.8+17
 
 environment:
   sdk: ^3.11.4
