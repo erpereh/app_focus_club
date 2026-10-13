@@ -2695,6 +2695,53 @@ void main() {
       viewModel.dispose();
     });
 
+    testWidgets('live same-day block greys out today and drops the selection', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SiteConfig sameDay({required bool blocked}) => SiteConfig(
+        startHour: 8,
+        endHour: 20,
+        slotInterval: 30,
+        bonoExpirationMonths: 1,
+        maintenanceMode: false,
+        maxCapacity: 4,
+        blockSameDayBooking: blocked,
+      );
+      FocusTimeSlot tile(String time) => tester.widget<FocusTimeSlot>(
+        find.ancestor(
+          of: find.text(time),
+          matching: find.byType(FocusTimeSlot),
+        ),
+      );
+      final repository = _bookingRepository(
+        siteConfig: sameDay(blocked: false),
+      );
+      final viewModel = _bookingViewModel(repository: repository);
+      await tester.pumpWidget(
+        MaterialApp(home: BookingScreen(viewModel: viewModel)),
+      );
+      await tester.pumpAndSettle();
+      // Today in the fake clock is 10 Sep, 09:00.
+      await _bookingSelectSlot(tester, dateLabel: '10 sep');
+      expect(tile('18:00').enabled, isTrue);
+      expect(tile('18:00').selected, isTrue);
+
+      repository.emitSiteConfig(sameDay(blocked: true));
+      await tester.pumpAndSettle();
+      expect(tile('18:00').enabled, isFalse);
+      expect(tile('18:00').label, 'No disponible');
+      expect(tile('18:00').selected, isFalse);
+
+      repository.emitSiteConfig(sameDay(blocked: false));
+      await tester.pumpAndSettle();
+      expect(tile('18:00').enabled, isTrue);
+      viewModel.dispose();
+    });
+
     testWidgets('16:15 is selectable and kept in the summary', (tester) async {
       tester.view.physicalSize = const Size(800, 1800);
       tester.view.devicePixelRatio = 1;

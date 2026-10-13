@@ -86,6 +86,20 @@ bool isInsideBookingNotice({
   return instant.isBefore(now.toUtc().add(Duration(hours: hours)));
 }
 
+const sameDayBookingDisabledMessage =
+    'No se pueden reservar citas para el mismo día.';
+
+/// True when site_config.blockSameDayBooking is on and the slot is dated
+/// today in Europe/Madrid, whatever its time. Same rule as the Cloud
+/// Functions; independent of the booking notice.
+bool isSameDayBookingBlocked({
+  required String date,
+  required DateTime now,
+  required bool enabled,
+}) {
+  return enabled && isDateKeyTodayInMadrid(date, now);
+}
+
 /// Notice the booking calendar applies. New bookings use the configured
 /// value; modifications keep the fixed 24h lock and only add the notice when
 /// it is larger, so the new slot respects max(24h, notice).

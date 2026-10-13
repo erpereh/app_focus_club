@@ -316,6 +316,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   occupancyCreditsByKey: occupancyCreditsByKey,
                   enforceRescheduleLeadTime: _isEditing,
                   minNoticeHours: _noticeHours(siteConfig),
+                  blockSameDay: _blockSameDay(siteConfig),
                   now: now,
                 ),
               )
@@ -735,6 +736,7 @@ class _BookingScreenState extends State<BookingScreen> {
           occupancyCreditsByKey: _occupancyCredits(state),
           enforceRescheduleLeadTime: _isEditing,
           minNoticeHours: _noticeHours(siteConfig),
+          blockSameDay: _blockSameDay(siteConfig),
           siteConfig: siteConfig,
           now: widget.viewModel.currentTime,
         );
@@ -787,6 +789,7 @@ class _BookingScreenState extends State<BookingScreen> {
           occupancyCreditsByKey: _occupancyCredits(state),
           enforceRescheduleLeadTime: _isEditing,
           minNoticeHours: _noticeHours(currentConfig),
+          blockSameDay: _blockSameDay(currentConfig),
           siteConfig: currentConfig,
           now: widget.viewModel.currentTime,
         );
@@ -866,6 +869,7 @@ class _BookingScreenState extends State<BookingScreen> {
       occupancyCreditsByKey: _occupancyCredits(state),
       enforceRescheduleLeadTime: _isEditing,
       minNoticeHours: _noticeHours(siteConfig),
+      blockSameDay: _blockSameDay(siteConfig),
       now: now,
     );
     if (!latestSlot.isEnabled) {
@@ -996,9 +1000,17 @@ class _BookingScreenState extends State<BookingScreen> {
     isModification: _isEditing,
   );
 
+  /// site_config.blockSameDayBooking only limits new bookings (training,
+  /// nutrition, recurring); edits keep the fixed 24h lock.
+  bool _blockSameDay(SiteConfig siteConfig) =>
+      !_isEditing && siteConfig.blockSameDayBooking;
+
   String _messageForDisabledSlot(BookingSlotState slot) {
     return switch (slot.availability) {
       BookingSlotAvailability.past => 'Elige una franja futura.',
+      BookingSlotAvailability.sameDayBlocked => sameDayBookingDisabledMessage,
+      BookingSlotAvailability.noticeTooShort =>
+        'Esta franja no respeta la antelación mínima para reservar.',
       BookingSlotAvailability.unavailable =>
         'Esta franja no está disponible para esta duración o restricción.',
       BookingSlotAvailability.blocked => 'Esta franja ya no está disponible.',

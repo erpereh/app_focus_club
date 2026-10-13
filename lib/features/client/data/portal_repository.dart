@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import '../domain/madrid_date.dart';
 import '../domain/portal_availability.dart';
 import '../domain/portal_models.dart';
 import '../domain/recurring_booking_availability.dart';
@@ -532,8 +533,18 @@ String? _bookingNoticeErrorMessage(FirebaseFunctionsException error) {
       'No puedes reservar con tan poca antelación.';
 }
 
+const sameDayBookingDisabledReason = 'same_day_booking_disabled';
+
+/// The server message names the conflicting date for recurring series.
+String? _sameDayBookingErrorMessage(FirebaseFunctionsException error) {
+  if (_callableReason(error) != sameDayBookingDisabledReason) return null;
+  return _originalCallableMessage(error) ?? sameDayBookingDisabledMessage;
+}
+
 String appointmentRequestErrorMessage(Object error) {
   if (error is FirebaseFunctionsException) {
+    final sameDay = _sameDayBookingErrorMessage(error);
+    if (sameDay != null) return sameDay;
     final notice = _bookingNoticeErrorMessage(error);
     if (notice != null) return notice;
     final message = (error.message ?? '').toLowerCase();

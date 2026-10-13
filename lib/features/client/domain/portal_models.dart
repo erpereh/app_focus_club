@@ -730,6 +730,7 @@ class SiteConfig {
     required this.maintenanceMode,
     this.maxCapacity = defaultMaxCapacity,
     this.minBookingNoticeHours = 0,
+    this.blockSameDayBooking = false,
     this.minAndroidBuild = 0,
     this.minIosBuild = 0,
     this.latestAndroidBuild = 0,
@@ -752,6 +753,10 @@ class SiteConfig {
   /// Minimum hours between now and the start of a customer booking.
   /// Missing in old configs, which means 0 (no limit).
   final int minBookingNoticeHours;
+
+  /// When true, customers cannot book any slot dated today in Europe/Madrid.
+  /// Missing in old configs, which means false (same-day booking allowed).
+  final bool blockSameDayBooking;
   final int minAndroidBuild;
   final int minIosBuild;
   final int latestAndroidBuild;
@@ -774,6 +779,7 @@ class SiteConfig {
       minBookingNoticeHours: parseBookingNoticeHours(
         map['minBookingNoticeHours'],
       ),
+      blockSameDayBooking: map['blockSameDayBooking'] == true,
       minAndroidBuild: parseNonNegativeIntOrZero(map['minAndroidBuild']),
       minIosBuild: parseNonNegativeIntOrZero(map['minIosBuild']),
       latestAndroidBuild: parseNonNegativeIntOrZero(map['latestAndroidBuild']),

@@ -332,6 +332,12 @@ enum BookingSlotAvailability {
   full,
   unavailable,
   past,
+
+  /// Future slot closed by site_config.blockSameDayBooking.
+  sameDayBlocked,
+
+  /// Future slot closed by site_config.minBookingNoticeHours.
+  noticeTooShort,
 }
 
 class BookingSlotState {
@@ -368,6 +374,7 @@ BookingSlotState bookingSlotState({
   Map<String, int> occupancyCreditsByKey = const {},
   bool enforceRescheduleLeadTime = false,
   int minNoticeHours = 0,
+  bool blockSameDay = false,
   DateTime? now,
 }) {
   final current = now ?? DateTime.now();
@@ -393,6 +400,18 @@ BookingSlotState bookingSlotState({
       label: 'No disponible',
     );
   }
+  if (isSameDayBookingBlocked(
+    date: slot.date,
+    now: current,
+    enabled: blockSameDay,
+  )) {
+    return _slotState(
+      slot: slot,
+      availability: BookingSlotAvailability.sameDayBlocked,
+      maxCapacity: siteConfig.maxCapacity,
+      label: 'No disponible',
+    );
+  }
   if (isInsideBookingNotice(
     date: slot.date,
     time: slot.time,
@@ -401,7 +420,7 @@ BookingSlotState bookingSlotState({
   )) {
     return _slotState(
       slot: slot,
-      availability: BookingSlotAvailability.unavailable,
+      availability: BookingSlotAvailability.noticeTooShort,
       maxCapacity: siteConfig.maxCapacity,
       label: 'No disponible',
     );

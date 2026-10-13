@@ -10,6 +10,12 @@ enum RecurringHastaAvailability {
   conflict,
   outsideSchedule,
   past,
+
+  /// An occurrence is dated today and site_config.blockSameDayBooking is on.
+  sameDayBlocked,
+
+  /// An occurrence starts inside site_config.minBookingNoticeHours.
+  noticeTooShort,
 }
 
 enum RecurringHastaAvailabilityPhase { idle, loading, ready, error }
@@ -95,6 +101,7 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
   required Map<String, int> occupancyCreditsByKey,
   required bool enforceRescheduleLeadTime,
   required int minNoticeHours,
+  required bool blockSameDay,
   required SiteConfig siteConfig,
   required DateTime now,
 }) {
@@ -127,6 +134,17 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
     );
   }
 
+  // Any occurrence dated today rejects the whole series.
+  if (isSameDayBookingBlocked(date: date, now: now, enabled: blockSameDay)) {
+    return _OccurrenceProblem(
+      availability: RecurringHastaAvailability.sameDayBlocked,
+      problemDate: date,
+      problemTime: startTime,
+      message:
+          'La serie incluye una cita para hoy ($dateShort a las $startTime) y no se permiten reservas para el mismo día.',
+    );
+  }
+
   if (isInsideBookingNotice(
     date: date,
     time: startTime,
@@ -134,7 +152,7 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
     hours: minNoticeHours,
   )) {
     return _OccurrenceProblem(
-      availability: RecurringHastaAvailability.past,
+      availability: RecurringHastaAvailability.noticeTooShort,
       problemDate: date,
       problemTime: startTime,
       message:
@@ -213,6 +231,7 @@ List<RecurringHastaOptionStatus> evaluateRecurringHastaOptions({
   Map<String, int> occupancyCreditsByKey = const {},
   bool enforceRescheduleLeadTime = false,
   int minNoticeHours = 0,
+  bool blockSameDay = false,
   required SiteConfig siteConfig,
   required DateTime now,
 }) {
@@ -241,6 +260,7 @@ List<RecurringHastaOptionStatus> evaluateRecurringHastaOptions({
               occupancyCreditsByKey: occupancyCreditsByKey,
               enforceRescheduleLeadTime: enforceRescheduleLeadTime,
               minNoticeHours: minNoticeHours,
+              blockSameDay: blockSameDay,
               siteConfig: siteConfig,
               now: now,
             );

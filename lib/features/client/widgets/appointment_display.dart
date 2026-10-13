@@ -370,6 +370,8 @@ Color bookingSlotColor(BookingSlotAvailability availability) {
     BookingSlotAvailability.blocked ||
     BookingSlotAvailability.full => AppTheme.danger,
     BookingSlotAvailability.unavailable ||
+    BookingSlotAvailability.sameDayBlocked ||
+    BookingSlotAvailability.noticeTooShort ||
     BookingSlotAvailability.past => AppTheme.textSecondary,
   };
 }
