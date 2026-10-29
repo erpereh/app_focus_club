@@ -375,15 +375,23 @@ BookingSlotState bookingSlotState({
   bool enforceRescheduleLeadTime = false,
   int minNoticeHours = 0,
   bool blockSameDay = false,
+
+  /// Capacity exceptions (aforo por fecha); dates without one use the global value.
+  Map<String, int> capacityByDate = const {},
   DateTime? now,
 }) {
   final current = now ?? DateTime.now();
+  final maxCapacity = effectiveMaxCapacity(
+    siteConfig,
+    capacityByDate,
+    slot.date,
+  );
   final instant = madridCivilSlotToUtc(date: slot.date, time: slot.time);
   if (instant == null || !instant.isAfter(current.toUtc())) {
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.past,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'No disponible',
     );
   }
@@ -396,7 +404,7 @@ BookingSlotState bookingSlotState({
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.unavailable,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'No disponible',
     );
   }
@@ -408,7 +416,7 @@ BookingSlotState bookingSlotState({
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.sameDayBlocked,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'No disponible',
     );
   }
@@ -421,7 +429,7 @@ BookingSlotState bookingSlotState({
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.noticeTooShort,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'No disponible',
     );
   }
@@ -433,7 +441,7 @@ BookingSlotState bookingSlotState({
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.unavailable,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'No disponible',
     );
   }
@@ -444,7 +452,7 @@ BookingSlotState bookingSlotState({
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.blocked,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'Bloqueado',
     );
   }
@@ -457,7 +465,7 @@ BookingSlotState bookingSlotState({
     return _slotState(
       slot: slot,
       availability: BookingSlotAvailability.ownAppointment,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'Tu sesión',
     );
   }
@@ -468,17 +476,14 @@ BookingSlotState bookingSlotState({
     occupancy: occupancy,
     occupancyCreditsByKey: occupancyCreditsByKey,
   );
-  final remaining = (siteConfig.maxCapacity - occupied).clamp(
-    0,
-    siteConfig.maxCapacity,
-  );
-  if (occupied >= siteConfig.maxCapacity) {
+  final remaining = (maxCapacity - occupied).clamp(0, maxCapacity);
+  if (occupied >= maxCapacity) {
     return BookingSlotState(
       slot: slot,
       availability: BookingSlotAvailability.full,
       occupied: occupied,
       remaining: 0,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'Completo',
     );
   }
@@ -487,8 +492,8 @@ BookingSlotState bookingSlotState({
       slot: slot,
       availability: BookingSlotAvailability.available,
       occupied: 0,
-      remaining: siteConfig.maxCapacity,
-      maxCapacity: siteConfig.maxCapacity,
+      remaining: maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'Disponible',
     );
   }
@@ -498,7 +503,7 @@ BookingSlotState bookingSlotState({
       availability: BookingSlotAvailability.almostFull,
       occupied: occupied,
       remaining: remaining,
-      maxCapacity: siteConfig.maxCapacity,
+      maxCapacity: maxCapacity,
       label: 'Casi lleno · 1 plaza',
     );
   }
@@ -507,7 +512,7 @@ BookingSlotState bookingSlotState({
     availability: BookingSlotAvailability.partial,
     occupied: occupied,
     remaining: remaining,
-    maxCapacity: siteConfig.maxCapacity,
+    maxCapacity: maxCapacity,
     label: '$remaining plazas',
   );
 }

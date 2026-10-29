@@ -75,6 +75,10 @@ abstract interface class PortalRepository {
     required String startDate,
     required String endDate,
   });
+  Stream<List<CapacityException>> watchCapacityExceptionsForRange({
+    required String startDate,
+    required String endDate,
+  });
   Stream<SiteConfig?> watchSiteConfig();
   Stream<List<RecurringAppointmentSeries>> watchRecurringSeriesByUser(
     String uid,
@@ -310,6 +314,27 @@ class FirebasePortalRepository implements PortalRepository {
   }
 
   @override
+  Stream<List<CapacityException>> watchCapacityExceptionsForRange({
+    required String startDate,
+    required String endDate,
+  }) {
+    return _firestore
+        .collection('capacity_exceptions')
+        .where('date', isGreaterThanOrEqualTo: startDate)
+        .where('date', isLessThan: endDate)
+        .snapshots()
+        .map((snapshot) => _capacityExceptionsFrom(snapshot.docs));
+  }
+
+  static List<CapacityException> _capacityExceptionsFrom(
+    Iterable<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    return [
+      for (final doc in docs) ?CapacityException.tryFromMap(doc.id, doc.data()),
+    ];
+  }
+
+  @override
   Stream<SiteConfig?> watchSiteConfig() {
     return _firestore.collection('site_config').doc('main').snapshots().map((
       snapshot,
@@ -353,6 +378,7 @@ class FirebasePortalRepository implements PortalRepository {
 
     final occupancy = <SlotOccupancy>[];
     final blockedSlots = <BlockedSlot>[];
+    final capacityExceptions = <CapacityException>[];
     final chunks = <List<String>>[];
     for (
       var index = 0;
@@ -378,7 +404,17 @@ class FirebasePortalRepository implements PortalRepository {
             .collection('blocked_slots')
             .where('date', whereIn: chunk)
             .get();
+        final capacityQuery = _firestore
+            .collection('capacity_exceptions')
+            .where('date', whereIn: chunk)
+            .get()
+            .then<List<CapacityException>>(
+              (snapshot) => _capacityExceptionsFrom(snapshot.docs),
+              // Older rules may not allow it yet: the server still decides.
+              onError: (_) => const <CapacityException>[],
+            );
         final results = await Future.wait([occupancyQuery, blockedQuery]);
+        capacityExceptions.addAll(await capacityQuery);
         occupancy.addAll(
           results[0].docs.map(
             (doc) => SlotOccupancy.fromMap(doc.id, doc.data()),
@@ -393,6 +429,7 @@ class FirebasePortalRepository implements PortalRepository {
     return RecurringAvailabilitySnapshot(
       occupancy: occupancy,
       blockedSlots: blockedSlots,
+      capacityByDate: capacityByDateFrom(capacityExceptions),
     );
   }
 
@@ -768,6 +805,7 @@ class FakePortalRepository implements PortalRepository {
     List<Trainer> trainers = const [],
     List<BlockedSlot> blockedSlots = const [],
     List<SlotOccupancy> slotOccupancy = const [],
+    List<CapacityException> capacityExceptions = const [],
     List<RecurringAppointmentSeries> recurringSeries = const [],
     SiteConfig? siteConfig,
     Object? deleteOwnAccountFailure,
@@ -780,6 +818,7 @@ class FakePortalRepository implements PortalRepository {
        _trainers = trainers,
        _blockedSlots = blockedSlots,
        _slotOccupancy = slotOccupancy,
+       _capacityExceptions = List<CapacityException>.from(capacityExceptions),
        _recurringSeries = List<RecurringAppointmentSeries>.from(
          recurringSeries,
        ),
@@ -793,6 +832,7 @@ class FakePortalRepository implements PortalRepository {
   final List<Trainer> _trainers;
   final List<BlockedSlot> _blockedSlots;
   final List<SlotOccupancy> _slotOccupancy;
+  List<CapacityException> _capacityExceptions;
   List<RecurringAppointmentSeries> _recurringSeries;
   SiteConfig? _siteConfig;
   final Object? _deleteOwnAccountFailure;
@@ -808,6 +848,8 @@ class FakePortalRepository implements PortalRepository {
   final StreamController<void> _seriesController =
       StreamController<void>.broadcast();
   final StreamController<void> _siteConfigController =
+      StreamController<void>.broadcast();
+  final StreamController<void> _capacityController =
       StreamController<void>.broadcast();
   final List<AppointmentRequest> requests = [];
   final List<RecurringAppointmentRequest> recurringRequests = [];
@@ -846,6 +888,11 @@ class FakePortalRepository implements PortalRepository {
   void emitSiteConfig(SiteConfig? siteConfig) {
     _siteConfig = siteConfig;
     _siteConfigController.add(null);
+  }
+
+  void emitCapacityExceptions(List<CapacityException> exceptions) {
+    _capacityExceptions = List<CapacityException>.from(exceptions);
+    _capacityController.add(null);
   }
 
   @override
@@ -907,6 +954,24 @@ class FakePortalRepository implements PortalRepository {
   }
 
   @override
+  Stream<List<CapacityException>> watchCapacityExceptionsForRange({
+    required String startDate,
+    required String endDate,
+  }) {
+    List<CapacityException> inRange() => _capacityExceptions
+        .where((item) => item.date.compareTo(startDate) >= 0)
+        .where((item) => item.date.compareTo(endDate) < 0)
+        .toList(growable: false);
+    return Stream<List<CapacityException>>.multi((listener) {
+      listener.add(inRange());
+      final sub = _capacityController.stream.listen((_) {
+        listener.add(inRange());
+      });
+      listener.onCancel = sub.cancel;
+    });
+  }
+
+  @override
   Stream<SiteConfig?> watchSiteConfig() {
     return Stream<SiteConfig?>.multi((listener) {
       listener.add(_siteConfig);
@@ -948,6 +1013,9 @@ class FakePortalRepository implements PortalRepository {
       blockedSlots: _blockedSlots
           .where((slot) => uniqueDates.contains(slot.date))
           .toList(growable: false),
+      capacityByDate: capacityByDateFrom(
+        _capacityExceptions.where((item) => uniqueDates.contains(item.date)),
+      ),
     );
   }
 

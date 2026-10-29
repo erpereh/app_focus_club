@@ -715,6 +715,54 @@ class SlotOccupancy {
   TimeSlot get slot => TimeSlot(date: date, time: time);
 }
 
+/// Aforo por fecha: `capacity_exceptions/{YYYY-MM-DD}` replaces the global
+/// `site_config.maxCapacity` for every slot of that Madrid civil day. Written
+/// only by Cloud Functions, which always make the final decision.
+class CapacityException {
+  const CapacityException({required this.date, required this.maxCapacity});
+
+  final String date;
+  final int maxCapacity;
+
+  /// Tolerant on purpose: an unusable document is ignored (the day then uses
+  /// the global capacity) instead of breaking the availability stream.
+  static CapacityException? tryFromMap(String id, Map<String, Object?> map) {
+    final date = map['date'];
+    final key = date is String ? date : id;
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(key)) return null;
+    final raw = map['maxCapacity'];
+    if (raw == null) return null;
+    final int parsed;
+    if (raw is num) {
+      if (!raw.isFinite) return null;
+      parsed = raw.toInt();
+    } else if (raw is String) {
+      final value = num.tryParse(raw.trim());
+      if (value == null || !value.isFinite) return null;
+      parsed = value.toInt();
+    } else {
+      return null;
+    }
+    return CapacityException(
+      date: key,
+      maxCapacity: parsed.clamp(minAllowedCapacity, maxAllowedCapacity),
+    );
+  }
+}
+
+Map<String, int> capacityByDateFrom(Iterable<CapacityException> exceptions) {
+  return {for (final item in exceptions) item.date: item.maxCapacity};
+}
+
+/// Capacity of [date]: its exception when there is one, the global value otherwise.
+int effectiveMaxCapacity(
+  SiteConfig siteConfig,
+  Map<String, int> capacityByDate,
+  String date,
+) {
+  return capacityByDate[date] ?? siteConfig.maxCapacity;
+}
+
 const int defaultMaxCapacity = 2;
 const int minAllowedCapacity = 1;
 const int maxAllowedCapacity = 10;

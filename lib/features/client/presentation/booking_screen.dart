@@ -173,8 +173,8 @@ class _BookingScreenState extends State<BookingScreen> {
         slot: editingSlot,
         availability: BookingSlotAvailability.available,
         occupied: 0,
-        remaining: widget.viewModel.state.siteConfig?.maxCapacity ?? 0,
-        maxCapacity: widget.viewModel.state.siteConfig?.maxCapacity ?? 0,
+        remaining: _maxCapacityFor(widget.viewModel.state, editingSlot.date),
+        maxCapacity: _maxCapacityFor(widget.viewModel.state, editingSlot.date),
         label: 'Disponible',
       );
     }
@@ -317,6 +317,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   enforceRescheduleLeadTime: _isEditing,
                   minNoticeHours: _noticeHours(siteConfig),
                   blockSameDay: _blockSameDay(siteConfig),
+                  capacityByDate: state.capacityByDate,
                   now: now,
                 ),
               )
@@ -738,6 +739,7 @@ class _BookingScreenState extends State<BookingScreen> {
           minNoticeHours: _noticeHours(siteConfig),
           blockSameDay: _blockSameDay(siteConfig),
           siteConfig: siteConfig,
+          capacityByDate: cachedSnapshot.capacityByDate,
           now: widget.viewModel.currentTime,
         );
         _syncRecurringEndDate();
@@ -791,6 +793,7 @@ class _BookingScreenState extends State<BookingScreen> {
           minNoticeHours: _noticeHours(currentConfig),
           blockSameDay: _blockSameDay(currentConfig),
           siteConfig: currentConfig,
+          capacityByDate: snapshot.capacityByDate,
           now: widget.viewModel.currentTime,
         );
         _syncRecurringEndDate();
@@ -870,6 +873,7 @@ class _BookingScreenState extends State<BookingScreen> {
       enforceRescheduleLeadTime: _isEditing,
       minNoticeHours: _noticeHours(siteConfig),
       blockSameDay: _blockSameDay(siteConfig),
+      capacityByDate: state.capacityByDate,
       now: now,
     );
     if (!latestSlot.isEnabled) {
@@ -995,6 +999,13 @@ class _BookingScreenState extends State<BookingScreen> {
 
   /// Booking notice for this flow: the configured value for new bookings
   /// (training, nutrition, recurring) and max(24h, notice) when editing.
+  /// Capacity of [date] (aforo por fecha), or 0 while the configuration loads.
+  int _maxCapacityFor(ClientPortalState state, String date) {
+    final siteConfig = state.siteConfig;
+    if (siteConfig == null) return 0;
+    return effectiveMaxCapacity(siteConfig, state.capacityByDate, date);
+  }
+
   int _noticeHours(SiteConfig siteConfig) => effectiveBookingNoticeHours(
     siteConfig.minBookingNoticeHours,
     isModification: _isEditing,

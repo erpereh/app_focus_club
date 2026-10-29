@@ -24,10 +24,14 @@ class RecurringAvailabilitySnapshot {
   const RecurringAvailabilitySnapshot({
     this.occupancy = const [],
     this.blockedSlots = const [],
+    this.capacityByDate = const {},
   });
 
   final List<SlotOccupancy> occupancy;
   final List<BlockedSlot> blockedSlots;
+
+  /// Capacity exceptions of the requested dates (aforo por fecha).
+  final Map<String, int> capacityByDate;
 
   Map<String, int> get occupancyByKey => {
     for (final item in occupancy) item.slot.key: item.count,
@@ -103,6 +107,7 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
   required int minNoticeHours,
   required bool blockSameDay,
   required SiteConfig siteConfig,
+  required Map<String, int> capacityByDate,
   required DateTime now,
 }) {
   final slot = TimeSlot(date: date, time: startTime);
@@ -200,7 +205,7 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
     );
   }
 
-  final maxCapacity = siteConfig.maxCapacity;
+  final maxCapacity = effectiveMaxCapacity(siteConfig, capacityByDate, date);
   final effectiveOccupancy = availabilityKeys.fold<int>(0, (maximum, key) {
     final count = ((occupancy[key] ?? 0) - (occupancyCreditsByKey[key] ?? 0))
         .clamp(0, 1 << 30);
@@ -233,6 +238,9 @@ List<RecurringHastaOptionStatus> evaluateRecurringHastaOptions({
   int minNoticeHours = 0,
   bool blockSameDay = false,
   required SiteConfig siteConfig,
+
+  /// Capacity exceptions of the occurrence dates (aforo por fecha).
+  Map<String, int> capacityByDate = const {},
   required DateTime now,
 }) {
   _OccurrenceProblem? firstProblem;
@@ -262,6 +270,7 @@ List<RecurringHastaOptionStatus> evaluateRecurringHastaOptions({
               minNoticeHours: minNoticeHours,
               blockSameDay: blockSameDay,
               siteConfig: siteConfig,
+              capacityByDate: capacityByDate,
               now: now,
             );
             if (firstProblem != null) break;

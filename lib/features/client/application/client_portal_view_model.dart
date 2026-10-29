@@ -17,6 +17,7 @@ class ClientPortalState {
     this.trainers = const [],
     this.blockedSlots = const [],
     this.slotOccupancy = const [],
+    this.capacityByDate = const {},
     this.siteConfig,
     this.activeBono,
     this.recurringSeriesById = const {},
@@ -30,6 +31,9 @@ class ClientPortalState {
   final List<Trainer> trainers;
   final List<BlockedSlot> blockedSlots;
   final List<SlotOccupancy> slotOccupancy;
+
+  /// Capacity exceptions of the booking window (aforo por fecha).
+  final Map<String, int> capacityByDate;
   final SiteConfig? siteConfig;
   final Bono? activeBono;
   final Map<String, RecurringAppointmentSeries> recurringSeriesById;
@@ -122,6 +126,7 @@ class ClientPortalState {
     List<Trainer>? trainers,
     List<BlockedSlot>? blockedSlots,
     List<SlotOccupancy>? slotOccupancy,
+    Map<String, int>? capacityByDate,
     SiteConfig? siteConfig,
     Bono? activeBono,
     bool clearActiveBono = false,
@@ -136,6 +141,7 @@ class ClientPortalState {
       trainers: trainers ?? this.trainers,
       blockedSlots: blockedSlots ?? this.blockedSlots,
       slotOccupancy: slotOccupancy ?? this.slotOccupancy,
+      capacityByDate: capacityByDate ?? this.capacityByDate,
       siteConfig: siteConfig ?? this.siteConfig,
       activeBono: clearActiveBono ? null : activeBono ?? this.activeBono,
       recurringSeriesById: recurringSeriesById ?? this.recurringSeriesById,
@@ -221,6 +227,16 @@ class ClientPortalViewModel extends ChangeNotifier {
               endDate: range.end,
             )
             .listen(_setSlotOccupancy, onError: _setError),
+      )
+      ..add(
+        _repository
+            .watchCapacityExceptionsForRange(
+              startDate: range.start,
+              endDate: range.end,
+            )
+            // Not fatal: without exceptions the global capacity is shown and
+            // the server still refuses anything over the real one.
+            .listen(_setCapacityExceptions, onError: _ignoreCapacityError),
       )
       ..add(
         _repository.watchSiteConfig().listen(
@@ -449,6 +465,15 @@ class ClientPortalViewModel extends ChangeNotifier {
   void _setSlotOccupancy(List<SlotOccupancy> slotOccupancy) {
     _state = _state.copyWith(slotOccupancy: slotOccupancy, isLoading: false);
     notifyListeners();
+  }
+
+  void _setCapacityExceptions(List<CapacityException> exceptions) {
+    _state = _state.copyWith(capacityByDate: capacityByDateFrom(exceptions));
+    notifyListeners();
+  }
+
+  void _ignoreCapacityError(Object error) {
+    debugPrint('No se ha podido cargar el aforo por fecha: $error');
   }
 
   void _setSiteConfig(SiteConfig? siteConfig) {

@@ -301,9 +301,7 @@ void main() {
 
       await service.unregisterCurrentDevice(uid: 'uid', repository: repository);
 
-      expect(repository.deletedTokens, [
-        (uid: 'uid', token: 'leftover-token'),
-      ]);
+      expect(repository.deletedTokens, [(uid: 'uid', token: 'leftover-token')]);
       expect(messaging.deleteTokenCalls, 1);
     },
   );
@@ -564,6 +562,12 @@ class _RecordingPortalRepository implements PortalRepository {
 
   @override
   Stream<List<SlotOccupancy>> watchSlotOccupancyForRange({
+    required String startDate,
+    required String endDate,
+  }) => const Stream.empty();
+
+  @override
+  Stream<List<CapacityException>> watchCapacityExceptionsForRange({
     required String startDate,
     required String endDate,
   }) => const Stream.empty();
