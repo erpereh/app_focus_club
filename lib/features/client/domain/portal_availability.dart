@@ -151,7 +151,10 @@ Map<String, int> buildOccupancyCreditsByKey(
 ) {
   final credits = <String, int>{};
   for (final appointment in appointments) {
-    if (appointment.status != AppointmentStatus.approved) continue;
+    if (appointment.status != AppointmentStatus.pending &&
+        appointment.status != AppointmentStatus.approved) {
+      continue;
+    }
     final slot = appointment.schedulingSlot;
     if (slot == null) continue;
     for (final key in availabilityKeysForSlot(
@@ -477,7 +480,15 @@ BookingSlotState bookingSlotState({
     occupancyCreditsByKey: occupancyCreditsByKey,
   );
   final remaining = (maxCapacity - occupied).clamp(0, maxCapacity);
-  if (occupied >= maxCapacity) {
+  final occupancyByKey = {
+    for (final item in occupancy) item.slot.key: item.count,
+  };
+  final addsAtCapacity = availabilityKeysForSlot(slot, durationMinutes).any(
+    (key) =>
+        (occupancyCreditsByKey[key] ?? 0) == 0 &&
+        (occupancyByKey[key] ?? 0) >= maxCapacity,
+  );
+  if (addsAtCapacity) {
     return BookingSlotState(
       slot: slot,
       availability: BookingSlotAvailability.full,

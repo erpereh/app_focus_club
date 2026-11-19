@@ -117,6 +117,33 @@ class _VersionGateState extends State<VersionGate> {
         onOpenStore: _openStore,
       );
     }
+    if (_siteConfig?.maintenanceMode == true) {
+      return const Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.construction_outlined, size: 48),
+                  SizedBox(height: 20),
+                  Text(
+                    'Estamos realizando tareas de mantenimiento',
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Tus reservas y minutos están conservados. Volveremos en unos minutos.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return widget.child;
   }
 }

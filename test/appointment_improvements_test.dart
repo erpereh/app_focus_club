@@ -32,15 +32,21 @@ void main() {
       expect(eightHourBono.minutesLabel, '3h de 8h usados');
     });
 
-    test('bono package size wins over an inconsistent legacy total', () {
-      final bono = _bono(total: 480, remaining: 150, size: 240);
+    test(
+      'bono preserves effective legacy capacity independently of package size',
+      () {
+        final bono = _bono(total: 480, remaining: 150, size: 240);
 
-      expect(bono.displayTotalMinutes, 240);
-      expect(bono.nameLabel, 'Bono Mensual de Entrenamiento 4h');
-      expect(bono.availableTimeLabel, '2h 30min disponibles');
-      expect(bono.minutesLabel, '1h 30min de 4h usados');
-      expect(bono.usedMinutes, 90);
-    });
+        expect(bono.displayTotalMinutes, 480);
+        expect(
+          bono.nameLabel,
+          '240 min contratados + 240 de ampliaciones previas',
+        );
+        expect(bono.availableTimeLabel, '2h 30min disponibles');
+        expect(bono.minutesLabel, '5h 30min de 8h usados');
+        expect(bono.usedMinutes, 330);
+      },
+    );
   });
 
   group('appointment compatibility', () {
@@ -431,7 +437,7 @@ void main() {
       expect(bono.usedMinutes, 90);
     });
 
-    test('clamps invalid remaining minutes to the commercial total', () {
+    test('clamps invalid remaining minutes to the effective legacy total', () {
       final excessive = Bono.fromMap(
         'excessive',
         _bonoMap(tamano: 240, total: 480, remaining: 999),
@@ -441,7 +447,7 @@ void main() {
         _bonoMap(tamano: 'invalid', total: '240', remaining: -30),
       );
 
-      expect(excessive.displayRemainingMinutes, 240);
+      expect(excessive.displayRemainingMinutes, 480);
       expect(excessive.usedMinutes, 0);
       expect(negative.displayTotalMinutes, 240);
       expect(negative.displayRemainingMinutes, 0);

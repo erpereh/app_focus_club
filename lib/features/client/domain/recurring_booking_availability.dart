@@ -206,12 +206,12 @@ _OccurrenceProblem? _evaluateRecurringOccurrence({
   }
 
   final maxCapacity = effectiveMaxCapacity(siteConfig, capacityByDate, date);
-  final effectiveOccupancy = availabilityKeys.fold<int>(0, (maximum, key) {
-    final count = ((occupancy[key] ?? 0) - (occupancyCreditsByKey[key] ?? 0))
-        .clamp(0, 1 << 30);
-    return count > maximum ? count : maximum;
-  });
-  if (effectiveOccupancy >= maxCapacity) {
+  final addsAtCapacity = availabilityKeys.any(
+    (key) =>
+        (occupancyCreditsByKey[key] ?? 0) == 0 &&
+        (occupancy[key] ?? 0) >= maxCapacity,
+  );
+  if (addsAtCapacity) {
     return _OccurrenceProblem(
       availability: RecurringHastaAvailability.full,
       problemDate: date,

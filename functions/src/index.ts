@@ -1,3 +1,5 @@
+import {setGlobalOptions} from "firebase-functions/v2";
+import {guardCallable} from "./releaseMaintenance";
 /**
  * Cloud Functions deployed from the mobile repository (codebase `portal`).
  *
@@ -14,10 +16,11 @@ import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {DocumentReference, getFirestore} from "firebase-admin/firestore";
 import {getStorage} from "firebase-admin/storage";
-import {onCall} from "firebase-functions/v2/https";
+import {onCall, type CallableRequest} from "firebase-functions/v2/https";
 
 import {deleteOwnAccount as deleteOwnAccountFlow, type DeleteAccountDb} from "./deleteOwnAccount";
 
+setGlobalOptions({labels: {focus_release: "occupancy-v2-refunds-20261118", focus_phase: "final"}});
 initializeApp();
 
 const db = getFirestore();
@@ -52,7 +55,7 @@ const accountDb: DeleteAccountDb = {
   },
 };
 
-export const deleteOwnAccount = onCall({region}, (request) => deleteOwnAccountFlow({
+export const deleteOwnAccount = onCall({region}, guardCallable(db, "deleteOwnAccount", (request: CallableRequest) => deleteOwnAccountFlow({
   db: accountDb,
   deleteAvatarFiles: async (uid) => {
     await getStorage().bucket().deleteFiles({prefix: `user-avatars/${uid}/`});
@@ -60,4 +63,4 @@ export const deleteOwnAccount = onCall({region}, (request) => deleteOwnAccountFl
   deleteAuthUser: async (uid) => {
     await getAuth().deleteUser(uid);
   },
-}, {uid: request.auth?.uid, email: request.auth?.token.email}));
+}, {uid: request.auth?.uid, email: request.auth?.token.email})));

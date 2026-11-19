@@ -181,7 +181,7 @@ void main() {
       ]);
 
       expect(credits.keys.toSet(), availabilityKeysForSlot(slot, 60));
-      expect(credits.values, everyElement(1));
+      expect(credits.values, everyElement(2));
     });
 
     test('most restrictive key drives 30, 45 and 60 minute occupancy', () {
@@ -348,7 +348,10 @@ void main() {
           durationMinutes: 45,
         );
 
-        expect(buildOccupancyCreditsByKey([pending]), isEmpty);
+        expect(
+          buildOccupancyCreditsByKey([pending]),
+          buildOccupancyCreditsByKey([approved]),
+        );
         expect(buildOccupancyCreditsByKey([approved]), {
           '2026-09-30_16:15': 1,
           '2026-09-30_16:30': 1,

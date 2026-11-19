@@ -308,7 +308,10 @@ void main() {
         durationMinutes: 45,
       );
 
-      expect(buildOccupancyCreditsByKey([pending]), isEmpty);
+      expect(
+        buildOccupancyCreditsByKey([pending]),
+        buildOccupancyCreditsByKey([approved]),
+      );
       expect(buildOccupancyCreditsByKey([approved]), {
         '2026-10-01_16:15': 1,
         '2026-10-01_16:30': 1,

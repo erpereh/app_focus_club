@@ -259,16 +259,19 @@ extension PortalUserDisplay on UserProfile {
 }
 
 extension PortalBonoDisplay on Bono {
-  int get displayTotalMinutes {
-    if (tamano > 0) return tamano;
-    if (minutosTotales > 0) return minutosTotales;
-    return 0;
-  }
+  int get displayTotalMinutes => effectiveTotalMinutes;
 
   int get displayRemainingMinutes =>
       minutosRestantes.clamp(0, displayTotalMinutes);
 
   String get nameLabel {
+    final contracted = tamano > 0 ? tamano : baseCapacityMinutes;
+    final previous = baseCapacityMinutes - contracted;
+    if (minutosExtraRecuperados > 0 || previous > 0) {
+      return '$contracted min contratados'
+          '${previous > 0 ? ' + $previous de ampliaciones previas' : ''}'
+          '${minutosExtraRecuperados > 0 ? ' + $minutosExtraRecuperados recuperados' : ''}';
+    }
     final totalLabel = formatMinutesDuration(displayTotalMinutes);
     return displayTotalMinutes > 0
         ? '$portalServiceLabel $totalLabel'

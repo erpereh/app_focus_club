@@ -14,6 +14,49 @@ import 'helpers/layout_harness.dart';
 void main() {
   const storeUrl = 'https://example.com/focus-club-android';
 
+  testWidgets(
+    'maintenance hides mutations and resumes on the live configuration',
+    (tester) async {
+      final repository = FakePortalRepository(
+        siteConfig: const SiteConfig(
+          startHour: 8,
+          endHour: 20,
+          slotInterval: 30,
+          bonoExpirationMonths: 1,
+          maintenanceMode: true,
+        ),
+      );
+      await tester.pumpWidget(
+        FocusClubApp(
+          authRepository: _SignedOutAuthRepository(),
+          portalRepository: repository,
+          supportRepository: FakeSupportRepository(),
+          installedAppBuildReader: const _FakeInstalledAppBuildReader(22),
+          appStorePlatform: AppStorePlatform.android,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 950));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Estamos realizando tareas de mantenimiento'),
+        findsOneWidget,
+      );
+      expect(find.text('Iniciar Sesion'), findsNothing);
+      repository.emitSiteConfig(
+        const SiteConfig(
+          startHour: 8,
+          endHour: 20,
+          slotInterval: 30,
+          bonoExpirationMonths: 1,
+          maintenanceMode: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Iniciar Sesion'), findsOneWidget);
+      expectNoLayoutException(tester);
+    },
+  );
+
   group('resolveAppUpdate', () {
     test('installed 6 / min 0 is allowed', () {
       final decision = resolveAppUpdate(

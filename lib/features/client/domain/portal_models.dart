@@ -564,6 +564,8 @@ class Bono {
     required this.historial,
     required this.asignadoPor,
     required this.createdAt,
+    this.minutosCapacidadBase,
+    this.minutosExtraRecuperados = 0,
   });
 
   final String id;
@@ -571,6 +573,8 @@ class Bono {
   final int tamano;
   final int minutosTotales;
   final int minutosRestantes;
+  final int? minutosCapacidadBase;
+  final int minutosExtraRecuperados;
   final String fechaAsignacion;
   final String fechaExpiracion;
   final BonoStatus estado;
@@ -586,6 +590,10 @@ class Bono {
       tamano: parseIntOrZero(map['tamano']),
       minutosTotales: parseIntOrZero(map['minutosTotales']),
       minutosRestantes: parseIntOrZero(map['minutosRestantes']),
+      minutosCapacidadBase: map['minutosCapacidadBase'] == null
+          ? null
+          : parseIntOrZero(map['minutosCapacidadBase']),
+      minutosExtraRecuperados: parseIntOrZero(map['minutosExtraRecuperados']),
       fechaAsignacion: stringifyDate(map['fechaAsignacion']) ?? '',
       fechaExpiracion: stringifyDate(map['fechaExpiracion']) ?? '',
       estado: BonoStatus.fromWire(map['estado'] as String),
@@ -597,6 +605,13 @@ class Bono {
       createdAt: stringifyDate(map['createdAt']) ?? '',
     );
   }
+
+  int get baseCapacityMinutes =>
+      minutosCapacidadBase ??
+      (tamano > minutosTotales ? tamano : minutosTotales);
+
+  int get effectiveTotalMinutes =>
+      baseCapacityMinutes + minutosExtraRecuperados;
 
   bool get isActive => estado == BonoStatus.activo;
   bool get canBook => isActive && minutosRestantes >= 30;
@@ -621,7 +636,9 @@ class BonoHistorialEntry {
     return BonoHistorialEntry(
       fecha: stringifyDate(map['fecha']) ?? '',
       tipo: map['tipo'] as String? ?? '',
-      minutos: parseInt(map['minutos'] ?? map['duracion']),
+      minutos: parseInt(
+        map['minutosAbonados'] ?? map['minutos'] ?? map['duracion'],
+      ),
       appointmentId: map['appointmentId'] as String?,
       descripcion: map['descripcion'] as String?,
     );
